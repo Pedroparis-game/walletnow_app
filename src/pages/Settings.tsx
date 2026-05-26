@@ -58,6 +58,9 @@ export default function Settings() {
   const [xlmBalance, setXlmBalance] = useState<string>('0.00');
   const [usdcBalance, setUsdcBalance] = useState<string>('0.00');
   const [btcBalance, setBtcBalance] = useState<string>('0.00');
+  const [tesouroBalance, setTesouroBalance] = useState<string>('0.00');
+  const [cetesBalance, setCetesBalance] = useState<string>('0.00');
+  const [ustbBalance, setUstbBalance] = useState<string>('0.00');
   const [xlmBrlPrice, setXlmBrlPrice] = useState<number>(0);
   const [isLoadingBalance, setIsLoadingBalance] = useState(false);
 
@@ -81,6 +84,9 @@ export default function Settings() {
         setXlmBalance(balances.xlm);
         setUsdcBalance(balances.usdc);
         setBtcBalance(balances.btc);
+        setTesouroBalance(balances.tesouro);
+        setCetesBalance(balances.cetes);
+        setUstbBalance(balances.ustb);
       }
       setXlmBrlPrice(brlPrice);
     } catch (e) {
@@ -978,6 +984,23 @@ export default function Settings() {
                     </div>
                   </div>
                 )}
+                {/* TESOURO (Etherfuse RWA) */}
+                <div className="flex items-center justify-between bg-black/30 border border-white/5 p-4 rounded-xl border-l-blue-500/30 border-l-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full border border-blue-500/20 bg-blue-500/5 flex items-center justify-center">
+                      <span className="text-xs font-bold text-blue-500">BRT</span>
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-white">Tesouro Tokenizado</p>
+                      <p className="text-[10px] text-gray-500">RWA (Etherfuse Brazil)</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-bold text-white">{isLoadingBalance ? '...' : (parseFloat(tesouroBalance || '0') || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                    <p className="text-[10px] text-blue-500">Etherfuse (Issuer)</p>
+                  </div>
+                </div>
+
               </div>
             </div>
 
