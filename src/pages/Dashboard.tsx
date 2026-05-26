@@ -9,6 +9,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { WalletFactory } from '../services/walletFactory';
 import { logger } from '../utils/logger';
 import { DemoConfig } from '../config/demoMode';
+import { EtherfuseActivityService, EfV2Activity } from '../services/providers/etherfuseV2/etherfuseActivityService';
 
 /**
  * Tela do Dashboard Principal (The Money Layer)
@@ -36,11 +37,12 @@ export default function Dashboard() {
 
   // Estados de Saldo (Extraídos do Blockchain via Stellar Horizon)
   const [totalBalance, setTotalBalance] = useState<string>('0.00');
-  const [assetDetails, setAssetDetails] = useState<{ brz: string, brw: string, tesouro: string, xlm: string }>({ brz: '0.00', brw: '0.00', tesouro: '0.00', xlm: '0.00' });
+  const [assetDetails, setAssetDetails] = useState<{ brz: string, brw: string, tesouro: string, cetes: string, ustb: string, xlm: string }>({ brz: '0.00', brw: '0.00', tesouro: '0.00', cetes: '0.00', ustb: '0.00', xlm: '0.00' });
   const [isLoadingBalance, setIsLoadingBalance] = useState(true);
   const [isAccountActive, setIsAccountActive] = useState<boolean | null>(null); // null = checking, false = 404
   const [isActivating, setIsActivating] = useState(false);
   const [transactions, setTransactions] = useState<any[]>([]);
+  const [ef2Activities, setEf2Activities] = useState<EfV2Activity[]>([]);
 
   const fetchOnChainBalance = async () => {
     if (!profile?.stellar_address) return;
@@ -64,7 +66,7 @@ export default function Dashboard() {
 
       if (balances) {
         setIsAccountActive(true);
-        setAssetDetails({ brz: balances.brz, brw: balances.brw, tesouro: balances.tesouro, xlm: balances.xlm || '0.00' });
+        setAssetDetails({ brz: balances.brz, brw: balances.brw, tesouro: balances.tesouro, cetes: balances.cetes, ustb: balances.ustb, xlm: balances.xlm || '0.00' });
         // XLM Nativo é o ativo principal agora.
         const totalXlm = parseFloat(balances.xlm || '0');
         setTotalBalance(totalXlm.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 7 }));
@@ -76,6 +78,7 @@ export default function Dashboard() {
       if (history) {
         setTransactions(history);
       }
+      setEf2Activities(EtherfuseActivityService.getActivities(profile.stellar_address));
     } catch (e: any) {
       if (e.message === 'TIMEOUT') {
         logger.error('[WalletNow][System]', 'Dashboard timeout on fetch balance');
@@ -247,7 +250,7 @@ export default function Dashboard() {
               ) : (
                 <div className="flex items-baseline gap-1.5">
                   <span className="text-lg text-slate-500 font-semibold">R$</span>
-                  <span className="text-3xl font-bold text-white tracking-tight">{parseFloat(assetDetails.tesouro).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                  <span className="text-3xl font-bold text-white tracking-tight">{(parseFloat(assetDetails.tesouro || '0') || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                 </div>
               )}
             </div>
@@ -259,33 +262,39 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Seção de On/Off Ramp Activity */}
+      {/* Seção de On/Off Ramp Activity (Etherfuse V2) */}
       <div className="px-6 py-4">
         <h3 className="text-lg font-semibold text-white mb-4">On/Off Ramp Activity</h3>
         <div className="bg-[#161616] rounded-2xl p-4 border border-white/5 shadow-lg">
           <div className="space-y-4">
-            {transactions.filter(tx => tx.correlationID || tx.assetCode === 'XLM').slice(0, 2).map((tx, idx) => (
-              <div key={idx} className="flex justify-between items-center border-b border-white/5 pb-3 last:border-0 last:pb-0">
-                <div className="flex items-center gap-3">
-                  <div className={`p-2 rounded-lg ${tx.type === 'deposit' ? 'bg-[#00E676]/10 text-[#00E676]' : 'bg-blue-500/10 text-blue-400'}`}>
-                    {tx.type === 'deposit' ? <ArrowDownLeft className="w-4 h-4" /> : <ArrowUpRight className="w-4 h-4" />}
+            {ef2Activities.length > 0 ? (
+              ef2Activities.map((act, idx) => (
+                <div key={idx} className="flex justify-between items-center border-b border-white/5 pb-3 last:border-0 last:pb-0">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400">
+                      {act.type === 'BUY TESOURO' ? <ArrowDownLeft className="w-4 h-4" /> : <ArrowUpRight className="w-4 h-4" />}
+                    </div>
+                    <div>
+                      <p className="text-sm text-white font-medium">{act.type}</p>
+                      <p className="text-[10px] text-gray-500 font-mono mt-0.5">
+                        Status: <span className="text-emerald-400 capitalize">{act.status}</span>
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm text-white font-medium">{tx.type === 'deposit' ? 'Depósito via PIX' : 'Saque via Anchor'}</p>
-                    <p className="text-[10px] text-gray-500 font-mono mt-0.5">
-                      {tx.type === 'deposit' ? 'On-Ramp Status: Concluído' : 'Off-Ramp Status: Processando'}
-                    </p>
+                  <div className="text-right">
+                    <p className="text-sm font-bold text-emerald-400">{parseFloat(act.amountToken).toFixed(6)} {act.asset}</p>
+                    <p className="text-[10px] text-slate-400">R$ {parseFloat(act.amountBRL).toFixed(2)}</p>
+                    {act.txHash !== 'Pendente' ? (
+                      <a href={`https://stellar.expert/explorer/testnet/tx/${act.txHash}`} target="_blank" rel="noopener noreferrer" className="text-[10px] text-gray-500 hover:text-white transition-colors mt-1 inline-block">
+                        Explorer ↗
+                      </a>
+                    ) : (
+                      <span className="text-[10px] text-gray-600 mt-1 inline-block">Hash Pendente</span>
+                    )}
                   </div>
                 </div>
-                <div className="text-right">
-                  <p className={`text-sm font-bold ${tx.type === 'deposit' ? 'text-[#00E676]' : 'text-blue-400'}`}>{tx.amount}</p>
-                  <a href={`https://stellar.expert/explorer/testnet/tx/${tx.hash}`} target="_blank" rel="noopener noreferrer" className="text-[10px] text-gray-500 hover:text-white transition-colors">
-                    Ver no Stellar Expert ↗
-                  </a>
-                </div>
-              </div>
-            ))}
-            {transactions.length === 0 && (
+              ))
+            ) : (
               <p className="text-sm text-gray-500 text-center py-2">Nenhuma atividade de On/Off Ramp recente.</p>
             )}
           </div>

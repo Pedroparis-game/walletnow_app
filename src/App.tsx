@@ -33,7 +33,7 @@ export default function App() {
       {/* Envolve a aplicação com o estado global de Autenticação (Supabase) */}
       <AuthProvider>
       {/* BrowserRouter: Habilita o roteamento baseado na URL com Base Dinâmica (Vite/Vercel/Hostinger) */}
-      <BrowserRouter basename={import.meta.env.BASE_URL}>
+      <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, '')}>
         {/* Routes: Container que agrupa todas as rotas possíveis da aplicação */}
         <Routes>
 
@@ -58,6 +58,9 @@ export default function App() {
             </Route>
 
           </Route>
+          
+          {/* Catch-all route to redirect to home if no route matches (prevents white screen) */}
+          <Route path="*" element={<Landing />} />
         </Routes>
         <QADebugPanel />
       </BrowserRouter>

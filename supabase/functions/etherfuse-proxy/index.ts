@@ -66,6 +66,8 @@ serve(async (req) => {
       '/ramp/assets',
       '/ramp/onboarding-url',
       '/ramp/customer',
+      '/ramp/agreements',
+      '/ramp/bank-account',
       '/ramp/quote',
       '/ramp/order',
     ];

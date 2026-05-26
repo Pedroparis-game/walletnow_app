@@ -11,6 +11,10 @@ import { EtherfuseTrustlineService, TrustlineResult } from '../../services/provi
 import { EtherfuseAssetConfig } from '../../services/providers/etherfuse/etherfuseAssetConfig';
 import { EtherfuseOnRampService, EtherfuseQuoteResult, EtherfuseOrderResult, SANDBOX_CONTAMINATION_ERROR, PROXY_ACCOUNT_NOT_PROVISIONED_ERROR } from '../../services/providers/etherfuse/etherfuseOnRampService';
 import { StellarTestAnchorService } from '../../services/providers/stellarTestAnchor/stellarTestAnchorService';
+import { EtherfuseV2ApiService, EfV2HttpError } from '../../services/providers/etherfuseV2/etherfuseV2ApiService';
+import { EtherfusePersistenceService } from '../../services/providers/etherfuseV2/etherfusePersistenceService';
+import { EtherfuseActivityService } from '../../services/providers/etherfuseV2/etherfuseActivityService';
+import type { EfV2QuoteResult, EfV2OrderResult } from '../../services/providers/etherfuseV2/etherfuseV2Types';
 
 
 // Define quais propriedades (props) este componente espera receber.
@@ -26,6 +30,7 @@ export default function DepositModal({ isOpen, onClose, onSuccess }: DepositModa
   // Phases do experimento KYC-First (fluxo hospedado Etherfuse)
   const [phase, setPhase] = useState<
     | 'provider_selection'
+    // ── Etherfuse V1 (KYC hospedado — intacto) ────────────────────────────────
     | 'etherfuse_preview'
     | 'etherfuse_customer_creation'
     | 'etherfuse_kyc_form'
@@ -35,6 +40,19 @@ export default function DepositModal({ isOpen, onClose, onSuccess }: DepositModa
     | 'etherfuse_order'
     | 'etherfuse_settling'
     | 'etherfuse_done'
+    // ── Etherfuse V2 (KYC programático — fluxo validado) ─────────────────────
+    | 'ef2_preview'
+    | 'ef2_trustline'
+    | 'ef2_customer_creation'
+    | 'ef2_kyc_submitting'
+    | 'ef2_kyc_polling'
+    | 'ef2_pix_registration'
+    | 'ef2_quote'
+    | 'ef2_order'
+    | 'ef2_settling'
+    | 'ef2_done'
+    | 'ef2_error'
+    // ── Woovi / BRW ───────────────────────────────────────────────────────────
     | 'input'
     | 'generating'
     | 'waiting_payment'
@@ -52,6 +70,13 @@ export default function DepositModal({ isOpen, onClose, onSuccess }: DepositModa
   const [efCustomerId, setEfCustomerId] = useState('');
   const [efBankAccountId, setEfBankAccountId] = useState('');
   const [efKycUrl, setEfKycUrl] = useState('');
+  // ── Estados do Etherfuse V2 (fluxo programático) ───────────────────────────
+  const [ef2Amount, setEf2Amount] = useState('50');
+  const [ef2StatusLabel, setEf2StatusLabel] = useState('');
+  const [ef2Quote, setEf2Quote] = useState<EfV2QuoteResult | null>(null);
+  const [ef2Order, setEf2Order] = useState<EfV2OrderResult | null>(null);
+  const [ef2CustomerId, setEf2CustomerId] = useState('');
+  const [ef2ErrorMsg, setEf2ErrorMsg] = useState('');
   // EXPERIMENTO: sem efInitialBankAccountId — sem fallback de UUID fake
 
   // Dados Inputados e Retornados
@@ -59,6 +84,7 @@ export default function DepositModal({ isOpen, onClose, onSuccess }: DepositModa
   const [pixData, setPixData] = useState<{ brCode: string, correlationID: string, amount: number } | null>(null);
   const [copied, setCopied] = useState(false);
   const [txHash, setTxHash] = useState<string | null>(null);
+  const [ef2TxHash, setEf2TxHash] = useState<string | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -70,6 +96,13 @@ export default function DepositModal({ isOpen, onClose, onSuccess }: DepositModa
       setEfQuote(null);
       setEfOrder(null);
       setEfStatusLabel('');
+      // Reset V2
+      setEf2Quote(null);
+      setEf2Order(null);
+      setEf2StatusLabel('');
+      setEf2CustomerId('');
+      setEf2ErrorMsg('');
+      setEf2TxHash(null);
     }
   }, [isOpen]);
 
@@ -193,6 +226,223 @@ export default function DepositModal({ isOpen, onClose, onSuccess }: DepositModa
       setPhase('etherfuse_kyc_polling');
     } finally {
       setIsSimulating(false);
+    }
+  };
+
+  /**
+   * [EtherfuseV2] Handler principal do fluxo programático validado.
+   *
+   * Fluxo end-to-end (sandbox):
+   *   1. Trustline TESOURO (reutiliza EtherfuseTrustlineService v1)
+   *   2. createCustomer → obtém customerId + bankAccountId diretamente
+   *   3. KYC programático (identity + documentos mock + acordos)
+   *   4. Polling KYC até approved (sandbox auto-aprova)
+   *   5. Registro conta PIX com CPF mock
+   *   6. Cotação BRL → TESOURO
+   *   7. Criar ordem on-ramp com bankAccountId real
+   *   8. Simular PIX recebido (sandbox)
+   *   9. Polling até completed
+   *
+   * SANDBOX-ONLY: CPF mock, identidade mock, simulateFiatReceived.
+   * V1 (phases etherfuse_*) permanece INTACTO — não é tocado aqui.
+   */
+  const handleStartEtherfuseV2 = async () => {
+    if (!profile?.stellar_address || !profile?.id) return;
+
+    const LOG_TAG = '[WalletNow][EtherfuseV2]';
+
+    try {
+      // ── PASSO 1: Trustline TESOURO ──────────────────────────────────────────
+      setPhase('ef2_trustline');
+      setEf2StatusLabel('Verificando trustline TESOURO...');
+      logger.info(LOG_TAG, 'Iniciando fluxo programático V2', {
+        timestamp: new Date().toISOString(),
+        publicKey: profile.stellar_address.substring(0, 12) + '...',
+      });
+
+      const secretKey = WalletFactory.getSecretKey(profile.id);
+      if (!secretKey) {
+        throw new Error('Secret key não encontrada. Verifique sua wallet.');
+      }
+
+      const tr = await EtherfuseTrustlineService.createTrustline(profile.stellar_address, secretKey);
+      if (!tr.success) {
+        throw new Error(tr.error || 'Falha ao criar trustline TESOURO.');
+      }
+      logger.info(LOG_TAG, '✅ Trustline OK.', { alreadyExists: tr.alreadyExists });
+
+      // Usa email baseado no profile ou fallback para sandbox
+      const email = (profile as Record<string, unknown>).email as string | undefined
+        || `sandbox-${profile.id.substring(0, 8)}@walletnow.app`;
+
+      // ── VERIFICAÇÃO DE PERSISTÊNCIA ─────────────────────────────────────────
+      let activeCustomerId = '';
+      let activeBankAccountId = '';
+      let skipOnboarding = false;
+
+      const cachedCustomer = EtherfusePersistenceService.getCustomer(profile.stellar_address);
+      if (cachedCustomer) {
+        setPhase('ef2_customer_creation');
+        setEf2StatusLabel('Validando identidade existente...');
+        try {
+          const kycStatus = await EtherfuseV2ApiService.getKycStatus(cachedCustomer.customerId, profile.stellar_address);
+          if (kycStatus.status === 'approved') {
+            logger.info(LOG_TAG, 'Existing customer detected', { customerId: cachedCustomer.customerId });
+            logger.info(LOG_TAG, 'Skipping onboarding');
+            logger.info(LOG_TAG, 'Reusing customerId');
+            activeCustomerId = cachedCustomer.customerId;
+            activeBankAccountId = cachedCustomer.bankAccountId;
+            setEf2CustomerId(activeCustomerId);
+            skipOnboarding = true;
+          } else {
+            logger.warn(LOG_TAG, 'Cached KYC not approved, restarting onboarding.', { status: kycStatus.status });
+            EtherfusePersistenceService.clearCustomer(profile.stellar_address);
+          }
+        } catch (e) {
+          logger.warn(LOG_TAG, 'Failed to validate cached customer, restarting onboarding.', { error: String(e) });
+          EtherfusePersistenceService.clearCustomer(profile.stellar_address);
+        }
+      }
+
+      // ── PASSO 2 ao 5: ONBOARDING NOVO ───────────────────────────────────────
+      if (!skipOnboarding) {
+        setPhase('ef2_customer_creation');
+        setEf2StatusLabel('Registrando na Etherfuse...');
+
+        try {
+          const customer = await EtherfuseV2ApiService.createCustomer(
+            email,
+            profile.stellar_address,
+            'BR',
+          );
+          activeCustomerId = customer.id;
+          activeBankAccountId = customer.bankAccountId;
+          setEf2CustomerId(activeCustomerId);
+          
+          logger.info(LOG_TAG, '✅ Customer criado.', {
+            customerId: activeCustomerId,
+            hasBankAccountId: !!activeBankAccountId,
+          });
+
+          // Salvar localmente
+          EtherfusePersistenceService.saveCustomer(profile.stellar_address, activeCustomerId, activeBankAccountId);
+
+          // PASSO 3: KYC Programático
+          setPhase('ef2_kyc_submitting');
+          setEf2StatusLabel('Submetendo identidade KYC (mock)...');
+          await EtherfuseV2ApiService.submitKycIdentity(activeCustomerId, profile.stellar_address);
+
+          setEf2StatusLabel('Submetendo documentos KYC (mock)...');
+          await EtherfuseV2ApiService.submitKycDocuments(activeCustomerId, profile.stellar_address);
+
+          setEf2StatusLabel('Aceitando acordos Etherfuse...');
+          await EtherfuseV2ApiService.acceptAgreements(customer.presignedUrl);
+
+          // PASSO 4: Polling KYC
+          setPhase('ef2_kyc_polling');
+          setEf2StatusLabel('Aguardando aprovação do sandbox...');
+          await EtherfuseV2ApiService.pollKycUntilApproved(
+            activeCustomerId,
+            profile.stellar_address,
+            (status) => setEf2StatusLabel(`KYC: ${status}`),
+            60_000,
+          );
+          setEf2StatusLabel('✅ KYC aprovado! Registrando conta PIX...');
+
+          // PASSO 5: Registrar Conta PIX
+          setPhase('ef2_pix_registration');
+          setEf2StatusLabel('Registrando chave PIX (CPF mock)...');
+          await EtherfuseV2ApiService.registerPixAccount(customer.presignedUrl);
+          logger.info(LOG_TAG, '✅ Conta PIX registrada.');
+          
+        } catch (error: any) {
+          if (error instanceof EfV2HttpError && error.status === 409) {
+            setPhase('error');
+            setEf2StatusLabel('Conta já registrada!');
+            throw new Error('Você já iniciou um cadastro na Etherfuse com esta carteira (Erro 409). Como o cache local não foi encontrado, a transação não pôde ser continuada. Limpe o cache na plataforma da Etherfuse ou contate o suporte.');
+          }
+          throw error;
+        }
+      }
+
+      // ── PASSO 6: Cotação BRL → TESOURO ─────────────────────────────────────
+      setPhase('ef2_quote');
+      setEf2StatusLabel('Obtendo cotação BRL → TESOURO...');
+      const quote = await EtherfuseV2ApiService.getQuote(
+        activeCustomerId,
+        profile.stellar_address,
+        ef2Amount,
+      );
+      setEf2Quote(quote);
+      logger.info(LOG_TAG, '✅ Cotação obtida.', {
+        sourceAmount: quote.sourceAmount,
+        destinationAmount: quote.destinationAmount,
+      });
+
+      // ── PASSO 7: Criar Ordem On-Ramp ───────────────────────────────────────
+      setPhase('ef2_order');
+      setEf2StatusLabel('Criando ordem de compra...');
+      const order = await EtherfuseV2ApiService.createOnRampOrder(
+        activeCustomerId,
+        activeBankAccountId, // ID real retornado em createCustomer ou cache
+        quote.quoteId,
+        profile.stellar_address,
+      );
+      setEf2Order(order);
+      logger.info(LOG_TAG, '✅ Ordem criada.', { orderId: order.orderId });
+
+      // ── PASSO 8: Simular PIX (sandbox) ─────────────────────────────────────
+      setEf2StatusLabel('⚡ Sandbox: Simulando pagamento PIX...');
+      await EtherfuseV2ApiService.simulateFiatReceived(order.orderId);
+
+      // ── PASSO 9: Polling até completed ─────────────────────────────────────
+      setPhase('ef2_settling');
+      const finalOrder = await EtherfuseV2ApiService.pollUntilCompleted(
+        order.orderId,
+        (s) => setEf2StatusLabel(`Status: ${s}`),
+        90_000,
+      );
+
+      if (finalOrder) setEf2Order(finalOrder);
+      
+      setEf2StatusLabel('Buscando hash de liquidação on-chain...');
+      let hashToUse = finalOrder?.confirmedTxSignature || order.confirmedTxSignature || null;
+      if (!hashToUse) {
+        hashToUse = await EtherfuseActivityService.findLatestTesouroTransaction(profile.stellar_address);
+      }
+      setEf2TxHash(hashToUse);
+
+      EtherfuseActivityService.saveActivity(profile.stellar_address, {
+        orderId: order.orderId,
+        txHash: hashToUse || 'Pendente',
+        explorerUrl: hashToUse ? `https://stellar.expert/explorer/testnet/tx/${hashToUse}` : '',
+        asset: 'TESOURO',
+        amountBRL: quote.sourceAmount,
+        amountToken: quote.destinationAmount,
+        status: finalOrder?.status || order.status,
+        createdAt: new Date().toISOString(),
+        completedAt: new Date().toISOString(),
+        type: 'BUY TESOURO',
+      });
+
+      setPhase('ef2_done');
+
+      logger.info(LOG_TAG, '🎉 Fluxo V2 concluído com sucesso!', {
+        timestamp: new Date().toISOString(),
+        orderId: order.orderId,
+        amountInTokens: finalOrder?.amountInTokens,
+        txSignature: hashToUse,
+      });
+
+      if (onSuccess) setTimeout(onSuccess, 1500);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      logger.error(LOG_TAG, '❌ Erro no fluxo V2', {
+        timestamp: new Date().toISOString(),
+        error: msg,
+      });
+      setEf2ErrorMsg(msg);
+      setPhase('ef2_error');
     }
   };
 
@@ -396,6 +646,7 @@ export default function DepositModal({ isOpen, onClose, onSuccess }: DepositModa
                   case 'QrCode': return <QrCode className="w-5 h-5" />;
                   case 'Globe': return <Globe className="w-5 h-5" />;
                   case 'CreditCard': return <CreditCard className="w-5 h-5" />;
+                  case 'TrendingUp': return <TrendingUp className="w-5 h-5" />;
                   default: return <Zap className="w-5 h-5" />;
                 }
               };
@@ -410,6 +661,8 @@ export default function DepositModal({ isOpen, onClose, onSuccess }: DepositModa
                       setSelectedProvider(provider);
                       if (provider.id === 'etherfuse') {
                         setPhase('etherfuse_preview');
+                      } else if (provider.id === 'etherfuse_v2') {
+                        setPhase('ef2_preview');
                       } else {
                         setPhase('input');
                       }
@@ -861,6 +1114,232 @@ export default function DepositModal({ isOpen, onClose, onSuccess }: DepositModa
                 Ver Comprovante Blockchain
               </a>
             )}
+          </div>
+        )}
+
+        {/* ═══════════════════════════════════════════════════════════════════
+            ETHERFUSE V2 — Fluxo Programático Validado
+            Phases prefixadas com ef2_ para não conflitar com V1.
+            O V1 (phases etherfuse_*) permanece INTACTO acima.
+        ═══════════════════════════════════════════════════════════════════ */}
+
+        {/* ── EF2 Preview: Tela inicial do fluxo V2 ────────────────────── */}
+        {phase === 'ef2_preview' && (
+          <div className="flex flex-col space-y-4 animate-in fade-in duration-300">
+            <div className="bg-gradient-to-br from-[#0a1628] via-[#0d1f3c] to-[#0a1628] rounded-2xl p-5 border border-emerald-900/40 shadow-2xl relative overflow-hidden">
+              <div className="absolute -top-6 -right-6 w-28 h-28 bg-emerald-600/10 rounded-full blur-2xl pointer-events-none" />
+              <div className="absolute bottom-0 left-0 w-20 h-20 bg-teal-500/5 rounded-full blur-xl pointer-events-none" />
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-11 h-11 bg-slate-900 rounded-xl flex items-center justify-center border border-emerald-800/50">
+                  <TrendingUp className="w-5 h-5 text-emerald-400" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white tracking-tight">Etherfuse V2 (Sandbox)</h3>
+                  <p className="text-[10px] text-emerald-400 font-mono uppercase tracking-widest">TESOURO · Fluxo Programático · PIX Rail</p>
+                </div>
+              </div>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Adquira <strong className="text-emerald-300">TESOURO</strong> — título público federal tokenizado em Stellar via PIX.
+                Fluxo programático validado: KYC automático no sandbox Etherfuse.
+              </p>
+              <div className="mt-3 px-3 py-1.5 bg-emerald-900/20 border border-emerald-700/30 rounded-lg inline-flex items-center gap-2">
+                <ShieldCheck className="w-3 h-3 text-emerald-400" />
+                <span className="text-[10px] text-emerald-400 font-mono font-bold uppercase tracking-wider">Sandbox Auto-Approve KYC</span>
+              </div>
+              <div className="mt-4 flex items-center gap-2">
+                <span className="text-slate-500 text-sm font-semibold">R$</span>
+                <input
+                  type="number"
+                  value={ef2Amount}
+                  onChange={e => setEf2Amount(e.target.value)}
+                  className="flex-1 bg-slate-900/60 border border-slate-700 rounded-xl px-3 py-2 text-white text-lg font-bold outline-none focus:border-emerald-500 transition-colors"
+                  min="10"
+                  step="10"
+                />
+                <span className="text-slate-500 text-sm">BRL</span>
+              </div>
+              {ef2Quote && (
+                <p className="text-[10px] text-emerald-300 font-mono mt-2">
+                  ≈ {parseFloat(ef2Quote.destinationAmount).toFixed(7)} TESOURO · Taxa: R$ {parseFloat(ef2Quote.feeAmount).toFixed(2)}
+                </p>
+              )}
+            </div>
+
+            {ef2ErrorMsg && (
+              <div className="bg-red-950/30 border border-red-800/40 rounded-xl p-3 flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
+                <p className="text-xs text-red-300 font-mono break-all">{ef2ErrorMsg}</p>
+              </div>
+            )}
+
+            <button
+              id="btn-ef2-start"
+              onClick={handleStartEtherfuseV2}
+              disabled={!ef2Amount || Number(ef2Amount) < 10}
+              className="w-full flex items-center justify-center gap-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white py-4 px-6 rounded-2xl font-bold transition-all duration-300 disabled:opacity-50 shadow-[0_0_24px_rgba(16,185,129,0.25)]"
+            >
+              <Wallet className="w-5 h-5" />
+              Comprar TESOURO · R$ {ef2Amount}
+            </button>
+            <button
+              onClick={() => { setPhase('provider_selection'); setEf2ErrorMsg(''); }}
+              className="w-full text-xs text-gray-600 hover:text-white transition-colors"
+            >
+              Voltar
+            </button>
+          </div>
+        )}
+
+        {/* ── EF2 Loading genérico (trustline, customer, kyc, pix, quote, order) ── */}
+        {(['ef2_trustline', 'ef2_customer_creation', 'ef2_kyc_submitting', 'ef2_pix_registration', 'ef2_quote', 'ef2_order'] as const).some(p => p === phase) && (
+          <div className="flex flex-col items-center justify-center py-14 gap-5 animate-in fade-in">
+            <div className="relative">
+              <div className="w-16 h-16 rounded-full border-2 border-emerald-500/30 flex items-center justify-center">
+                <Loader2 className="w-8 h-8 text-emerald-400 animate-spin" />
+              </div>
+              <div className="absolute inset-0 rounded-full bg-emerald-500/10 animate-ping" />
+            </div>
+            <div className="text-center">
+              <p className="text-white font-bold text-base">
+                {phase === 'ef2_trustline' && 'Verificando Trustline TESOURO...'}
+                {phase === 'ef2_customer_creation' && 'Criando customer Etherfuse...'}
+                {phase === 'ef2_kyc_submitting' && 'Submetendo KYC programático...'}
+                {phase === 'ef2_pix_registration' && 'Registrando conta PIX...'}
+                {phase === 'ef2_quote' && 'Obtendo cotação BRL → TESOURO...'}
+                {phase === 'ef2_order' && 'Criando ordem on-ramp...'}
+              </p>
+              <p className="text-xs text-slate-400 font-mono mt-1">{ef2StatusLabel}</p>
+            </div>
+            <div className="flex items-center gap-2 text-[10px] text-slate-600 font-mono">
+              <ShieldCheck className="w-3 h-3" />
+              [EtherfuseV2] Fluxo Programático · Sandbox
+            </div>
+          </div>
+        )}
+
+        {/* ── EF2 KYC Polling ─────────────────────────────────────────── */}
+        {phase === 'ef2_kyc_polling' && (
+          <div className="flex flex-col items-center justify-center py-8 gap-5 animate-in fade-in">
+            <div className="relative">
+              <div className="w-16 h-16 rounded-full border-2 border-emerald-500/30 flex items-center justify-center">
+                <ShieldCheck className="w-8 h-8 text-emerald-400" />
+              </div>
+              <div className="absolute inset-0 rounded-full bg-emerald-500/10 animate-ping" />
+            </div>
+            <div className="text-center">
+              <h3 className="text-base font-bold text-white">Aguardando Aprovação KYC</h3>
+              <p className="text-xs text-slate-400 mt-1 px-4 leading-relaxed">
+                Sandbox auto-aprova após submissão programática.
+              </p>
+            </div>
+            <p className="text-xs text-slate-500 font-mono animate-pulse">{ef2StatusLabel || 'Verificando...'}</p>
+          </div>
+        )}
+
+        {/* ── EF2 Settling (Polling ordem) ────────────────────────────── */}
+        {phase === 'ef2_settling' && (
+          <div className="flex flex-col items-center justify-center py-14 gap-5 animate-in fade-in">
+            <div className="relative">
+              <div className="w-16 h-16 rounded-full border-2 border-emerald-500/30 flex items-center justify-center">
+                <Loader2 className="w-8 h-8 text-emerald-400 animate-spin" />
+              </div>
+              <div className="absolute inset-0 rounded-full bg-emerald-500/10 animate-ping" />
+            </div>
+            <div className="text-center">
+              <p className="text-white font-bold text-base">Liquidando na Stellar...</p>
+              <p className="text-xs text-slate-400 mt-1 font-mono">{ef2StatusLabel}</p>
+            </div>
+            <div className="flex items-center gap-2 text-[10px] text-slate-600 font-mono">
+              <ShieldCheck className="w-3 h-3" />
+              TESOURO · EtherfuseV2 · Stellar Testnet
+            </div>
+          </div>
+        )}
+
+        {/* ── EF2 Done (Sucesso) ──────────────────────────────────────── */}
+        {phase === 'ef2_done' && (
+          <div className="flex flex-col items-center justify-center py-10 gap-4 animate-in zoom-in duration-300">
+            <div className="w-20 h-20 bg-gradient-to-br from-emerald-600/20 to-teal-600/20 rounded-full flex items-center justify-center border border-emerald-500/30">
+              <CheckCircle2 className="w-10 h-10 text-emerald-400" />
+            </div>
+            <div className="text-center">
+              <h3 className="text-xl font-bold text-white">TESOURO Creditado!</h3>
+              <p className="text-sm text-slate-400 mt-1">
+                {ef2Order?.amountInTokens ? (
+                  <><strong className="text-emerald-300">{parseFloat(ef2Order.amountInTokens).toFixed(4)} TESOURO</strong> na sua wallet Stellar</>
+                ) : 'TESOURO creditado na sua wallet Stellar'}
+              </p>
+            </div>
+            {ef2TxHash && (
+              <div className="w-full mt-2 bg-slate-900/50 border border-slate-700/50 rounded-xl p-4 text-center">
+                <p className="text-xs text-slate-500 font-mono mb-2">Transaction Hash</p>
+                <div className="flex items-center justify-between gap-2 bg-black/40 px-3 py-2 rounded-lg border border-slate-800">
+                  <span className="text-xs text-emerald-400 font-mono truncate">
+                    {ef2TxHash.length > 20 ? `${ef2TxHash.substring(0, 16)}...` : ef2TxHash}
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(ef2TxHash);
+                        setCopied(true);
+                        setTimeout(() => setCopied(false), 2000);
+                      }}
+                      className="p-1.5 hover:bg-slate-800 rounded-md transition-colors"
+                      title="Copiar Hash"
+                    >
+                      {copied ? <CheckCircle2 className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4 text-slate-400 hover:text-white" />}
+                    </button>
+                    {ef2TxHash !== 'Pendente' && (
+                      <a
+                        href={`https://stellar.expert/explorer/testnet/tx/${ef2TxHash}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-1.5 hover:bg-slate-800 rounded-md transition-colors flex items-center gap-1"
+                        title="Ver no Stellar Expert"
+                      >
+                        <ExternalLink className="w-4 h-4 text-slate-400 hover:text-emerald-400" />
+                      </a>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+            <div className="w-full grid grid-cols-3 gap-2 mt-2">
+              {['Trustline OK', 'PIX Simulado', 'TESOURO Liquidado'].map((s, i) => (
+                <div key={i} className="flex flex-col items-center gap-1 p-2 bg-emerald-950/20 rounded-xl border border-emerald-900/30">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                  <p className="text-[9px] text-emerald-300 text-center font-mono">{s}</p>
+                </div>
+              ))}
+            </div>
+            <button id="btn-ef2-close" onClick={onClose} className="w-full bg-emerald-700 hover:bg-emerald-600 text-white py-3 rounded-2xl font-bold transition-all">
+              Fechar
+            </button>
+          </div>
+        )}
+
+        {/* ── EF2 Error ──────────────────────────────────────────────── */}
+        {phase === 'ef2_error' && (
+          <div className="flex flex-col items-center justify-center py-10 gap-4 animate-in fade-in">
+            <div className="w-16 h-16 bg-red-900/20 rounded-full flex items-center justify-center border border-red-800/40">
+              <AlertCircle className="w-8 h-8 text-red-400" />
+            </div>
+            <div className="text-center">
+              <h3 className="text-base font-bold text-white">Erro no Fluxo V2</h3>
+              <p className="text-xs text-slate-500 font-mono mt-2 break-all px-2">{ef2ErrorMsg}</p>
+            </div>
+            <button
+              onClick={() => { setPhase('ef2_preview'); setEf2ErrorMsg(''); setEf2StatusLabel(''); }}
+              className="w-full bg-slate-800 hover:bg-slate-700 text-white py-3 rounded-2xl font-bold transition-all"
+            >
+              Tentar Novamente
+            </button>
+            <button
+              onClick={() => setPhase('provider_selection')}
+              className="w-full text-xs text-gray-600 hover:text-white transition-colors"
+            >
+              Voltar à seleção
+            </button>
           </div>
         )}
 

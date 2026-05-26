@@ -262,14 +262,16 @@ export const WalletFactory = {
 
     /**
      * Consulta os saldos reais de múltiplos ativos na conta Stellar.
-     * Inclui TESOURO (Etherfuse Brazil RWA) junto aos ativos estáveis.
+     * Estrutura Genérica de RWA suportando futuros ativos: TESOURO, CETES, USTB.
      */
-    async getBalances(publicKey: string): Promise<{ brz: string, brw: string, xlm: string, usdc: string, btc: string, tesouro: string } | null> {
+    async getBalances(publicKey: string): Promise<{ brz: string, brw: string, xlm: string, usdc: string, btc: string, tesouro: string, cetes: string, ustb: string } | null> {
         try {
             const server = new Horizon.Server('https://horizon-testnet.stellar.org');
             const account = await server.loadAccount(publicKey);
 
-            let balances = { brz: '0.00', brw: '0.00', xlm: '0.00', usdc: '0.00', btc: '0.00', tesouro: '0.00' };
+            // Inicia valores vazios para RWA-ready nativo da Stellar
+            let balances = { brz: '0.00', brw: '0.00', xlm: '0.00', usdc: '0.00', btc: '0.00', tesouro: '0.00', cetes: '0.00', ustb: '0.00' };
+            let foundRWAs: string[] = [];
 
             account.balances.forEach((balance: any) => {
                 const code = balance.asset_code;
@@ -278,12 +280,28 @@ export const WalletFactory = {
                 else if (code === 'BRW') balances.brw = balance.balance;
                 else if (code === 'USDC') balances.usdc = balance.balance;
                 else if (code === 'BTC') balances.btc = balance.balance;
-                else if (code === 'TESOURO') balances.tesouro = balance.balance; // Etherfuse RWA
+                // --- RWA Bonds ---
+                else if (code === 'TESOURO') {
+                    balances.tesouro = balance.balance;
+                    foundRWAs.push(`TESOURO: ${balance.balance}`);
+                }
+                else if (code === 'CETES') {
+                    balances.cetes = balance.balance;
+                    foundRWAs.push(`CETES: ${balance.balance}`);
+                }
+                else if (code === 'USTB') {
+                    balances.ustb = balance.balance;
+                    foundRWAs.push(`USTB: ${balance.balance}`);
+                }
             });
+
+            if (foundRWAs.length > 0) {
+                console.info('[WalletNow][Balances] 🔍 Fallback Horizon detectou RWA na carteira:', foundRWAs.join(', '));
+            }
 
             return balances;
         } catch (error: any) {
-            if (error.response?.status !== 404) console.error('Erro ao buscar saldos:', error);
+            if (error.response?.status !== 404) console.error('[WalletNow][Balances] ❌ Erro ao buscar saldos:', error);
             return null;
         }
     }
