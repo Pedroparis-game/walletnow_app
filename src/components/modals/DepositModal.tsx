@@ -408,7 +408,10 @@ export default function DepositModal({ isOpen, onClose, onSuccess }: DepositModa
       setEf2StatusLabel('Buscando hash de liquidação on-chain...');
       let hashToUse = finalOrder?.confirmedTxSignature || order.confirmedTxSignature || null;
       if (!hashToUse) {
-        hashToUse = await EtherfuseActivityService.findLatestTesouroTransaction(profile.stellar_address);
+        const fallbackTx = await EtherfuseActivityService.findLatestTesouroTransaction(profile.stellar_address);
+        if (fallbackTx) {
+          hashToUse = fallbackTx.txHash;
+        }
       }
       setEf2TxHash(hashToUse);
 
