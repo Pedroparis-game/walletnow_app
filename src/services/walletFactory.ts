@@ -1,7 +1,23 @@
-import { Keypair, Horizon, TransactionBuilder, Networks, Asset, Operation } from '@stellar/stellar-sdk';
+import { Keypair, TransactionBuilder, Asset, Operation } from '@stellar/stellar-sdk';
 import { supabase } from '../lib/supabase';
 import { isValidPublicKey, isValidSecretKey } from '../utils/stellarValidation';
 import { DeviceVault } from '../security/deviceVault';
+import { StellarNetwork } from '../config/stellarNetwork';
+import { AppConfig } from '../config/environment';
+
+/**
+ * TODO [SECURITY-CRITICAL — BLOCKER MAINNET]:
+ * VITE_STELLAR_ISSUER_SECRET está sendo lida no bundle do frontend.
+ * Isso expõe a chave privada do issuer ao browser (inspecionável via DevTools).
+ *
+ * PLANO DE MIGRAÇÃO:
+ * 1. Criar Edge Function `stellar-issuer` no Supabase
+ * 2. Mover activateAccount(), provisionWalletForUser() (ativação + trustline) para server-side
+ * 3. O frontend passa apenas publicKey + userId, nunca recebe a issuer secret
+ * 4. Remover VITE_STELLAR_ISSUER_SECRET do bundle completamente
+ *
+ * STATUS: Mantido para preservar fluxo atual de testnet. NÃO fazer deploy em mainnet sem resolver.
+ */
 
 /**
  * WalletFactory
@@ -37,18 +53,19 @@ export const WalletFactory = {
      */
     async activateAccount(publicKey: string): Promise<boolean> {
         try {
-            const ISSUER_SECRET = import.meta.env.VITE_STELLAR_ISSUER_SECRET;
+            // TODO [SECURITY-CRITICAL]: ISSUER_SECRET deve sair do frontend — migrar para Edge Function
+            const ISSUER_SECRET = AppConfig.stellar.issuerSecretKey;
             if (!ISSUER_SECRET) return false;
 
-            const server = new Horizon.Server('https://horizon-testnet.stellar.org');
+            const server = StellarNetwork.createServer(); // Abstração: testnet/mainnet via config
             const issuerKeypair = Keypair.fromSecret(ISSUER_SECRET);
             const issuerAccount = await server.loadAccount(issuerKeypair.publicKey());
 
-            console.log(`[WalletNow][WalletFactory] 🛡️ [Stellar-Audit] Ativando conta via Sponsor: ${publicKey.slice(0, 8)}...`);
+            console.log(`[WalletNow][WalletFactory] 🛡️ [Stellar-Audit] Ativando conta via Sponsor: ${publicKey.slice(0, 8)}... [rede: ${StellarNetwork.networkType}]`);
 
             const transaction = new TransactionBuilder(issuerAccount, {
-                fee: '100000',
-                networkPassphrase: Networks.TESTNET
+                fee: StellarNetwork.baseFee,
+                networkPassphrase: StellarNetwork.passphrase // Abstração: não hardcode
             })
             .addOperation(Operation.createAccount({
                 destination: publicKey,
@@ -110,20 +127,32 @@ export const WalletFactory = {
                 throw storageError;
             }
 
-            // Tenta ativar via Friendbot primariamente
-            try {
-                await fetch(`https://horizon-testnet.stellar.org/friendbot?addr=${encodeURIComponent(publicKey)}`);
-                console.log("[WalletNow][WalletFactory] ✅ [Stellar-Audit] Conta ativada via Friendbot.");
-            } catch (e) {
-                console.warn("[WalletNow][WalletFactory] ⚠️ Friendbot indisponível. Tentando ativação via Sponsor...");
+            // Ativação de conta: Friendbot (testnet) ou Sponsor (mainnet / fallback)
+            // StellarNetwork.getFriendbotUrl() retorna null em mainnet — nunca chama Friendbot em produção
+            const friendbotUrl = StellarNetwork.getFriendbotUrl(publicKey);
+            if (friendbotUrl) {
+                try {
+                    await fetch(friendbotUrl);
+                    console.log("[WalletNow][WalletFactory] ✅ [Stellar-Audit] Conta ativada via Friendbot (testnet).");
+                } catch (e) {
+                    console.warn("[WalletNow][WalletFactory] ⚠️ Friendbot indisponível. Tentando ativação via Sponsor...");
+                    await this.activateAccount(publicKey);
+                }
+            } else {
+                // MAINNET: Friendbot não existe. Sponsor é obrigatório.
+                // TODO [MAINNET-BLOCKER]: Mover ativação via Sponsor para Edge Function server-side
+                console.log("[WalletNow][WalletFactory] 🛡️ [Stellar-Audit] Ativando conta via Treasury Sponsor (mainnet).");
                 await this.activateAccount(publicKey);
             }
 
-            // Setup Gasless de Ativo Soberano (BRW) se possível
-            const ISSUER_SECRET = import.meta.env.VITE_STELLAR_ISSUER_SECRET;
+            // Setup Gasless de Trustline inicial
+            // TODO [MAINNET]: BRW é token interno de testnet. Em mainnet, configurar trustlines
+            // para USDC (Circle) e BRZ (Transfero) usando issuers reais via StellarNetwork.assets
+            const ISSUER_SECRET = AppConfig.stellar.issuerSecretKey; // TODO: mover para Edge Function
             if (ISSUER_SECRET) {
-                const server = new Horizon.Server('https://horizon-testnet.stellar.org');
+                const server = StellarNetwork.createServer();
                 const issuerKeypair = Keypair.fromSecret(ISSUER_SECRET);
+                // Em mainnet, usar assets reais (USDC, BRZ) — não o BRW de testnet
                 const brwAsset = new Asset('BRW', issuerKeypair.publicKey());
                 const userKeypair = Keypair.fromSecret(secretKey);
                 
@@ -133,8 +162,8 @@ export const WalletFactory = {
                 try {
                     const issuerAccount = await server.loadAccount(issuerKeypair.publicKey());
                     const transaction = new TransactionBuilder(issuerAccount, {
-                        fee: '100000',
-                        networkPassphrase: Networks.TESTNET
+                        fee: StellarNetwork.baseFee,
+                        networkPassphrase: StellarNetwork.passphrase
                     })
                     .addOperation(Operation.beginSponsoringFutureReserves({ sponsoredId: publicKey }))
                     .addOperation(Operation.changeTrust({ asset: brwAsset, source: publicKey }))
@@ -211,7 +240,7 @@ export const WalletFactory = {
      */
     async getHistory(publicKey: string): Promise<any[]> {
         try {
-            const server = new Horizon.Server('https://horizon-testnet.stellar.org');
+            const server = StellarNetwork.createServer();
             const page = await server.payments()
                 .forAccount(publicKey)
                 .limit(20)
@@ -266,7 +295,7 @@ export const WalletFactory = {
      */
     async getBalances(publicKey: string): Promise<{ brz: string, brw: string, xlm: string, usdc: string, btc: string, tesouro: string, cetes: string, ustb: string } | null> {
         try {
-            const server = new Horizon.Server('https://horizon-testnet.stellar.org');
+            const server = StellarNetwork.createServer();
             const account = await server.loadAccount(publicKey);
 
             // Inicia valores vazios para RWA-ready nativo da Stellar

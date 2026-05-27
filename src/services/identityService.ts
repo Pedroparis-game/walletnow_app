@@ -2,15 +2,29 @@
 import { sha3_256 } from 'js-sha3';
 import { Keypair, Horizon, TransactionBuilder, Networks, Asset, Operation, Memo, BASE_FEE } from '@stellar/stellar-sdk';
 import { GoogleGenAI } from '@google/genai';
+import { StellarNetwork } from '../config/stellarNetwork';
+import { AppConfig } from '../config/environment';
 
-// 1. Instanciando a IA
-// O Vite expõe nossas chaves a partir do .env. A Chave do Gemini Ai Studio deve ser definida.
-const VITE_GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
+/**
+ * TODO [SECURITY-HIGH — BLOCKER MAINNET]:
+ * A VITE_GEMINI_API_KEY está exposta no bundle do browser.
+ * Em produção, qualquer pessoa pode extrair a chave e usar a cota de KYC da WalletNow.
+ *
+ * PLANO DE MIGRAÇÃO:
+ * 1. Criar Supabase Edge Function: `kyc-validator`
+ * 2. O frontend envia apenas as imagens (base64) para a Edge Function via API segura
+ * 3. A Edge Function chama o Gemini server-side com a chave protegida
+ * 4. VITE_GEMINI_API_KEY deve ser REMOVIDA do bundle
+ *
+ * STATUS: Mantida para funcionamento do testnet KYC. NÃO deploy mainnet sem resolver.
+ */
+
+// TODO [SECURITY-HIGH]: mover para Edge Function 'kyc-validator' — chave exposta no bundle
+const VITE_GEMINI_API_KEY = AppConfig.ai.geminiApiKey || '';
 const ai = new GoogleGenAI({ apiKey: VITE_GEMINI_API_KEY });
 
-// 2. Instanciando o Nó da Blockchain
-// Conectamos ao "Horizon" da Testnet (Rede de testes oficial da Stellar)
-const server = new Horizon.Server('https://horizon-testnet.stellar.org');
+// Rede Stellar via abstração centralizada (não hardcode)
+const server = StellarNetwork.createServer();
 
 /**
  * Serviço de KYC ZK-STARK (Trust Layer)
@@ -280,7 +294,7 @@ export const IdentityService = {
 
             const transactionBuilder = new TransactionBuilder(issuerAccount, {
                 fee: BASE_FEE,
-                networkPassphrase: Networks.TESTNET
+                networkPassphrase: StellarNetwork.passphrase // Abstração: testnet/mainnet via config
             })
                 // 🥇 Essa é a chave do NFT: Gravação ZK da auditoria no Ledger. 
                 .addMemo(Memo.hash(zkHash))

@@ -1,5 +1,22 @@
-import { Keypair, Memo, Operation, TransactionBuilder, Networks, Asset, Horizon } from "@stellar/stellar-sdk";
+import { Keypair, Memo, Operation, TransactionBuilder, Asset, Horizon } from "@stellar/stellar-sdk";
 import { WooviService } from "./wooviService";
+import { StellarNetwork } from '../config/stellarNetwork';
+import { AppConfig } from '../config/environment';
+
+/**
+ * TODO [SECURITY-CRITICAL — BLOCKER MAINNET]:
+ * A ISSUER_SECRET (VITE_STELLAR_ISSUER_SECRET) está exposta no bundle do browser.
+ * QUALQUER PESSOA com DevTools pode lê-la e mintar BRW / drenar a treasury.
+ *
+ * PLANO DE MITIGAÇÃO (obrigatório antes do go-live mainnet):
+ * 1. Criar Supabase Edge Function: `stellar-issuer` (mint, burn, sponsor)
+ * 2. O frontend nunca mais recebe ou usa a ISSUER_SECRET
+ * 3. Edge Function valida JWT do usuário + rate limit antes de assinar
+ * 4. VITE_STELLAR_ISSUER_SECRET deve ser REMOVIDA do .env e do bundle
+ *
+ * STATUS ATUAL: Mantida apenas para preservar funcionamento do testnet.
+ * NÃO FAZER DEPLOY EM MAINNET SEM RESOLVER ESTE BLOCKER.
+ */
 
 /**
  * PaymentService
@@ -17,8 +34,9 @@ import { WooviService } from "./wooviService";
  * ISSUER_SECRET is loaded in env variables for MVP. In production, this must be moved to Backend Functions.
  */
 
-const ISSUER_SECRET = import.meta.env.VITE_STELLAR_ISSUER_SECRET;
-const BASE_FEE = '100000'; // 0.01 XLM (Alta para prioridade em Testnet)
+// TODO [SECURITY-CRITICAL]: remover esta linha após migrar operações de issuer para Edge Function
+const ISSUER_SECRET = AppConfig.stellar.issuerSecretKey;
+const BASE_FEE = StellarNetwork.baseFee;
 
 /** Trava de concorrência em memória para evitar Duplo Mint/Burn no mesmo ciclo */
 const processingLock = new Set<string>();
@@ -56,12 +74,12 @@ export const PaymentService = {
                 ? Memo.text(`X402:${correlationID.slice(0, 22)}`)
                 : Memo.none();
 
-            const server = new Horizon.Server('https://horizon-testnet.stellar.org');
+            const server = StellarNetwork.createServer();
             const issuerKeypair = Keypair.fromSecret(ISSUER_SECRET);
             const issuerAccount = await server.loadAccount(issuerKeypair.publicKey());
             const brwAsset = new Asset('BRW', issuerKeypair.publicKey());
 
-            console.log(`📡 [Stellar-Audit] Iniciando Mintagem para: ${targetPublicKey.slice(0, 8)}...`);
+            console.log(`📡 [Stellar-Audit] Iniciando Mintagem para: ${targetPublicKey.slice(0, 8)}... [rede: ${StellarNetwork.networkType}]`);
             console.log(`🔑 [Stellar-Audit] Conta Pagadora/Emissora: ${issuerKeypair.publicKey().slice(0, 8)}...`);
 
             let isNewAccount = false;
@@ -111,7 +129,7 @@ export const PaymentService = {
 
             const transaction = new TransactionBuilder(issuerAccount, {
                 fee: BASE_FEE,
-                networkPassphrase: Networks.TESTNET,
+                networkPassphrase: StellarNetwork.passphrase,
                 memo: x402Memo,
             })
             .setTimeout(30);
@@ -162,7 +180,7 @@ export const PaymentService = {
             }
             processingLock.add(`burn_${correlationID}`);
 
-            const server = new Horizon.Server('https://horizon-testnet.stellar.org');
+            const server = StellarNetwork.createServer();
             const userKeypair = Keypair.fromSecret(userSecretKey);
             const userPublicKey = userKeypair.publicKey();
             const issuerKeypair = Keypair.fromSecret(ISSUER_SECRET!);
@@ -192,7 +210,7 @@ export const PaymentService = {
 
             const transaction = new TransactionBuilder(issuerAccount, {
                 fee: BASE_FEE,
-                networkPassphrase: Networks.TESTNET,
+                networkPassphrase: StellarNetwork.passphrase,
                 memo: x402Memo
             })
             .addOperation(Operation.payment({
@@ -259,7 +277,7 @@ export const PaymentService = {
      */
     async swapAssets(userSecretKey: string, fromAssetCode: string, toAssetCode: string, payAmount: string, receiveAmount: string): Promise<string | null> {
         try {
-            const server = new Horizon.Server('https://horizon-testnet.stellar.org');
+            const server = StellarNetwork.createServer();
             const userKeypair = Keypair.fromSecret(userSecretKey);
             const userPublicKey = userKeypair.publicKey();
             const issuerKeypair = Keypair.fromSecret(ISSUER_SECRET!);
@@ -301,7 +319,7 @@ export const PaymentService = {
 
             const transaction = new TransactionBuilder(issuerAccount, {
                 fee: BASE_FEE,
-                networkPassphrase: Networks.TESTNET
+                networkPassphrase: StellarNetwork.passphrase
             })
             .setTimeout(30);
 
@@ -323,7 +341,7 @@ export const PaymentService = {
      */
     async sendAssetOnChain(userSecretKey: string, destPublicKey: string, assetCode: string, amount: string): Promise<string | null> {
         try {
-            const server = new Horizon.Server('https://horizon-testnet.stellar.org');
+            const server = StellarNetwork.createServer();
             const userKeypair = Keypair.fromSecret(userSecretKey);
             const issuerKeypair = Keypair.fromSecret(ISSUER_SECRET!);
             const issuerAccount = await server.loadAccount(issuerKeypair.publicKey());
@@ -332,7 +350,7 @@ export const PaymentService = {
 
             const transaction = new TransactionBuilder(issuerAccount, {
                 fee: BASE_FEE,
-                networkPassphrase: Networks.TESTNET
+                networkPassphrase: StellarNetwork.passphrase
             })
             .addOperation(Operation.payment({
                 source: userKeypair.publicKey(),

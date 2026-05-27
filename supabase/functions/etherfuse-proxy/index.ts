@@ -3,19 +3,49 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 /**
  * Etherfuse API Proxy — Supabase Edge Function
  *
- * SEGURANÇA: Esta função lê a API key da Etherfuse dos secrets do Supabase (nunca exposta ao browser).
- *
- * OBSERVABILIDADE: Versão instrumentada para diagnóstico do HTTP 400 em createOrder.
- * - Loga endpoint, method, payload completo (sanitizando API key)
- * - Loga status HTTP e response body integral da Etherfuse
- * - Nunca engole erros silenciosamente
+ * SEGURANÇA:
+ * - API key da Etherfuse é lida dos secrets do Supabase (nunca exposta ao browser)
+ * - CORS restrito a origens autorizadas (não mais wildcard *)
+ * - Whitelist de endpoints previne SSRF
+ * - TODO [MAINNET]: Adicionar rate limiting por user_id após integrar Supabase JWT validation
+ * - TODO [MAINNET]: Adicionar validação de JWT para garantir usuários autenticados
  */
-serve(async (req) => {
-  const corsHeaders = {
-    'Access-Control-Allow-Origin': '*',
+
+// Origens autorizadas a usar este proxy
+// TODO [MAINNET]: Substituir pelos domínios reais de produção antes do go-live
+const ALLOWED_ORIGINS = [
+  // Desenvolvimento local
+  'http://localhost:3000',
+  'http://localhost:5173',
+  'http://127.0.0.1:3000',
+  // Hostinger (deploy atual)
+  'https://walletnow.app',
+  'https://www.walletnow.app',
+  // Vercel previews (ajustar conforme URL real do projeto)
+  'https://walletnow-app.vercel.app',
+  // TODO: adicionar URL exata da Vercel de produção
+];
+
+function getCorsHeaders(requestOrigin: string | null): Record<string, string> {
+  // Se a origem for autorizada, retorna headers CORS específicos para ela
+  // Senão, retorna origin vazia (browser bloqueiará a requisição)
+  const origin = requestOrigin && ALLOWED_ORIGINS.includes(requestOrigin)
+    ? requestOrigin
+    : ALLOWED_ORIGINS[0]; // fallback para localhost em desenvolvimento
+
+  return {
+    'Access-Control-Allow-Origin': origin,
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Vary': 'Origin', // Essencial quando a origem é dinâmica
   };
+}
+serve(async (req) => {
+  const requestOrigin = req.headers.get('origin');
+  const corsHeaders = getCorsHeaders(requestOrigin);
+
+    return new Response('ok', { headers: corsHeaders });
+  }
 
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
