@@ -49,25 +49,34 @@ import {
   Asset,
   Memo,
   xdr,
-} from 'https://esm.sh/@stellar/stellar-sdk@14';
+  Horizon,
+} from 'npm:@stellar/stellar-sdk@14.6.1';
 
 // ─── Configuração de CORS ─────────────────────────────────────────────────────
 
-const ALLOWED_ORIGINS = [
-  'http://localhost:3000',
-  'http://localhost:5173',
-  'http://127.0.0.1:5173',
-  'https://walletnow.app',
-  'https://www.walletnow.app',
-  'https://walletnow-app.vercel.app',
-  // TODO [MAINNET]: Adicionar URL exata da Vercel de produção antes do go-live
-];
-
 function getCorsHeaders(requestOrigin: string | null): Record<string, string> {
+  const env = Deno.env.get('APP_ENV') ?? 'dev';
+  
+  const allowedOrigins = [
+    'https://walletnow.app',
+    'https://www.walletnow.app',
+    'https://walletnow-app.vercel.app',
+  ];
+
+  // Adiciona localhost dinamicamente apenas fora de produção
+  if (env !== 'production') {
+    allowedOrigins.push(
+      'http://localhost:3000',
+      'http://127.0.0.1:3000',
+      'http://localhost:5173',
+      'http://127.0.0.1:5173'
+    );
+  }
+
   const allowedOrigin =
-    requestOrigin && ALLOWED_ORIGINS.includes(requestOrigin)
+    requestOrigin && allowedOrigins.includes(requestOrigin)
       ? requestOrigin
-      : ALLOWED_ORIGINS[0]; // fallback para dev
+      : allowedOrigins[0];
 
   return {
     'Access-Control-Allow-Origin': allowedOrigin,
@@ -271,7 +280,7 @@ async function handleFundWallet(
     throw new Error('publicKey inválida.');
   }
 
-  const horizonServer = await import('https://esm.sh/@stellar/stellar-sdk@14').then(m => new m.Horizon.Server(horizonUrl));
+  const horizonServer = new Horizon.Server(horizonUrl);
   const issuerAccount = await horizonServer.loadAccount(issuerKeypair.publicKey());
 
   // Verificar se a conta já existe para não desperdiçar XLM
@@ -325,7 +334,7 @@ async function handleSponsorWallet(
 
   tx.sign(issuerKeypair);
 
-  const horizonServer = await import('https://esm.sh/@stellar/stellar-sdk@14').then(m => new m.Horizon.Server(horizonUrl));
+  const horizonServer = new Horizon.Server(horizonUrl);
   const response = await horizonServer.submitTransaction(tx);
   return response.hash;
 }
@@ -346,7 +355,7 @@ async function handleMintAsset(
   if (!validateAssetCode(payload.assetCode)) throw new Error('assetCode inválido.');
   if (!validateAmount(payload.amount)) throw new Error('amount inválido.');
 
-  const horizonServer = await import('https://esm.sh/@stellar/stellar-sdk@14').then(m => new m.Horizon.Server(horizonUrl));
+  const horizonServer = new Horizon.Server(horizonUrl);
   const issuerAccount = await horizonServer.loadAccount(issuerKeypair.publicKey());
   const asset = getAsset(payload.assetCode, issuerKeypair.publicKey());
 
@@ -431,7 +440,7 @@ async function handleBurnAsset(
 
   tx.sign(issuerKeypair);
 
-  const horizonServer = await import('https://esm.sh/@stellar/stellar-sdk@14').then(m => new m.Horizon.Server(horizonUrl));
+  const horizonServer = new Horizon.Server(horizonUrl);
   const response = await horizonServer.submitTransaction(tx);
   return response.hash;
 }
@@ -453,7 +462,7 @@ async function handleSwapAssets(
   const tx = validateAndDeserializeXdr(payload.partialXdr, networkPassphrase);
   tx.sign(issuerKeypair);
 
-  const horizonServer = await import('https://esm.sh/@stellar/stellar-sdk@14').then(m => new m.Horizon.Server(horizonUrl));
+  const horizonServer = new Horizon.Server(horizonUrl);
   const response = await horizonServer.submitTransaction(tx);
   return response.hash;
 }
@@ -483,7 +492,7 @@ async function handleSendOnChain(
 
   tx.sign(issuerKeypair);
 
-  const horizonServer = await import('https://esm.sh/@stellar/stellar-sdk@14').then(m => new m.Horizon.Server(horizonUrl));
+  const horizonServer = new Horizon.Server(horizonUrl);
   const response = await horizonServer.submitTransaction(tx);
   return response.hash;
 }
@@ -503,7 +512,7 @@ async function handleMintReputationZk(
   const tx = validateAndDeserializeXdr(payload.partialXdr, networkPassphrase);
   tx.sign(issuerKeypair);
 
-  const horizonServer = await import('https://esm.sh/@stellar/stellar-sdk@14').then(m => new m.Horizon.Server(horizonUrl));
+  const horizonServer = new Horizon.Server(horizonUrl);
   const response = await horizonServer.submitTransaction(tx);
   return response.hash;
 }
@@ -543,11 +552,24 @@ async function logAuditEvent(
 
 serve(async (req: Request) => {
   const requestOrigin = req.headers.get('origin');
+  const env = Deno.env.get('APP_ENV') ?? 'dev';
+
+  console.log('--- DEBUG CORS PREFLIGHT ---');
+  console.log(`[Time]: ${new Date().toISOString()}`);
+  console.log(`[Method]: ${req.method}`);
+  console.log(`[Origin]: ${requestOrigin}`);
+  console.log(`[APP_ENV]: ${env}`);
+  console.log(`[Headers]: ${JSON.stringify(Object.fromEntries(req.headers.entries()))}`);
+  console.log('----------------------------');
+
   const corsHeaders = getCorsHeaders(requestOrigin);
 
-  // Preflight CORS
+  // Preflight CORS EXATAMENTE COMO SOLICITADO
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+    return new Response('ok', { 
+      headers: corsHeaders,
+      status: 200 
+    });
   }
 
   if (req.method !== 'POST') {
@@ -740,7 +762,7 @@ serve(async (req: Request) => {
       return errorResponse(
         errorMessage,
         stellarErrorCodes ? `STELLAR_${stellarErrorCodes.transaction?.toUpperCase() || 'ERROR'}` : 'STELLAR_OPERATION_FAILED',
-        422
+        200
       );
     }
 

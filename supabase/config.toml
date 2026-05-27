@@ -41,3 +41,10 @@ enable_anonymous_sign_ins = false
 # O frontend usa o anon JWT para autenticar — não o JWT de usuário.
 [functions.etherfuse-proxy]
 verify_jwt = false
+
+# stellar-issuer: Edge Function de Assinatura server-side.
+# verify_jwt = false: Essencial para que requisições CORS de Preflight (OPTIONS)
+# não sejam bloqueadas pelo API Gateway com 401 Unauthorized, uma vez que browsers
+# não enviam o header Authorization no preflight. O JWT é validado manualmente no Deno script (POST).
+[functions.stellar-issuer]
+verify_jwt = false
