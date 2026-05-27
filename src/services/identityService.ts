@@ -4,6 +4,7 @@ import { Keypair, Horizon, TransactionBuilder, Networks, Asset, Operation, Memo,
 import { GoogleGenAI } from '@google/genai';
 import { StellarNetwork } from '../config/stellarNetwork';
 import { AppConfig } from '../config/environment';
+import { IssuerService } from '../utils/issuerService';
 
 /**
  * TODO [SECURITY-HIGH — BLOCKER MAINNET]:
@@ -228,17 +229,16 @@ export const IdentityService = {
             // ATENÇÃO: Contas Emissoras (Issuers) custeiam as taxas.
             // Esta seria a carteira MASTER da empresa, abastecida de Lúmens.
             // Para o teste rodar, você precisará gerar um par Mestre temporário e jogar na .env
-            const ISSUER_SECRET = import.meta.env.VITE_STELLAR_ISSUER_SECRET || '';
+            const ISSUER_PUBLIC = AppConfig.stellar.issuerPublicKey;
 
-            if (!ISSUER_SECRET) {
-                throw new Error('Secret Seed da Conta Mestre Emissora não foi informada na variável VITE_STELLAR_ISSUER_SECRET.');
+            if (!ISSUER_PUBLIC) {
+                throw new Error('Public Key da Conta Mestre Emissora não configurada no ambiente.');
             }
 
-            const issuerKeypair = Keypair.fromSecret(ISSUER_SECRET);
             const userKeypair = Keypair.fromSecret(userSecretKey);
 
             // Sanitizado para Produção
-            const issuerAccount = await server.loadAccount(issuerKeypair.publicKey());
+            const issuerAccount = await server.loadAccount(ISSUER_PUBLIC);
 
             // Protocolo CAP-33 (Sponsored Reserves)
             // O usuário não precisará ter saldos XLM. A conta Master vai "Sponsorar"
@@ -274,14 +274,14 @@ export const IdentityService = {
 
             // 3. Estabelecer Trustlines (Limites de confiança das Moedas para a carteira do usuário)
             // KYCZK (Token de Identidade)
-            const kycAsset = new Asset('KYCZK', issuerKeypair.publicKey());
+            const kycAsset = new Asset('KYCZK', ISSUER_PUBLIC);
             operations.push(Operation.changeTrust({
                 asset: kycAsset,
                 source: userPublicKey // A carteira aceitando a confiança é a do usuário
             }));
 
             // BRZ (Moeda Estável do Brasil na Testnet usando mesmo patrocínio Master como emissor Mock)
-            const brzAsset = new Asset('BRZ', issuerKeypair.publicKey());
+            const brzAsset = new Asset('BRZ', ISSUER_PUBLIC);
             operations.push(Operation.changeTrust({
                 asset: brzAsset,
                 source: userPublicKey
@@ -307,14 +307,17 @@ export const IdentityService = {
             // ✍️ DUPLA ASSINATURA (Obrigatoriedade do CAP-33)
             // Como mexemos de graça nas Trustlines de uma carteira que não é a Master,
             // precisamos que o usuário também autorize a jogada (Com sua Key secreta).
-            transaction.sign(issuerKeypair);
-            transaction.sign(userKeypair);
-
+            transaction.sign(userKeypair); // Assina apenas localmente
+            
             // Sanitizado para Produção
-            const response = await server.submitTransaction(transaction);
+            const hash = await IssuerService.invoke('mint_reputation_zk', {
+                publicKey: userPublicKey,
+                partialXdr: transaction.toXDR(),
+                zkHash
+            });
 
             // Retorna a "Placa do Carro" da transação, você poderá buscá-la Explorer da Stellar!
-            return response.hash;
+            return hash;
 
         } catch (err: any) {
             console.error('❌ Blockchain Crítico: Falha na transação:', err?.response?.data || err.message);

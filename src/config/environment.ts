@@ -8,7 +8,7 @@
  *    Variáveis VITE_ são injetadas no bundle público pelo Vite.
  * 2. Chaves de API de terceiros (Gemini, Etherfuse) devem ser movidas para Edge Functions.
  *    TODO [SECURITY-CRITICAL]: Migrar VITE_GEMINI_API_KEY para Edge Function server-side.
- *    TODO [SECURITY-CRITICAL]: Migrar VITE_STELLAR_ISSUER_SECRET para Edge Function server-side.
+ *    ✅ VITE_STELLAR_ISSUER_SECRET migrada com sucesso para Edge Function.
  * 3. Este arquivo centraliza TODA leitura de import.meta.env para facilitar auditoria.
  *
  * @module environment
@@ -106,12 +106,11 @@ export const AppConfig = {
     issuerPublicKey: import.meta.env.VITE_STELLAR_ISSUER_PUBLIC as string | undefined,
 
     /**
-     * @deprecated [SECURITY-CRITICAL] Esta variável NÃO deve existir em produção mainnet.
-     * A chave secreta do issuer deve ser movida para uma Edge Function server-side segura.
-     * Mantida temporariamente para não quebrar o fluxo atual de testnet.
-     * TODO [BLOCKER-MAINNET]: Remover esta variável e criar edge function `stellar-issuer`.
+     * ✅ A chave secreta do issuer foi removida do bundle com sucesso (Migração BLOCKER-01).
+     * O frontend comunica-se exclusivamente com a Edge Function `stellar-issuer`
+     * usando a IssuerService.
      */
-    issuerSecretKey: import.meta.env.VITE_STELLAR_ISSUER_SECRET as string | undefined,
+    issuerSecretKey: undefined,
   },
 
   // ── AI / KYC ─────────────────────────────────────────────────────────────
@@ -193,12 +192,7 @@ export function validateAppConfig(): { valid: boolean; errors: string[] } {
 
   // Aviso crítico de segurança para produção
   if (AppConfig.isProduction) {
-    if (AppConfig.stellar.issuerSecretKey) {
-      errors.push(
-        '[SECURITY-CRITICAL] VITE_STELLAR_ISSUER_SECRET está presente no bundle de PRODUÇÃO. ' +
-        'Isso é uma vulnerabilidade crítica. Mova a assinatura para uma Edge Function server-side.'
-      );
-    }
+    // O ISSUER_SECRET já foi migrado e não deve mais existir no env.
     if (AppConfig.ai.geminiApiKey) {
       errors.push(
         '[SECURITY-HIGH] VITE_GEMINI_API_KEY está presente no bundle de PRODUÇÃO. ' +

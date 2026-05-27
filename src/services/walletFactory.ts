@@ -2,8 +2,9 @@ import { Keypair, TransactionBuilder, Asset, Operation } from '@stellar/stellar-
 import { supabase } from '../lib/supabase';
 import { isValidPublicKey, isValidSecretKey } from '../utils/stellarValidation';
 import { DeviceVault } from '../security/deviceVault';
-import { StellarNetwork } from '../config/stellarNetwork';
 import { AppConfig } from '../config/environment';
+import { StellarNetwork } from '../config/stellarNetwork';
+import { IssuerService } from '../utils/issuerService';
 
 /**
  * TODO [SECURITY-CRITICAL — BLOCKER MAINNET]:
@@ -53,33 +54,12 @@ export const WalletFactory = {
      */
     async activateAccount(publicKey: string): Promise<boolean> {
         try {
-            // TODO [SECURITY-CRITICAL]: ISSUER_SECRET deve sair do frontend — migrar para Edge Function
-            const ISSUER_SECRET = AppConfig.stellar.issuerSecretKey;
-            if (!ISSUER_SECRET) return false;
-
-            const server = StellarNetwork.createServer(); // Abstração: testnet/mainnet via config
-            const issuerKeypair = Keypair.fromSecret(ISSUER_SECRET);
-            const issuerAccount = await server.loadAccount(issuerKeypair.publicKey());
-
             console.log(`[WalletNow][WalletFactory] 🛡️ [Stellar-Audit] Ativando conta via Sponsor: ${publicKey.slice(0, 8)}... [rede: ${StellarNetwork.networkType}]`);
-
-            const transaction = new TransactionBuilder(issuerAccount, {
-                fee: StellarNetwork.baseFee,
-                networkPassphrase: StellarNetwork.passphrase // Abstração: não hardcode
-            })
-            .addOperation(Operation.createAccount({
-                destination: publicKey,
-                startingBalance: '1.5' // Reserva mínima para conta + algumas trustlines
-            }))
-            .setTimeout(30)
-            .build();
-
-            transaction.sign(issuerKeypair);
-            await server.submitTransaction(transaction);
-            console.log("[WalletNow][WalletFactory] ✅ [Stellar-Audit] Conta ativada com sucesso via Sponsor.");
+            await IssuerService.invoke('fund_wallet', { publicKey });
+            console.log("[WalletNow][WalletFactory] ✅ [Stellar-Audit] Conta ativada com sucesso via Sponsor Edge Function.");
             return true;
         } catch (error: any) {
-            console.error('[WalletNow][WalletFactory] ❌ [Stellar-Audit] Falha na ativação via Sponsor:', error?.response?.data || error.message);
+            console.error('[WalletNow][WalletFactory] ❌ [Stellar-Audit] Falha na ativação via Sponsor:', error.message);
             return false;
         }
     },
@@ -148,19 +128,18 @@ export const WalletFactory = {
             // Setup Gasless de Trustline inicial
             // TODO [MAINNET]: BRW é token interno de testnet. Em mainnet, configurar trustlines
             // para USDC (Circle) e BRZ (Transfero) usando issuers reais via StellarNetwork.assets
-            const ISSUER_SECRET = AppConfig.stellar.issuerSecretKey; // TODO: mover para Edge Function
-            if (ISSUER_SECRET) {
+            const ISSUER_PUBLIC = AppConfig.stellar.issuerPublicKey;
+            if (ISSUER_PUBLIC) {
                 const server = StellarNetwork.createServer();
-                const issuerKeypair = Keypair.fromSecret(ISSUER_SECRET);
                 // Em mainnet, usar assets reais (USDC, BRZ) — não o BRW de testnet
-                const brwAsset = new Asset('BRW', issuerKeypair.publicKey());
+                const brwAsset = new Asset('BRW', ISSUER_PUBLIC);
                 const userKeypair = Keypair.fromSecret(secretKey);
                 
                 // Espera um pouco para a rede processar a criação antes de mudar trust
                 await new Promise(r => setTimeout(r, 2000));
 
                 try {
-                    const issuerAccount = await server.loadAccount(issuerKeypair.publicKey());
+                    const issuerAccount = await server.loadAccount(ISSUER_PUBLIC);
                     const transaction = new TransactionBuilder(issuerAccount, {
                         fee: StellarNetwork.baseFee,
                         networkPassphrase: StellarNetwork.passphrase
@@ -171,9 +150,15 @@ export const WalletFactory = {
                     .setTimeout(30)
                     .build();
                     
-                    transaction.sign(issuerKeypair, userKeypair);
-                    await server.submitTransaction(transaction);
-                    console.log("[WalletNow][WalletFactory] ✅ Trustline base estabelecida.");
+                    transaction.sign(userKeypair); // Assina apenas com a user secret
+                    const partialXdr = transaction.toXDR();
+                    
+                    await IssuerService.invoke('sponsor_wallet', { 
+                        publicKey, 
+                        partialXdr 
+                    });
+                    
+                    console.log("[WalletNow][WalletFactory] ✅ Trustline base estabelecida via Edge Function.");
                 } catch (setupError) {
                     console.warn("[WalletNow][WalletFactory] ⚠️ Erro no setup inicial da Trustline. O Mint cuidará disso.", setupError);
                 }
