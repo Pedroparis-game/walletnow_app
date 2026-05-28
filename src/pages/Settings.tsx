@@ -1,4 +1,4 @@
-import { ArrowLeft, Camera, CheckCircle2, Copy, Loader2, ShieldAlert, ShieldCheck, UploadCloud, Mail, MessageCircle, ArrowDownLeft, ArrowUpRight, ArrowRight, RefreshCw, Coins, ExternalLink, Clock, Eye } from 'lucide-react';
+import { ArrowLeft, Camera, CheckCircle2, Copy, Loader2, ShieldAlert, ShieldCheck, UploadCloud, Mail, MessageCircle, ArrowDownLeft, ArrowUpRight, ArrowRight, RefreshCw, Coins, ExternalLink, Clock, Eye, KeyRound } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -13,6 +13,7 @@ import SwapModal from '../components/modals/SwapModal';
 import OnChainSendModal from '../components/modals/OnChainSendModal';
 import ImportWalletModal from '../components/modals/ImportWalletModal';
 import { RevealSeedModal } from '../components/modals/RevealSeedModal';
+import { ExportSecretKeyModal } from '../components/modals/ExportSecretKeyModal';
 import { MnemonicVault } from '../security/mnemonicVault';
 
 /**
@@ -55,6 +56,7 @@ export default function Settings() {
   const [documentUploaded, setDocumentUploaded] = useState(false);
   const [isSeedModalOpen, setIsSeedModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [isExportSecretModalOpen, setIsExportSecretModalOpen] = useState(false);
   const [walletVersion, setWalletVersion] = useState<any | null>(null);
   const [selfieBase64, setSelfieBase64] = useState<string>('');
 
@@ -518,21 +520,39 @@ export default function Settings() {
                 <ArrowRight className="w-4 h-4 text-gray-600 group-hover:text-blue-400 transition-colors" />
               </button>
 
-              <button 
-                onClick={() => setIsSeedModalOpen(true)}
-                className="w-full flex items-center justify-between p-4 bg-[#111] hover:bg-[#1a1a1a] rounded-xl border border-white/5 transition-all group"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-purple-500/10 flex items-center justify-center border border-purple-500/20 group-hover:bg-purple-500/20">
-                    <Eye className="w-4 h-4 text-purple-400" />
+              {activeAccount?.account_type === 'imported' ? (
+                <button 
+                  onClick={() => setIsExportSecretModalOpen(true)}
+                  className="w-full flex items-center justify-between p-4 bg-[#111] hover:bg-[#1a1a1a] rounded-xl border border-white/5 transition-all group"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-red-500/10 flex items-center justify-center border border-red-500/20 group-hover:bg-red-500/20">
+                      <KeyRound className="w-4 h-4 text-red-400" />
+                    </div>
+                    <div className="text-left">
+                      <p className="text-sm font-medium text-white">Exportar Chave Secreta</p>
+                      <p className="text-[10px] text-red-500">Danger Zone: Visualize sua Secret Key (S...)</p>
+                    </div>
                   </div>
-                  <div className="text-left">
-                    <p className="text-sm font-medium text-white">Revelar Frase de Recuperação</p>
-                    <p className="text-[10px] text-gray-500">Acesse sua Seed Phrase de 12 palavras (BIP39)</p>
+                  <ArrowRight className="w-4 h-4 text-gray-600 group-hover:text-red-400 transition-colors" />
+                </button>
+              ) : (
+                <button 
+                  onClick={() => setIsSeedModalOpen(true)}
+                  className="w-full flex items-center justify-between p-4 bg-[#111] hover:bg-[#1a1a1a] rounded-xl border border-white/5 transition-all group"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-purple-500/10 flex items-center justify-center border border-purple-500/20 group-hover:bg-purple-500/20">
+                      <Eye className="w-4 h-4 text-purple-400" />
+                    </div>
+                    <div className="text-left">
+                      <p className="text-sm font-medium text-white">Revelar Frase de Recuperação</p>
+                      <p className="text-[10px] text-gray-500">Acesse sua Seed Phrase de 12 palavras (BIP39)</p>
+                    </div>
                   </div>
-                </div>
-                <ArrowRight className="w-4 h-4 text-gray-600 group-hover:text-purple-400 transition-colors" />
-              </button>
+                  <ArrowRight className="w-4 h-4 text-gray-600 group-hover:text-purple-400 transition-colors" />
+                </button>
+              )}
             </div>
 
             {parseFloat(usdcBalance) > 0 && (
@@ -567,6 +587,10 @@ export default function Settings() {
         onClose={() => setIsSeedModalOpen(false)}
         userId={profile?.id || ''}
         walletVersion={walletVersion}
+      />
+      <ExportSecretKeyModal
+        isOpen={isExportSecretModalOpen}
+        onClose={() => setIsExportSecretModalOpen(false)}
       />
       <ReceiveCryptoModal isOpen={isReceiveOpen} onClose={() => setIsReceiveOpen(false)} />
       <SwapModal isOpen={isSwapOpen} onClose={() => setIsSwapOpen(false)} onSuccess={fetchProModeBalance} />
