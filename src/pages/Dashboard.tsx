@@ -10,6 +10,7 @@ import { WalletFactory } from '../services/walletFactory';
 import { logger } from '../utils/logger';
 import { DemoConfig } from '../config/demoMode';
 import { EtherfuseActivityService, EfV2Activity } from '../services/providers/etherfuseV2/etherfuseActivityService';
+import AccountSwitcher from '../components/wallet/AccountSwitcher';
 
 /**
  * Tela do Dashboard Principal (The Money Layer)
@@ -128,26 +129,27 @@ export default function Dashboard() {
     <div className="min-h-screen flex flex-col bg-[#0A0A0A] animate-in fade-in duration-500">
 
       {/* Cabeçalho (Header) */}
-      <header className="px-6 pt-8 pb-4 flex justify-between items-center">
+      <header className="px-6 pt-8 pb-4 flex justify-between items-center relative z-50">
         <div className="flex items-center gap-3">
-          {/* Ícone da Carteira */}
-          <div className="w-10 h-10 bg-[#161616] rounded-xl flex items-center justify-center border border-white/5 shadow-lg">
-            <Wallet className="w-5 h-5 text-[#00E676]" />
-          </div>
+          {/* Account Switcher substitui o Ícone da Carteira Simples */}
+          <AccountSwitcher />
+        </div>
+
+        <div className="flex items-center gap-3">
           {/* Saudação ao Usuário */}
-          <div>
+          <div className="hidden sm:block text-right mr-2">
             <p className="text-xs text-gray-500 font-medium uppercase tracking-wider">WalletNow</p>
             <p className="text-sm text-white font-semibold capitalize">Olá, {userFirstName}</p>
           </div>
-        </div>
 
-        {/* Botão de Configurações (Leva para a tela de KYC/Settings) */}
-        <button
-          onClick={() => navigate('/settings')}
-          className="p-2.5 bg-[#161616] rounded-full text-gray-400 hover:text-white border border-white/5 transition-colors shadow-lg"
-        >
-          <SettingsIcon className="w-5 h-5" />
-        </button>
+          {/* Botão de Configurações (Leva para a tela de KYC/Settings) */}
+          <button
+            onClick={() => navigate('/settings')}
+            className="p-2.5 bg-[#161616] rounded-full text-gray-400 hover:text-white border border-white/5 transition-colors shadow-lg"
+          >
+            <SettingsIcon className="w-5 h-5" />
+          </button>
+        </div>
       </header>
 
       {/* Card Principal de Saldo */}
