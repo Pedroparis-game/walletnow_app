@@ -1,6 +1,10 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
+import { deriveKeypairFromMnemonic, validateMnemonic } from '../utils/bip39Wallet';
+import { isValidSecretKey } from '../utils/stellarValidation';
+import { Keypair } from '@stellar/stellar-sdk';
+import { DeviceVault } from '../security/deviceVault';
 
 export interface WalletAccount {
     id: string;
@@ -20,6 +24,8 @@ interface WalletContextProps {
     error: string | null;
     refreshAccounts: () => Promise<void>;
     switchAccount: (accountId: string) => Promise<void>;
+    importMnemonic: (mnemonic: string, label: string) => Promise<void>;
+    importSecretKey: (secretKey: string, label: string) => Promise<void>;
 }
 
 const WalletContext = createContext<WalletContextProps>({
@@ -29,6 +35,8 @@ const WalletContext = createContext<WalletContextProps>({
     error: null,
     refreshAccounts: async () => {},
     switchAccount: async () => {},
+    importMnemonic: async () => {},
+    importSecretKey: async () => {},
 });
 
 export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -59,10 +67,6 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             const fetchedAccounts = data as WalletAccount[] || [];
             setAccounts(fetchedAccounts);
 
-            // Determinar conta ativa: 
-            // 1. LocalStorage preference
-            // 2. is_active flag no banco
-            // 3. Primeira conta do array
             const storedActiveId = localStorage.getItem(`@walletnow:active_account:${user.id}`);
             
             let currentActive = fetchedAccounts.find(a => a.id === storedActiveId) 
@@ -93,8 +97,86 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         if (target) {
             setActiveAccount(target);
             localStorage.setItem(`@walletnow:active_account:${user.id}`, target.id);
-            // Future: update 'is_active' in DB if we want to sync the active state across devices
+            
+            // Load secret key for the selected account into volatile memory
+            try {
+                let storageKey = `@walletnow:secret:${user.id}:${target.stellar_public_key}`;
+                let rawStorage = localStorage.getItem(storageKey);
+                
+                // Fallback for default/legacy accounts
+                if (!rawStorage && (target.is_default || target.account_type === 'legacy' || target.account_type === 'generated')) {
+                    storageKey = `@walletnow:secret:${user.id}`;
+                    rawStorage = localStorage.getItem(storageKey);
+                }
+                
+                if (rawStorage) {
+                    const vaultData = JSON.parse(rawStorage);
+                    const encKey = await DeviceVault.generateEncryptionKey(user.id);
+                    const plaintext = await DeviceVault.decryptSecret(vaultData.ciphertext, vaultData.iv, encKey);
+                    DeviceVault.setVolatileSecret(plaintext);
+                    console.log('[WalletContext] Switched account and decrypted secret into volatile memory.');
+                }
+            } catch (e) {
+                console.error('[WalletContext] Erro ao descriptografar conta ao alternar:', e);
+            }
+            
+            // Sync is_active flag silently
+            await supabase.from('wallet_accounts').update({ is_active: false }).eq('user_id', user.id);
+            await supabase.from('wallet_accounts').update({ is_active: true }).eq('id', target.id);
         }
+    };
+
+    const saveImportedAccount = async (publicKey: string, secretKey: string, label: string) => {
+        if (!user) throw new Error("Usuário não autenticado");
+        
+        const { data: existing } = await supabase
+            .from('wallet_accounts')
+            .select('id')
+            .eq('user_id', user.id)
+            .eq('stellar_public_key', publicKey)
+            .single();
+            
+        if (existing) {
+            throw new Error("Esta conta já está vinculada ao seu usuário");
+        }
+
+        const encKey = await DeviceVault.generateEncryptionKey(user.id);
+        const encryptedData = await DeviceVault.encryptSecret(secretKey, encKey);
+        
+        localStorage.setItem(`@walletnow:secret:${user.id}:${publicKey}`, JSON.stringify(encryptedData));
+        
+        const { error, data } = await supabase.from('wallet_accounts').insert({
+            user_id: user.id,
+            label,
+            account_type: 'imported',
+            stellar_public_key: publicKey,
+            is_active: true
+        }).select().single();
+
+        if (error) throw error;
+        
+        // Atualiza UI e background
+        await supabase.from('wallet_accounts').update({ is_active: false }).eq('user_id', user.id).neq('id', data.id);
+        DeviceVault.setVolatileSecret(secretKey);
+        await refreshAccounts();
+    };
+
+    const importMnemonic = async (mnemonic: string, label: string) => {
+        if (!user) throw new Error("Usuário não autenticado");
+        if (!validateMnemonic(mnemonic)) throw new Error("Frase de recuperação inválida");
+        
+        const { publicKey, secretKey } = deriveKeypairFromMnemonic(mnemonic);
+        await saveImportedAccount(publicKey, secretKey, label);
+    };
+
+    const importSecretKey = async (secretKey: string, label: string) => {
+        if (!user) throw new Error("Usuário não autenticado");
+        if (!isValidSecretKey(secretKey)) throw new Error("Chave secreta inválida");
+        
+        const keypair = Keypair.fromSecret(secretKey);
+        const publicKey = keypair.publicKey();
+        
+        await saveImportedAccount(publicKey, secretKey, label);
     };
 
     return (
@@ -104,7 +186,9 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             loading,
             error,
             refreshAccounts,
-            switchAccount
+            switchAccount,
+            importMnemonic,
+            importSecretKey
         }}>
             {children}
         </WalletContext.Provider>
@@ -112,3 +196,4 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 };
 
 export const useWallet = () => useContext(WalletContext);
+
