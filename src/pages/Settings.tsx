@@ -1,4 +1,4 @@
-import { ArrowLeft, Camera, CheckCircle2, Copy, Loader2, ShieldAlert, ShieldCheck, UploadCloud, Mail, MessageCircle, ArrowDownLeft, ArrowUpRight, ArrowRight, RefreshCw, Coins, ExternalLink, Clock } from 'lucide-react';
+import { ArrowLeft, Camera, CheckCircle2, Copy, Loader2, ShieldAlert, ShieldCheck, UploadCloud, Mail, MessageCircle, ArrowDownLeft, ArrowUpRight, ArrowRight, RefreshCw, Coins, ExternalLink, Clock, Eye } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -12,6 +12,8 @@ import ReceiveCryptoModal from '../components/modals/ReceiveCryptoModal';
 import SwapModal from '../components/modals/SwapModal';
 import OnChainSendModal from '../components/modals/OnChainSendModal';
 import ImportWalletModal from '../components/modals/ImportWalletModal';
+import { RevealSeedModal } from '../components/modals/RevealSeedModal';
+import { MnemonicVault } from '../security/mnemonicVault';
 
 /**
  * Tela de Configurações e Identidade (The Trust Layer)
@@ -104,6 +106,14 @@ export default function Settings() {
   useEffect(() => {
     fetchProModeBalance();
   }, [activeAccount?.stellar_public_key]);
+
+  // Carrega a versão da carteira para saber se suporta seed phrase
+  useEffect(() => {
+    if (profile?.id) {
+      const version = MnemonicVault.getWalletVersion(profile.id);
+      setWalletVersion(version);
+    }
+  }, [profile?.id]);
 
   // Efeito para carregar os dados se o perfil já foi verificado ou rascunhados
   useEffect(() => {
@@ -491,21 +501,39 @@ export default function Settings() {
               </div>
             </div>
 
-            <button 
-              onClick={() => setIsImportModalOpen(true)}
-              className="w-full flex items-center justify-between p-4 bg-[#111] hover:bg-[#1a1a1a] rounded-xl border border-white/5 transition-all mb-4 group"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-blue-500/10 flex items-center justify-center border border-blue-500/20 group-hover:bg-blue-500/20">
-                  <ExternalLink className="w-4 h-4 text-blue-400" />
+            <div className="grid grid-cols-1 gap-4">
+              <button 
+                onClick={() => setIsImportModalOpen(true)}
+                className="w-full flex items-center justify-between p-4 bg-[#111] hover:bg-[#1a1a1a] rounded-xl border border-white/5 transition-all group"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-blue-500/10 flex items-center justify-center border border-blue-500/20 group-hover:bg-blue-500/20">
+                    <ExternalLink className="w-4 h-4 text-blue-400" />
+                  </div>
+                  <div className="text-left">
+                    <p className="text-sm font-medium text-white">Importar Carteira Existente</p>
+                    <p className="text-[10px] text-gray-500">Adicione contas usando Seed Phrase ou Secret Key</p>
+                  </div>
                 </div>
-                <div className="text-left">
-                  <p className="text-sm font-medium text-white">Importar Carteira Existente</p>
-                  <p className="text-[10px] text-gray-500">Adicione contas usando Seed Phrase ou Secret Key</p>
+                <ArrowRight className="w-4 h-4 text-gray-600 group-hover:text-blue-400 transition-colors" />
+              </button>
+
+              <button 
+                onClick={() => setIsSeedModalOpen(true)}
+                className="w-full flex items-center justify-between p-4 bg-[#111] hover:bg-[#1a1a1a] rounded-xl border border-white/5 transition-all group"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-purple-500/10 flex items-center justify-center border border-purple-500/20 group-hover:bg-purple-500/20">
+                    <Eye className="w-4 h-4 text-purple-400" />
+                  </div>
+                  <div className="text-left">
+                    <p className="text-sm font-medium text-white">Revelar Frase de Recuperação</p>
+                    <p className="text-[10px] text-gray-500">Acesse sua Seed Phrase de 12 palavras (BIP39)</p>
+                  </div>
                 </div>
-              </div>
-              <ArrowRight className="w-4 h-4 text-gray-600 group-hover:text-blue-400 transition-colors" />
-            </button>
+                <ArrowRight className="w-4 h-4 text-gray-600 group-hover:text-purple-400 transition-colors" />
+              </button>
+            </div>
 
             {parseFloat(usdcBalance) > 0 && (
               <div className="flex items-center justify-between bg-black/30 border border-white/5 p-4 rounded-xl">
@@ -534,6 +562,12 @@ export default function Settings() {
           fetchProModeBalance();
         }}
       />
+      <RevealSeedModal
+        isOpen={isSeedModalOpen}
+        onClose={() => setIsSeedModalOpen(false)}
+        userId={profile?.id || ''}
+        walletVersion={walletVersion}
+      />
       <ReceiveCryptoModal isOpen={isReceiveOpen} onClose={() => setIsReceiveOpen(false)} />
       <SwapModal isOpen={isSwapOpen} onClose={() => setIsSwapOpen(false)} onSuccess={fetchProModeBalance} />
       <OnChainSendModal
@@ -544,3 +578,4 @@ export default function Settings() {
     </div>
   );
 }
+
