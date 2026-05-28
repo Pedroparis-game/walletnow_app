@@ -207,6 +207,9 @@ export const WalletFactory = {
             return publicKey;
         } catch (error) {
             console.error('[WalletNow][WalletFactory] ❌ Erro fatal no provisionamento da carteira:', error);
+            // FAIL-SAFE: Limpar qualquer resíduo se falhar no meio do fluxo
+            DeviceVault.clearSensitiveMemory();
+            MnemonicVault.clearSensitiveMnemonicMemory();
             return null;
         }
     },
@@ -298,11 +301,14 @@ export const WalletFactory = {
 
             // Carrega na memória volátil
             DeviceVault.setVolatileSecret(derived.secretKey);
-
+            
             console.log('[WalletNow][WalletFactory] ✅ Carteira recuperada com sucesso via mnemonic BIP39.');
             return true;
         } catch (err: any) {
             console.error('[WalletNow][WalletFactory] ❌ Falha na recuperação via mnemonic:', err.message);
+            // FAIL-SAFE CRÍTICO: Previne chaves órfãs na RAM
+            DeviceVault.clearSensitiveMemory();
+            MnemonicVault.clearSensitiveMnemonicMemory();
             return false;
         }
     },

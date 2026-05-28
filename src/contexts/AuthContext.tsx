@@ -3,6 +3,7 @@ import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { WalletFactory } from '../services/walletFactory';
 import { DeviceVault } from '../security/deviceVault';
+import { MnemonicVault } from '../security/mnemonicVault';
 
 /**
  * Tipagem do Perfil do Usuário armazenado na nossa Database
@@ -156,6 +157,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 // Remove a sessão atual para que o usuário não prossiga quebrado
                 await supabase.auth.signOut();
                 DeviceVault.clearSensitiveMemory();
+                MnemonicVault.clearSensitiveMnemonicMemory();
                 
                 setAuthError("Sua identidade blockchain não foi encontrada neste dispositivo. O login foi bloqueado para proteger seus fundos.");
                 return; // Encerra a função impedindo a entrada.
@@ -211,6 +213,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 loadProfileAndWallet(session.user.id);
             } else {
                 DeviceVault.clearSensitiveMemory();
+                MnemonicVault.clearSensitiveMnemonicMemory();
                 setProfile(null);
                 setLoading(false);
             }
