@@ -30,6 +30,7 @@ import * as bip39 from '@scure/bip39';
 import { wordlist } from '@scure/bip39/wordlists/english.js';
 import { HDKey } from '@scure/bip32';
 import { Keypair } from '@stellar/stellar-sdk';
+import { Buffer } from 'buffer';
 
 // Path de derivação SEP-0005 para Stellar
 // m / purpose' / coin_type' / account'
