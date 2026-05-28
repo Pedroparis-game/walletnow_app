@@ -1,4 +1,4 @@
-import { ArrowLeft, Camera, CheckCircle2, Copy, Loader2, ShieldAlert, ShieldCheck, UploadCloud, Mail, MessageCircle, ArrowDownLeft, ArrowUpRight, ArrowRight, RefreshCw, Coins, ExternalLink, Clock, Eye, KeyRound } from 'lucide-react';
+import { ArrowLeft, Camera, CheckCircle2, Copy, Loader2, ShieldAlert, ShieldCheck, UploadCloud, Mail, MessageCircle, ArrowDownLeft, ArrowUpRight, ArrowRight, RefreshCw, Coins, ExternalLink, Clock, Eye, KeyRound, Wallet, Globe, Check, Plus } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -17,67 +17,66 @@ import { ExportSecretKeyModal } from '../components/modals/ExportSecretKeyModal'
 import { MnemonicVault } from '../security/mnemonicVault';
 
 /**
- * Tela de Configurações e Identidade (The Trust Layer)
+ * Settings — The Trust Layer
  * 
- * Esta tela foi aprimorada para demonstrar um fluxo de KYC (Know Your Customer) robusto.
- * O usuário preenche dados pessoais, verifica E-mail e WhatsApp, envia documentos e tira uma selfie.
- * Ao final, simulamos a geração de uma prova ZK-STARK (Zero-Knowledge Proof),
- * que garante a identidade do usuário na rede sem expor seus dados sensíveis.
+ * BOX 1: Identidade (KYC) — formulário completo + ZK-STARK
+ * BOX 2: Autocustódia Web3 / BIP39 — gerenciamento de contas, seed phrase, importação
+ * BOX 3: Carteira Web3 Pro Mode — balances, assets, receive/send/swap
  */
 export default function Settings() {
   const navigate = useNavigate();
   const { profile } = useAuth();
-  const { activeAccount } = useWallet();
+  const { accounts, activeAccount, switchAccount, importMnemonic, importSecretKey, loading: walletLoading } = useWallet();
 
-  // Máquina de estados para o status do KYC geral:
-  // 'pending' = Aguardando preenchimento
-  // 'processing' = Gerando a prova ZK-STARK (Spinner)
-  // 'verified' = Concluído com sucesso
+  // ─── KYC States ───────────────────────────────────────────────────────────
   const [kycStatus, setKycStatus] = useState<'pending' | 'processing' | 'verified'>('pending');
-  // Guarda os dados de reprovação exatos (Vindo da IA Gemini)
   const [kycError, setKycError] = useState<string[] | null>(null);
-
-  // Estados dos campos de texto básicos
-  const [name, setName] = useState('João Silva');
-  const [cpf, setCpf] = useState('123.456.789-00');
+  const [name, setName] = useState('');
+  const [cpf, setCpf] = useState('');
   const [birthDate, setBirthDate] = useState('');
   const [address, setAddress] = useState('');
-
-  // Estados para E-mail e WhatsApp e seus respectivos status de verificação
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [emailStatus, setEmailStatus] = useState<'idle' | 'sending' | 'verified'>('idle');
   const [phoneStatus, setPhoneStatus] = useState<'idle' | 'sending' | 'verified'>('idle');
-
   const [showPhoneOtp, setShowPhoneOtp] = useState(false);
   const [phoneOtp, setPhoneOtp] = useState('');
-
-  // Estados dos módulos de documentação (Simulação de Upload/Selfie)
   const [documentUploaded, setDocumentUploaded] = useState(false);
+  const [selfieCaptured, setSelfieCaptured] = useState(false);
+  const [documentBase64, setDocumentBase64] = useState('');
+  const [selfieBase64, setSelfieBase64] = useState('');
+
+  // ─── Autocustódia States ──────────────────────────────────────────────────
   const [isSeedModalOpen, setIsSeedModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isExportSecretModalOpen, setIsExportSecretModalOpen] = useState(false);
   const [walletVersion, setWalletVersion] = useState<any | null>(null);
-  const [selfieBase64, setSelfieBase64] = useState<string>('');
 
-  // Estados PRO Mode (Carteira Web3)
-  const [brzBalance, setBrzBalance] = useState<string>('0.00');
-  const [brwBalance, setBrwBalance] = useState<string>('0.00');
+  // ─── Pro Mode States ──────────────────────────────────────────────────────
   const [xlmBalance, setXlmBalance] = useState<string>('0.00');
   const [usdcBalance, setUsdcBalance] = useState<string>('0.00');
+  const [eurcBalance, setEurcBalance] = useState<string>('0.00');
+  const [brzBalance, setBrzBalance] = useState<string>('0.00');
+  const [brwBalance, setBrwBalance] = useState<string>('0.00');
   const [btcBalance, setBtcBalance] = useState<string>('0.00');
   const [tesouroBalance, setTesouroBalance] = useState<string>('0.00');
-  const [cetesBalance, setCetesBalance] = useState<string>('0.00');
-  const [ustbBalance, setUstbBalance] = useState<string>('0.00');
   const [xlmBrlPrice, setXlmBrlPrice] = useState<number>(0);
   const [isLoadingBalance, setIsLoadingBalance] = useState(false);
-
-  // Estados para os Modais Web3
   const [isReceiveOpen, setIsReceiveOpen] = useState(false);
   const [isOnChainSendOpen, setIsOnChainSendOpen] = useState(false);
   const [isSwapOpen, setIsSwapOpen] = useState(false);
 
-  // Função isolada para poder recarregar no sucesso de um modal
+  // ─── Validation ───────────────────────────────────────────────────────────
+  const isNameValid = name.length > 5;
+  const isCpfValid = cpf.length >= 14;
+  const isBirthDateValid = birthDate.length === 10;
+  const isAddressValid = address.length > 10;
+  const isEmailValid = email.includes('@') && email.includes('.');
+  const isPhoneValid = phone.length >= 11;
+  const canSubmit = isNameValid && isCpfValid && isBirthDateValid && isAddressValid &&
+    documentUploaded && selfieCaptured && emailStatus === 'verified' && phoneStatus === 'verified';
+
+  // ─── Pro Mode balance fetch ────────────────────────────────────────────────
   const fetchProModeBalance = async () => {
     if (!activeAccount?.stellar_public_key) return;
     setIsLoadingBalance(true);
@@ -91,25 +90,20 @@ export default function Settings() {
         setBrwBalance(balances.brw);
         setXlmBalance(balances.xlm);
         setUsdcBalance(balances.usdc);
+        setEurcBalance(balances.eurc);
         setBtcBalance(balances.btc);
         setTesouroBalance(balances.tesouro);
-        setCetesBalance(balances.cetes);
-        setUstbBalance(balances.ustb);
       }
       setXlmBrlPrice(brlPrice);
     } catch (e) {
-      console.error("Falha ao carregar Web3 Pro Mode", e);
+      console.error('Falha ao carregar Web3 Pro Mode', e);
     } finally {
       setIsLoadingBalance(false);
     }
   };
 
-  // Efeito para carregar os saldos da Blockchain no Pro Mode
-  useEffect(() => {
-    fetchProModeBalance();
-  }, [activeAccount?.stellar_public_key]);
+  useEffect(() => { fetchProModeBalance(); }, [activeAccount?.stellar_public_key]);
 
-  // Carrega a versão da carteira para saber se suporta seed phrase
   useEffect(() => {
     if (profile?.id) {
       const version = MnemonicVault.getWalletVersion(profile.id);
@@ -117,9 +111,8 @@ export default function Settings() {
     }
   }, [profile?.id]);
 
-  // Efeito para carregar os dados se o perfil já foi verificado ou rascunhados
+  // ─── KYC load effect ─────────────────────────────────────────────────────
   useEffect(() => {
-    // 1. Se o usuário já passou do KYC na prova ZK
     if (profile?.kyc_verified) {
       setKycStatus('verified');
       setName(profile.full_name || '');
@@ -127,15 +120,12 @@ export default function Settings() {
       setPhone(profile.whatsapp || '');
       setBirthDate(profile.birth_date || '');
       setAddress(profile.address || '');
-      // Mock de verificações aprovadas
       setEmailStatus('verified');
       setPhoneStatus('verified');
       setDocumentUploaded(true);
-      // Limpa qualquer rascunho salvo
+      setSelfieCaptured(true);
       localStorage.removeItem('walletnow_kyc_draft');
     } else {
-      // 2. O usuário AINDA não tem KYC preenchido.
-      // Restaurar do LocalStorage se houver rascunho
       const savedDraft = localStorage.getItem('walletnow_kyc_draft');
       if (savedDraft) {
         try {
@@ -146,90 +136,45 @@ export default function Settings() {
           if (parsed.address) setAddress(parsed.address);
           if (parsed.email) setEmail(parsed.email);
           if (parsed.phone) setPhone(parsed.phone);
-        } catch (e) {
-          console.error('Erro ao ler draft do localStorage', e);
-        }
+        } catch (e) { console.error('Erro ao ler draft', e); }
       }
-
-      // Vamos verificar se ele já tem o e-mail validado pelo OAuth (Google Login) ou pelo próprio Supabase
       const checkEmailProvider = async () => {
-        const { data: { user } } = await supabase.auth.getUser(); // Força update da rede
-        if (user) {
-          if (user.email_confirmed_at) {
-            setEmailStatus('verified');
-          }
-        }
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user?.email_confirmed_at) setEmailStatus('verified');
       };
-
       checkEmailProvider();
     }
   }, [profile]);
 
-  // Salva no LocalStorage enquanto digita para não perder contexto na troca de abas
+  // Draft auto-save
   useEffect(() => {
     if (kycStatus !== 'verified') {
-      const draft = { name, cpf, birthDate, address, email, phone };
-      localStorage.setItem('walletnow_kyc_draft', JSON.stringify(draft));
+      localStorage.setItem('walletnow_kyc_draft', JSON.stringify({ name, cpf, birthDate, address, email, phone }));
     }
   }, [name, cpf, birthDate, address, email, phone, kycStatus]);
 
-  // Efeito de Polling: Se o usuário abrir o Magic Link em outra aba ou no celular,
-  // verificamos constantemente na API se a confirmação ocorreu lá forçando o getUser()
+  // Email polling
   useEffect(() => {
     let intervalId: NodeJS.Timeout;
-
     if (emailStatus === 'sending') {
       intervalId = setInterval(async () => {
         try {
           const { data: { user }, error } = await supabase.auth.getUser();
-          if (!error && user?.email_confirmed_at) {
-            setEmailStatus('verified');
-            clearInterval(intervalId);
-          }
-        } catch (e) {
-          console.error("Poling de Email Falhou Silenciosamente", e);
-        }
-      }, 3000); // Bate na porta de 3 em 3 segundos
+          if (!error && user?.email_confirmed_at) { setEmailStatus('verified'); clearInterval(intervalId); }
+        } catch (e) { console.error('Poling de Email falhou', e); }
+      }, 3000);
     }
-
-    // [OTIMIZAÇÃO] Evitando Memory Leak: O React limpa o intervalo caso o usuário troque de página
-    // enquanto o e-mail estava processando (Unmount).
-    return () => {
-      if (intervalId) clearInterval(intervalId);
-    };
+    return () => { if (intervalId) clearInterval(intervalId); };
   }, [emailStatus]);
 
-  // Efeito para escutar o retorno mágico do Supabase caso seja na MESMA aba
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'SIGNED_IN' && emailStatus === 'sending') {
-        setEmailStatus('verified');
-      }
+      if (event === 'SIGNED_IN' && emailStatus === 'sending') setEmailStatus('verified');
     });
-
-    return () => {
-      subscription.unsubscribe();
-    };
+    return () => { subscription.unsubscribe(); };
   }, [emailStatus]);
 
-  // Lógica simples de validação visual (Retorna true se o campo estiver preenchido corretamente)
-  const isNameValid = name.length > 5;
-  const isCpfValid = cpf.length >= 14; // Formato 000.000.000-00
-  const isBirthDateValid = birthDate.length === 10; // Formato DD/MM/YYYY
-  const isAddressValid = address.length > 10;
-  const isEmailValid = email.includes('@') && email.includes('.');
-  const isPhoneValid = phone.length >= 11;
-
-  // O botão de verificar a identidade (ZK-STARK) só é habilitado se TODOS os campos,
-  // verificações (email/whatsapp) e documentos estiverem válidos.
-  const canSubmit = isNameValid && isCpfValid && isBirthDateValid && isAddressValid &&
-    documentUploaded &&
-    emailStatus === 'verified' && phoneStatus === 'verified';
-
-  /**
-   * Utilitário Criptográfico [Real-World]: Comprime imagens capturadas do celular para Base64 leve, 
-   * evitando que a UI jogue imagens de 5MB+ que estouram a Memória/Rate Limit da API GEMINI e Cloud.
-   */
+  // ─── Image utils ─────────────────────────────────────────────────────────
   const compressImage = async (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -237,38 +182,14 @@ export default function Settings() {
         const img = new Image();
         img.onload = () => {
           const canvas = document.createElement('canvas');
-          let width = img.width;
-          let height = img.height;
-
-          // Limitando a resolução da Imagem Documental/Selfie a no máximo HD (1280px)
-          const MAX_WIDTH = 1280;
-          const MAX_HEIGHT = 1280;
-
-          if (width > height) {
-            if (width > MAX_WIDTH) {
-              height *= MAX_WIDTH / width;
-              width = MAX_WIDTH;
-            }
-          } else {
-            if (height > MAX_HEIGHT) {
-              width *= MAX_HEIGHT / height;
-              height = MAX_HEIGHT;
-            }
-          }
-
-          canvas.width = width;
-          canvas.height = height;
-
+          let width = img.width, height = img.height;
+          const MAX = 1280;
+          if (width > height) { if (width > MAX) { height *= MAX / width; width = MAX; } }
+          else { if (height > MAX) { width *= MAX / height; height = MAX; } }
+          canvas.width = width; canvas.height = height;
           const ctx = canvas.getContext('2d');
-          if (!ctx) {
-            resolve(event.target?.result as string);
-            return;
-          }
-
+          if (!ctx) { resolve(event.target?.result as string); return; }
           ctx.drawImage(img, 0, 0, width, height);
-
-          // Comprime para JPEG com 70% de qualidade visual 
-          // (Mantém o Liveness nítido para IA mas destrói o tamanho de arquivo)
           resolve(canvas.toDataURL('image/jpeg', 0.7));
         };
         img.onerror = reject;
@@ -283,129 +204,104 @@ export default function Settings() {
     const file = e.target.files?.[0];
     if (file) {
       try {
-        const compressedBase64 = await compressImage(file);
-        // ... (rest of logic)
+        const compressed = await compressImage(file);
+        setDocumentBase64(compressed);
         setDocumentUploaded(true);
-      } catch (err) {
-        console.error('Erro ao comprimir imagem de KYC', err);
-      }
+      } catch (err) { console.error('Erro ao comprimir doc', err); }
     }
   };
 
-  /**
-   * Dispara o envio do OTP via Supabase Auth magic-link e-mail (MOCK)
-   */
+  const handleSelfieChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      try {
+        const compressed = await compressImage(file);
+        setSelfieBase64(compressed);
+        setSelfieCaptured(true);
+      } catch (err) { console.error('Erro ao comprimir selfie', err); }
+    }
+  };
+
+  // ─── KYC handlers ────────────────────────────────────────────────────────
   const handleVerifyEmail = async () => {
     if (!isEmailValid) return;
     setEmailStatus('sending');
-    
-    // MOCK: Para evitar o Rate Limit do Supabase Free (Máximo de 2 emails por hora/dia)
     setTimeout(async () => {
       try {
-        if (profile?.id) {
-          // Salva o email direto no banco como se o usuário tivesse clicado no Magic Link
-          await supabase.from('profiles').update({ email: email }).eq('id', profile.id);
-        }
+        if (profile?.id) await supabase.from('profiles').update({ email }).eq('id', profile.id);
         setEmailStatus('verified');
-        alert('MODO MOCK ATIVADO: E-mail verificado instantaneamente para contornar o limite restrito do Supabase Free Tier.');
-      } catch (err: any) {
-        console.error('Erro no Mock de Email:', err);
-        setEmailStatus('idle');
-      }
+        alert('MODO MOCK: E-mail verificado instantaneamente.');
+      } catch (err: any) { setEmailStatus('idle'); }
     }, 1500);
   };
 
-  /**
-   * Envio de código de verificação para o WhatsApp (MOCK para pular bloqueio Twilio Free)
-   */
   const handleVerifyPhone = async () => {
     if (!isPhoneValid) return;
     setPhoneStatus('sending');
-
-    // MOCK: Simular o carregamento e mostrar um OTP de teste em vez de bater na API restrita
     setTimeout(() => {
       setPhoneStatus('idle');
       setShowPhoneOtp(true);
-      alert('MODO MOCK ATIVADO: Como o Twilio Trial bloqueia números não verificados, use o código "123456" para aprovar este WhatsApp.');
+      alert('MODO MOCK: Use o código "123456" para aprovar o WhatsApp.');
     }, 1500);
   };
 
   const handleConfirmPhoneOtp = async () => {
     if (phoneOtp.length < 6) return;
-
-    // MOCK: Validar o código fake "123456"
-    if (phoneOtp !== '123456') {
-      alert('Token OTP de WhatsApp Inválido. No Modo Mock, use "123456".');
-      return;
-    }
-
+    if (phoneOtp !== '123456') { alert('Token OTP inválido. Use "123456".'); return; }
     try {
-      // O OTP (Mock) validou. Precisamos garantir que este número seja
-      // salvo no Perfil do Banco de Dados imediatamente, para não sumir no F5
-      // antes do usuário enviar o formulário ZK completo.
-      if (profile?.id) {
-        await supabase.from('profiles').update({ whatsapp: phone.replace(/\D/g, '') }).eq('id', profile.id);
-      }
-
+      if (profile?.id) await supabase.from('profiles').update({ whatsapp: phone.replace(/\D/g, '') }).eq('id', profile.id);
       setPhoneStatus('verified');
       setShowPhoneOtp(false);
-    } catch (err: any) {
-      console.error(err);
-      alert('Erro Crítico ao atualizar o perfil com o WhatsApp simulado.');
-    }
+    } catch (err: any) { console.error(err); }
   };
 
-  /**
-   * Função que Processa a auditoria e Criptografa na Blockchain (ZK-STARK)
-   */
   const handleVerify = async () => {
     if (!canSubmit || !profile) return;
-
     setKycError(null);
     setKycStatus('processing');
-
     try {
-      // ... (Implementation detail)
+      const { isApproved, errorDetails } = await IdentityService.validateDocumentWithAI(
+        documentBase64, selfieBase64, cpf, name, birthDate
+      );
+      if (!isApproved) { setKycError(errorDetails); throw new Error('IA reprovou validação.'); }
+      await StorageService.uploadKycDocument(profile.id, documentBase64, selfieBase64);
       setKycStatus('verified');
     } catch (err: any) {
-      console.error('❌ Falha na Camada de KYC ZK-STARK:', err.message);
-      setKycStatus('pending'); // Rebote para o usuário conseguir tentar novamente
+      console.error('Falha KYC:', err.message);
+      setKycStatus('pending');
     }
   };
 
-  /**
-   * Função utilitária APENAS PARA DESENVOLVIMENTO para limpar os testes da Blockchain
-   */
   const handleResetKyc = async () => {
     if (!profile) return;
-    const confirmReset = window.confirm("Isso irá apagar sua assinatura KYC e Proof Hash do banco de dados permitindo você testar o fluxo ZK/OCR novamente. Confirma?");
-    if (!confirmReset) return;
+    if (!window.confirm('Isso apagará sua assinatura KYC. Confirma?')) return;
     setKycStatus('processing');
     try {
-      await supabase
-        .from('profiles')
-        .update({
-          kyc_verified: false,
-          kyczk_hash: null
-        })
-        .eq('id', profile.id);
-
+      await supabase.from('profiles').update({ kyc_verified: false, kyczk_hash: null }).eq('id', profile.id);
       setKycStatus('pending');
       setKycError(null);
       setEmailStatus('idle');
       setPhoneStatus('idle');
       setDocumentUploaded(false);
-      alert('Selo revogado! Você pode reiniciar a simulação preenchendo o fluxo novamente.');
+      setSelfieCaptured(false);
+      alert('Selo revogado! Pode reiniciar o fluxo.');
     } catch (err: any) {
-      console.error('Erro ao resetar ambiente de teste KYC:', err);
       setKycStatus(profile.kyc_verified ? 'verified' : 'pending');
+    }
+  };
+
+  const getAccountIcon = (type: string) => {
+    switch (type) {
+      case 'legacy': return <Globe className="w-4 h-4 text-blue-400" />;
+      case 'imported': return <KeyRound className="w-4 h-4 text-purple-400" />;
+      case 'generated': return <ShieldCheck className="w-4 h-4 text-[#00E676]" />;
+      default: return <Wallet className="w-4 h-4 text-gray-400" />;
     }
   };
 
   return (
     <div className="min-h-screen flex flex-col bg-[#0A0A0A] animate-in slide-in-from-right-8 duration-300">
 
-      {/* Cabeçalho com botão de Voltar */}
       <header className="px-6 pt-8 pb-6 flex items-center gap-4 border-b border-white/5">
         <button
           onClick={() => navigate('/dashboard')}
@@ -418,7 +314,9 @@ export default function Settings() {
 
       <div className="flex-1 p-6 space-y-8 pb-24">
 
-        {/* Seção 1: Identidade (KYC) */}
+        {/* ══════════════════════════════════════════════════════════════════ */}
+        {/* BOX 1 — IDENTIDADE (KYC)                                         */}
+        {/* ══════════════════════════════════════════════════════════════════ */}
         <section>
           <div className="flex items-start justify-between mb-4">
             <h2 className="text-sm text-gray-400 font-medium uppercase tracking-wider mt-1">Identidade (KYC)</h2>
@@ -428,17 +326,15 @@ export default function Settings() {
                 disabled={kycStatus === 'processing'}
                 className="text-[10px] text-red-500 hover:text-red-400 bg-red-500/10 hover:bg-red-500/20 px-2 py-1.5 rounded border border-red-500/20 transition-colors uppercase font-bold tracking-wider disabled:opacity-50"
               >
-                Resetar Dados (Teste) ↻
+                Resetar (Teste) ↻
               </button>
               {kycStatus === 'verified' ? (
                 <span className="flex items-center gap-1 text-xs font-medium text-[#00E676] bg-[#00E676]/10 px-2.5 py-1 rounded-full border border-[#00E676]/20">
-                  <ShieldCheck className="w-3.5 h-3.5" />
-                  Verificado (ZK)
+                  <ShieldCheck className="w-3.5 h-3.5" />Verificado (ZK)
                 </span>
               ) : (
                 <span className="flex items-center gap-1 text-xs font-medium text-[#F27D26] bg-[#F27D26]/10 px-2.5 py-1 rounded-full border border-[#F27D26]/20">
-                  <ShieldAlert className="w-3.5 h-3.5" />
-                  Pendente
+                  <ShieldAlert className="w-3.5 h-3.5" />Pendente
                 </span>
               )}
             </div>
@@ -455,14 +351,203 @@ export default function Settings() {
               </div>
             )}
 
-            <div className="space-y-5 mb-8">
-              {/* Fields ... */}
+            <div className="space-y-5 mb-6">
+
+              {/* E-mail */}
+              <div>
+                <label className="text-xs text-gray-500 mb-1 block">E-mail</label>
+                <div className="flex items-center gap-3">
+                  <div className="flex-1 flex items-center border-b border-white/10 focus-within:border-[#00E676] transition-colors pb-2">
+                    <Mail className="w-4 h-4 text-gray-500 mr-2 flex-shrink-0" />
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      disabled={emailStatus === 'verified' || kycStatus !== 'pending'}
+                      placeholder="seu@email.com"
+                      className="w-full bg-transparent text-white outline-none disabled:opacity-50 text-sm"
+                    />
+                    {emailStatus === 'verified' && <CheckCircle2 className="w-4 h-4 text-[#00E676] ml-2 flex-shrink-0" />}
+                  </div>
+                  {emailStatus !== 'verified' && kycStatus === 'pending' && (
+                    <button
+                      onClick={handleVerifyEmail}
+                      disabled={!isEmailValid || emailStatus === 'sending'}
+                      className="text-xs bg-[#00E676]/10 text-[#00E676] px-3 py-2 rounded-lg border border-[#00E676]/20 hover:bg-[#00E676]/20 transition-colors disabled:opacity-50 whitespace-nowrap"
+                    >
+                      {emailStatus === 'sending' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Verificar'}
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* WhatsApp */}
+              <div>
+                <label className="text-xs text-gray-500 mb-1 block">WhatsApp</label>
+                <div className="flex items-center gap-3">
+                  <div className="flex-1 flex items-center border-b border-white/10 focus-within:border-[#00E676] transition-colors pb-2">
+                    <MessageCircle className="w-4 h-4 text-gray-500 mr-2 flex-shrink-0" />
+                    <input
+                      type="tel"
+                      value={phone}
+                      onChange={(e) => {
+                        let val = e.target.value.replace(/\D/g, '');
+                        if (val.length > 11) val = val.slice(0, 11);
+                        setPhone(val);
+                      }}
+                      disabled={phoneStatus === 'verified' || kycStatus !== 'pending'}
+                      placeholder="DDD + número (11 dígitos)"
+                      className="w-full bg-transparent text-white outline-none disabled:opacity-50 text-sm"
+                    />
+                    {phoneStatus === 'verified' && <CheckCircle2 className="w-4 h-4 text-[#00E676] ml-2 flex-shrink-0" />}
+                  </div>
+                  {phoneStatus !== 'verified' && kycStatus === 'pending' && (
+                    <button
+                      onClick={handleVerifyPhone}
+                      disabled={!isPhoneValid || phoneStatus === 'sending'}
+                      className="text-xs bg-[#00E676]/10 text-[#00E676] px-3 py-2 rounded-lg border border-[#00E676]/20 hover:bg-[#00E676]/20 transition-colors disabled:opacity-50 whitespace-nowrap"
+                    >
+                      {phoneStatus === 'sending' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Verificar'}
+                    </button>
+                  )}
+                </div>
+                {showPhoneOtp && (
+                  <div className="mt-3 flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={phoneOtp}
+                      onChange={(e) => setPhoneOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                      placeholder="Código OTP (6 dígitos)"
+                      className="flex-1 bg-black/30 border border-white/10 text-white rounded-lg px-3 py-2 text-sm outline-none focus:border-[#00E676]"
+                    />
+                    <button
+                      onClick={handleConfirmPhoneOtp}
+                      disabled={phoneOtp.length < 6}
+                      className="bg-[#00E676] hover:bg-[#00E676]/90 text-black px-4 py-2 rounded-lg text-sm font-bold transition-colors disabled:opacity-50"
+                    >
+                      Confirmar
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Nome */}
+              <div className="relative">
+                <label className="text-xs text-gray-500 mb-1 block">Nome Completo</label>
+                <div className="flex items-center border-b border-white/10 focus-within:border-[#00E676] transition-colors pb-2">
+                  <input
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    disabled={kycStatus !== 'pending'}
+                    className="w-full bg-transparent text-white outline-none disabled:opacity-50 text-sm"
+                    placeholder="Seu nome completo"
+                  />
+                  {isNameValid && (kycStatus === 'verified' ? (
+                    <CheckCircle2 className="w-4 h-4 text-[#00E676] ml-2 flex-shrink-0" />
+                  ) : (
+                    <Clock className="w-4 h-4 text-[#F27D26] ml-2 flex-shrink-0" />
+                  ))}
+                </div>
+              </div>
+
+              {/* CPF */}
+              <div className="relative">
+                <label className="text-xs text-gray-500 mb-1 block">CPF</label>
+                <div className="flex items-center border-b border-white/10 focus-within:border-[#00E676] transition-colors pb-2">
+                  <input
+                    type="text"
+                    value={cpf}
+                    onChange={(e) => {
+                      let val = e.target.value.replace(/\D/g, '');
+                      if (val.length > 11) val = val.slice(0, 11);
+                      if (val.length > 9) val = val.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
+                      else if (val.length > 6) val = val.replace(/(\d{3})(\d{3})(\d{1,3})/, "$1.$2.$3");
+                      else if (val.length > 3) val = val.replace(/(\d{3})(\d{1,3})/, "$1.$2");
+                      setCpf(val);
+                    }}
+                    disabled={kycStatus !== 'pending'}
+                    placeholder="000.000.000-00"
+                    className="w-full bg-transparent text-white outline-none disabled:opacity-50 text-sm"
+                  />
+                  {isCpfValid && (kycStatus === 'verified' ? (
+                    <CheckCircle2 className="w-4 h-4 text-[#00E676] ml-2 flex-shrink-0" />
+                  ) : (
+                    <Clock className="w-4 h-4 text-[#F27D26] ml-2 flex-shrink-0" />
+                  ))}
+                </div>
+              </div>
+
+              {/* Data de Nascimento */}
+              <div className="relative">
+                <label className="text-xs text-gray-500 mb-1 block">Data de Nascimento</label>
+                <div className="flex items-center border-b border-white/10 focus-within:border-[#00E676] transition-colors pb-2">
+                  <input
+                    type="text"
+                    value={birthDate}
+                    onChange={(e) => {
+                      let val = e.target.value.replace(/\D/g, '');
+                      if (val.length > 8) val = val.slice(0, 8);
+                      if (val.length > 4) val = val.replace(/(\d{2})(\d{2})(\d{1,4})/, "$1/$2/$3");
+                      else if (val.length > 2) val = val.replace(/(\d{2})(\d{1,2})/, "$1/$2");
+                      setBirthDate(val);
+                    }}
+                    disabled={kycStatus !== 'pending'}
+                    placeholder="DD/MM/AAAA"
+                    className="w-full bg-transparent text-white outline-none disabled:opacity-50 text-sm"
+                  />
+                  {isBirthDateValid && (kycStatus === 'verified' ? (
+                    <CheckCircle2 className="w-4 h-4 text-[#00E676] ml-2 flex-shrink-0" />
+                  ) : (
+                    <Clock className="w-4 h-4 text-[#F27D26] ml-2 flex-shrink-0" />
+                  ))}
+                </div>
+              </div>
+
+              {/* Endereço */}
+              <div className="relative">
+                <label className="text-xs text-gray-500 mb-1 block">Endereço Residencial Completo</label>
+                <div className="flex items-center border-b border-white/10 focus-within:border-[#00E676] transition-colors pb-2">
+                  <input
+                    type="text"
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                    disabled={kycStatus !== 'pending'}
+                    placeholder="Rua, Número, Bairro, Cidade - UF"
+                    className="w-full bg-transparent text-white outline-none disabled:opacity-50 text-sm"
+                  />
+                  {isAddressValid && (kycStatus === 'verified' ? (
+                    <CheckCircle2 className="w-4 h-4 text-[#00E676] ml-2 flex-shrink-0" />
+                  ) : (
+                    <Clock className="w-4 h-4 text-[#F27D26] ml-2 flex-shrink-0" />
+                  ))}
+                </div>
+              </div>
             </div>
 
-            {/* ERROR BOX */}
+            {/* Documentação */}
+            <div className="mb-6">
+              <label className="text-xs text-gray-500 mb-3 block">Documentação Necessária</label>
+              <div className="grid grid-cols-2 gap-4">
+                <label className={`flex flex-col items-center justify-center p-4 rounded-xl border-2 border-dashed transition-all duration-300 ${kycStatus !== 'pending' ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'} ${documentUploaded ? (kycStatus === 'verified' ? 'border-[#00E676] bg-[#00E676]/5 text-[#00E676]' : 'border-[#F27D26] bg-[#F27D26]/5 text-[#F27D26]') : 'border-white/10 hover:border-white/20 text-gray-400 hover:text-white bg-black/20'}`}>
+                  <input type="file" accept="image/*" capture="environment" className="hidden" onChange={handleDocumentChange} disabled={kycStatus !== 'pending'} />
+                  {documentUploaded ? (kycStatus === 'verified' ? <CheckCircle2 className="w-6 h-6 mb-2" /> : <Clock className="w-6 h-6 mb-2" />) : <UploadCloud className="w-6 h-6 mb-2" />}
+                  <span className="text-xs font-medium text-center">RG, CNH ou Passaporte</span>
+                </label>
+                <label className={`flex flex-col items-center justify-center p-4 rounded-xl border-2 border-dashed transition-all duration-300 ${kycStatus !== 'pending' ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'} ${selfieCaptured ? (kycStatus === 'verified' ? 'border-[#00E676] bg-[#00E676]/5 text-[#00E676]' : 'border-[#F27D26] bg-[#F27D26]/5 text-[#F27D26]') : 'border-white/10 hover:border-white/20 text-gray-400 hover:text-white bg-black/20'}`}>
+                  <input type="file" accept="image/*" capture="user" className="hidden" onChange={handleSelfieChange} disabled={kycStatus !== 'pending'} />
+                  {selfieCaptured ? (kycStatus === 'verified' ? <CheckCircle2 className="w-6 h-6 mb-2" /> : <Clock className="w-6 h-6 mb-2" />) : <Camera className="w-6 h-6 mb-2" />}
+                  <span className="text-xs font-medium text-center">Capturar Selfie (Liveness)</span>
+                </label>
+              </div>
+            </div>
+
             {kycError && kycError.length > 0 && (
-              <div className="mb-6 p-4 bg-[#161616] border border-white/5 shadow-inner rounded-xl">
-                 <p>A Inteligência Artificial encontrou divergências.</p>
+              <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl">
+                <p className="text-sm text-red-400 font-medium mb-2">A IA encontrou divergências:</p>
+                <ul className="text-xs text-red-300 space-y-1 list-disc list-inside">
+                  {kycError.map((e, i) => <li key={i}>{e}</li>)}
+                </ul>
               </div>
             )}
 
@@ -472,56 +557,107 @@ export default function Settings() {
                 disabled={!canSubmit || kycStatus === 'processing'}
                 className="w-full flex items-center justify-center gap-2 bg-[#00E676] hover:bg-[#00E676]/90 text-black py-4 rounded-xl font-bold transition-all duration-300 disabled:opacity-50"
               >
-                {kycStatus === 'processing' ? 'Gerando prova criptográfica ZK-STARK...' : 'Verificar Identidade'}
+                {kycStatus === 'processing' ? (
+                  <><Loader2 className="w-5 h-5 animate-spin" /> Gerando prova criptográfica ZK-STARK...</>
+                ) : 'Verificar Identidade'}
               </button>
             )}
           </div>
         </section>
 
+        {/* ══════════════════════════════════════════════════════════════════ */}
+        {/* BOX 2 — AUTOCUSTÓDIA WEB3 / BIP39                                */}
+        {/* ══════════════════════════════════════════════════════════════════ */}
         <section>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm text-gray-400 font-medium uppercase tracking-wider flex items-center gap-2">
-              Carteira Web3 <span className="text-[10px] bg-[#00E676]/20 text-[#00E676] px-2 py-0.5 rounded uppercase font-bold tracking-widest border border-[#00E676]/30">Pro Mode</span>
+              Autocustódia Web3 <span className="text-[10px] bg-purple-500/20 text-purple-400 px-2 py-0.5 rounded uppercase font-bold tracking-widest border border-purple-500/30">BIP39</span>
             </h2>
           </div>
 
           <div className="bg-[#161616] rounded-[24px] p-6 border border-white/5 shadow-lg space-y-6">
-            {/* Balanços ... */}
-            <div className="flex items-center justify-between bg-black/30 border border-white/5 p-4 rounded-xl border-l-[#00E676]/30 border-l-2">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full border border-[#00E676]/20 bg-[#00E676]/5 flex items-center justify-center">
-                  <span className="text-xs font-bold text-[#00E676]">BRW</span>
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-white">WalletNow Real</p>
-                  <p className="text-[10px] text-gray-500">Operational Asset (Native)</p>
-                </div>
-              </div>
-              <div className="text-right">
-                <p className="text-sm font-bold text-white">{isLoadingBalance ? '...' : parseFloat(brwBalance).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-                <p className="text-[10px] text-[#00E676]">WalletNow (Issuer)</p>
+
+            {/* Lista de contas */}
+            <div>
+              <label className="text-xs text-gray-500 mb-3 block">Suas Carteiras ({accounts.length})</label>
+              <div className="space-y-2">
+                {walletLoading ? (
+                  <div className="flex items-center justify-center py-4">
+                    <Loader2 className="w-5 h-5 text-gray-500 animate-spin" />
+                  </div>
+                ) : accounts.map((account) => (
+                  <button
+                    key={account.id}
+                    onClick={() => switchAccount(account.id)}
+                    className={`w-full flex items-center justify-between p-3 rounded-xl transition-colors border ${
+                      activeAccount?.id === account.id
+                        ? 'bg-[#00E676]/10 border-[#00E676]/20'
+                        : 'bg-black/20 border-white/5 hover:bg-white/5'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center border border-white/10">
+                        {getAccountIcon(account.account_type)}
+                      </div>
+                      <div className="text-left">
+                        <p className={`text-sm font-medium ${activeAccount?.id === account.id ? 'text-[#00E676]' : 'text-white'}`}>
+                          {account.label}
+                        </p>
+                        <p className="text-[10px] text-gray-500 font-mono">
+                          {account.stellar_public_key.slice(0, 6)}...{account.stellar_public_key.slice(-4)}
+                          <span className="ml-2 text-gray-600 uppercase">{account.account_type}</span>
+                        </p>
+                      </div>
+                    </div>
+                    {activeAccount?.id === account.id && <Check className="w-4 h-4 text-[#00E676]" />}
+                  </button>
+                ))}
               </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-4">
-              <button 
-                onClick={() => setIsImportModalOpen(true)}
-                className="w-full flex items-center justify-between p-4 bg-[#111] hover:bg-[#1a1a1a] rounded-xl border border-white/5 transition-all group"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-blue-500/10 flex items-center justify-center border border-blue-500/20 group-hover:bg-blue-500/20">
-                    <ExternalLink className="w-4 h-4 text-blue-400" />
-                  </div>
-                  <div className="text-left">
-                    <p className="text-sm font-medium text-white">Importar Carteira Existente</p>
-                    <p className="text-[10px] text-gray-500">Adicione contas usando Seed Phrase ou Secret Key</p>
-                  </div>
-                </div>
-                <ArrowRight className="w-4 h-4 text-gray-600 group-hover:text-blue-400 transition-colors" />
-              </button>
+            {/* Ações de Autocustódia */}
+            <div>
+              <label className="text-xs text-gray-500 mb-3 block">Ações de Autocustódia</label>
+              <div className="grid grid-cols-1 gap-3">
 
-              {activeAccount?.account_type === 'imported' ? (
-                <button 
+                {/* Importar Carteira */}
+                <button
+                  onClick={() => setIsImportModalOpen(true)}
+                  className="w-full flex items-center justify-between p-4 bg-[#111] hover:bg-[#1a1a1a] rounded-xl border border-white/5 transition-all group"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-blue-500/10 flex items-center justify-center border border-blue-500/20 group-hover:bg-blue-500/20">
+                      <ExternalLink className="w-4 h-4 text-blue-400" />
+                    </div>
+                    <div className="text-left">
+                      <p className="text-sm font-medium text-white">Importar Carteira Existente</p>
+                      <p className="text-[10px] text-gray-500">Seed Phrase ou Secret Key</p>
+                    </div>
+                  </div>
+                  <ArrowRight className="w-4 h-4 text-gray-600 group-hover:text-blue-400 transition-colors" />
+                </button>
+
+                {/* Revelar Frase de Recuperação — para contas geradas/legadas */}
+                {(activeAccount?.account_type === 'generated' || activeAccount?.account_type === 'legacy') && (
+                  <button
+                    onClick={() => setIsSeedModalOpen(true)}
+                    className="w-full flex items-center justify-between p-4 bg-[#111] hover:bg-[#1a1a1a] rounded-xl border border-white/5 transition-all group"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-purple-500/10 flex items-center justify-center border border-purple-500/20 group-hover:bg-purple-500/20">
+                        <Eye className="w-4 h-4 text-purple-400" />
+                      </div>
+                      <div className="text-left">
+                        <p className="text-sm font-medium text-white">Revelar Frase de Recuperação</p>
+                        <p className="text-[10px] text-gray-500">Seed Phrase de 12 palavras (BIP39)</p>
+                      </div>
+                    </div>
+                    <ArrowRight className="w-4 h-4 text-gray-600 group-hover:text-purple-400 transition-colors" />
+                  </button>
+                )}
+
+                {/* Exportar Secret Key Stellar — disponível para todos os tipos */}
+                <button
                   onClick={() => setIsExportSecretModalOpen(true)}
                   className="w-full flex items-center justify-between p-4 bg-[#111] hover:bg-[#1a1a1a] rounded-xl border border-white/5 transition-all group"
                 >
@@ -530,57 +666,176 @@ export default function Settings() {
                       <KeyRound className="w-4 h-4 text-red-400" />
                     </div>
                     <div className="text-left">
-                      <p className="text-sm font-medium text-white">Exportar Chave Secreta</p>
-                      <p className="text-[10px] text-red-500">Danger Zone: Visualize sua Secret Key (S...)</p>
+                      <p className="text-sm font-medium text-white">Exportar Secret Key Stellar</p>
+                      <p className="text-[10px] text-red-500/80">Danger Zone — chave criptográfica bruta (S...)</p>
                     </div>
                   </div>
                   <ArrowRight className="w-4 h-4 text-gray-600 group-hover:text-red-400 transition-colors" />
                 </button>
-              ) : (
-                <button 
-                  onClick={() => setIsSeedModalOpen(true)}
-                  className="w-full flex items-center justify-between p-4 bg-[#111] hover:bg-[#1a1a1a] rounded-xl border border-white/5 transition-all group"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-purple-500/10 flex items-center justify-center border border-purple-500/20 group-hover:bg-purple-500/20">
-                      <Eye className="w-4 h-4 text-purple-400" />
-                    </div>
-                    <div className="text-left">
-                      <p className="text-sm font-medium text-white">Revelar Frase de Recuperação</p>
-                      <p className="text-[10px] text-gray-500">Acesse sua Seed Phrase de 12 palavras (BIP39)</p>
-                    </div>
-                  </div>
-                  <ArrowRight className="w-4 h-4 text-gray-600 group-hover:text-purple-400 transition-colors" />
-                </button>
-              )}
-            </div>
 
-            {parseFloat(usdcBalance) > 0 && (
-              <div className="flex items-center justify-between bg-black/30 border border-white/5 p-4 rounded-xl">
-                 {/* ... */}
               </div>
-            )}
+            </div>
           </div>
         </section>
 
+        {/* ══════════════════════════════════════════════════════════════════ */}
+        {/* BOX 3 — CARTEIRA WEB3 PRO MODE                                   */}
+        {/* ══════════════════════════════════════════════════════════════════ */}
+        <section>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm text-gray-400 font-medium uppercase tracking-wider flex items-center gap-2">
+              Carteira Web3 <span className="text-[10px] bg-[#00E676]/20 text-[#00E676] px-2 py-0.5 rounded uppercase font-bold tracking-widest border border-[#00E676]/30">Pro Mode</span>
+            </h2>
+          </div>
+
+          <div className="bg-[#161616] rounded-[24px] p-6 border border-white/5 shadow-lg space-y-4">
+
+            {/* 1. XLM — Ativo Nativo Principal */}
+            <div className="flex items-center justify-between bg-black/30 border border-white/5 p-4 rounded-xl border-l-[#00E676]/50 border-l-2">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full border border-[#00E676]/20 bg-[#00E676]/5 flex items-center justify-center">
+                  <Coins className="w-5 h-5 text-[#00E676]" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-white">Lúmens (XLM)</p>
+                  <p className="text-[10px] text-gray-500">Ativo Nativo da Rede Stellar</p>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="text-sm font-bold text-white">{isLoadingBalance ? '...' : parseFloat(xlmBalance).toFixed(4)} <span className="text-xs text-gray-500">XLM</span></p>
+                {(xlmBrlPrice > 0 && !isLoadingBalance) && (
+                  <p className="text-[10px] text-gray-500">~ R$ {(parseFloat(xlmBalance) * xlmBrlPrice).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                )}
+              </div>
+            </div>
+
+            {/* 2. USDC — Stablecoin Principal */}
+            <div className="flex items-center justify-between bg-black/30 border border-white/5 p-4 rounded-xl border-l-blue-400/50 border-l-2">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full border border-blue-500/20 bg-blue-500/5 flex items-center justify-center">
+                  <span className="text-xs font-bold text-blue-400">USDC</span>
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-white">USD Coin</p>
+                  <p className="text-[10px] text-gray-500">Stablecoin Principal (Circle)</p>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="text-sm font-bold text-white">{isLoadingBalance ? '...' : parseFloat(usdcBalance).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}</p>
+                <p className="text-[10px] text-gray-500">Circle (Issuer)</p>
+              </div>
+            </div>
+
+            {/* 3. EURC — Euro Stablecoin (condicional) */}
+            {parseFloat(eurcBalance) > 0 && (
+              <div className="flex items-center justify-between bg-black/30 border border-white/5 p-4 rounded-xl animate-in fade-in duration-300">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full border border-indigo-500/20 bg-indigo-500/5 flex items-center justify-center">
+                    <span className="text-xs font-bold text-indigo-400">€RC</span>
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-white">Euro Coin</p>
+                    <p className="text-[10px] text-gray-500">Euro Stablecoin (Circle)</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-bold text-white">{isLoadingBalance ? '...' : parseFloat(eurcBalance).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}</p>
+                  <p className="text-[10px] text-gray-500">Circle (Issuer)</p>
+                </div>
+              </div>
+            )}
+
+            {/* 4. BRZ — Real Brasileiro (condicional) */}
+            {parseFloat(brzBalance) > 0 && (
+              <div className="flex items-center justify-between bg-black/30 border border-white/5 p-4 rounded-xl animate-in fade-in duration-300">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full border border-green-500/20 bg-green-500/5 flex items-center justify-center">
+                    <span className="text-xs font-bold text-green-400">BRZ</span>
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-white">Brazilian Real</p>
+                    <p className="text-[10px] text-gray-500">Real Digital (Transfero)</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-bold text-white">{isLoadingBalance ? '...' : parseFloat(brzBalance).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                  <p className="text-[10px] text-gray-500">Transfero (Issuer)</p>
+                </div>
+              </div>
+            )}
+
+            {/* 5. BRT — Tesouro Tokenizado RWA */}
+            <div className="flex items-center justify-between bg-black/30 border border-white/5 p-4 rounded-xl border-l-blue-500/30 border-l-2 animate-in fade-in duration-300">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full border border-blue-500/20 bg-blue-500/5 flex items-center justify-center">
+                  <span className="text-xs font-bold text-blue-500">BRT</span>
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-white">Tesouro Tokenizado</p>
+                  <p className="text-[10px] text-gray-500">RWA (Etherfuse Brazil)</p>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="text-sm font-bold text-white">{isLoadingBalance ? '...' : (parseFloat(tesouroBalance || '0') || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                <p className="text-[10px] text-blue-500">Etherfuse (Issuer)</p>
+              </div>
+            </div>
+
+            {/* 6. BRW — WalletNow Native (Secundário) */}
+            <div className="flex items-center justify-between bg-black/30 border border-white/5 p-4 rounded-xl opacity-80">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full border border-[#00E676]/15 bg-[#00E676]/5 flex items-center justify-center">
+                  <span className="text-xs font-bold text-[#00E676]/70">BRW</span>
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-white/80">WalletNow Real</p>
+                  <p className="text-[10px] text-gray-600">Token Interno (Testnet)</p>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="text-sm font-bold text-white/80">{isLoadingBalance ? '...' : parseFloat(brwBalance).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                <p className="text-[10px] text-gray-600">WalletNow (Issuer)</p>
+              </div>
+            </div>
+
+            {/* Ações Pro */}
+            <div className="pt-2">
+              <label className="text-xs text-gray-500 mb-3 block">Ações Cripto Descentralizadas</label>
+              <div className="grid grid-cols-3 gap-2">
+                <button onClick={() => setIsReceiveOpen(true)} className="flex flex-col items-center justify-center py-4 bg-white/5 hover:bg-white/10 rounded-xl transition-colors border border-white/5 text-gray-400 hover:text-white">
+                  <ArrowDownLeft className="w-5 h-5 mb-2" />
+                  <span className="text-[10px] font-medium uppercase">Receber</span>
+                </button>
+                <button onClick={() => setIsOnChainSendOpen(true)} className="flex flex-col items-center justify-center py-4 bg-white/5 hover:bg-white/10 rounded-xl transition-colors border border-white/5 text-gray-400 hover:text-white">
+                  <ArrowUpRight className="w-5 h-5 mb-2" />
+                  <span className="text-[10px] font-medium uppercase">Enviar</span>
+                </button>
+                <button onClick={() => setIsSwapOpen(true)} className="flex flex-col items-center justify-center py-4 bg-white/5 hover:bg-[#F27D26]/20 hover:border-[#F27D26]/30 rounded-xl transition-colors border border-white/10 text-[#F27D26]">
+                  <RefreshCw className="w-5 h-5 mb-2" />
+                  <span className="text-[10px] font-bold uppercase tracking-wider">Swap</span>
+                </button>
+              </div>
+              <p className="text-[10px] text-gray-600 mt-4 text-center">
+                Aviso: O Modo PRO permite interagir diretamente com Contratos e Ativos. A responsabilidade das transações é custodiada inteiramente na sua Biometria Pessoal.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        {/* Logout */}
         <button
-          onClick={async () => {
-            await supabase.auth.signOut();
-            navigate('/');
-          }}
+          onClick={async () => { await supabase.auth.signOut(); navigate('/'); }}
           className="w-full py-4 text-red-500 font-medium hover:bg-red-500/10 rounded-2xl transition-colors"
         >
           Sair da Conta
         </button>
       </div>
 
-      {/* Modais do Pro Mode */}
-      <ImportWalletModal 
+      {/* Modais */}
+      <ImportWalletModal
         isOpen={isImportModalOpen}
         onClose={() => setIsImportModalOpen(false)}
-        onSuccess={() => {
-          fetchProModeBalance();
-        }}
+        onSuccess={() => { fetchProModeBalance(); }}
       />
       <RevealSeedModal
         isOpen={isSeedModalOpen}
@@ -602,4 +857,3 @@ export default function Settings() {
     </div>
   );
 }
-

@@ -113,14 +113,18 @@ export const AppConfig = {
     issuerSecretKey: undefined,
   },
 
-  // ── AI / KYC ─────────────────────────────────────────────────────────────
+  // ── AI / KYC ─────────────────────────────────────────────────────
 
   ai: {
     /**
-     * @deprecated [SECURITY-HIGH] A Gemini API Key não deve ser exposta no bundle em produção.
-     * TODO [BLOCKER-MAINNET]: Mover chamadas Gemini para Edge Function `kyc-validator`.
+     * ✅ BLOCKER-02 RESOLVIDO: VITE_GEMINI_API_KEY removida do bundle.
+     * O KYC é processado pela Edge Function `kyc-validator` server-side.
+     * O frontend não tem acesso a nenhuma chave de API de KYC.
+     *
+     * @see supabase/functions/kyc-validator/index.ts
+     * @see src/services/kycValidatorService.ts
      */
-    geminiApiKey: import.meta.env.VITE_GEMINI_API_KEY as string | undefined,
+    geminiApiKey: undefined as undefined, // ✅ Removida do bundle
   },
 
   // ── Integrações Fiat ──────────────────────────────────────────────────────
@@ -192,13 +196,8 @@ export function validateAppConfig(): { valid: boolean; errors: string[] } {
 
   // Aviso crítico de segurança para produção
   if (AppConfig.isProduction) {
-    // O ISSUER_SECRET já foi migrado e não deve mais existir no env.
-    if (AppConfig.ai.geminiApiKey) {
-      errors.push(
-        '[SECURITY-HIGH] VITE_GEMINI_API_KEY está presente no bundle de PRODUÇÃO. ' +
-        'Mova as chamadas Gemini para uma Edge Function kyc-validator.'
-      );
-    }
+    // ✅ BLOCKER-02 RESOLVIDO: Gemini API Key removida do bundle com sucesso.
+    // Nenhuma verificação necessária para geminiApiKey.
     if (!AppConfig.stellar.isMainnet) {
       errors.push(
         '[CRITICAL] VITE_STELLAR_NETWORK não é "mainnet" em ambiente de produção.'

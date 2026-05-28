@@ -37,6 +37,9 @@ A arquitetura do WalletNow é dividida em serviços altamente desacoplados e *se
 3. **Web3 Layer (Stellar SDK v14)**: Camada de blockchain responsável pela abstração de contas e submissão de transações XDR (via chamadas RPC ou Horizon).
 4. **Fiat Gateway (Woovi/OpenPix)**: Orquestração de cobranças Pix via QR Code dinâmico e liquidação.
 5. **Edge Functions (Deno)**: Código serverless no Supabase que recebe os webhooks da Woovi, valida a assinatura HMAC-SHA256, assina as transações patrocinadoras da Stellar e coordena as mudanças de status da wallet.
+6. **Arquitetura Híbrida Multi-Conta (Pro Mode)**: Mecanismo avançado de coexistência local-first de carteiras de autocustódia (geradas/importadas) com suporte a contas legadas em banco de dados (`legacy-profile-account`).
+
+Para detalhes aprofundados sobre a transição de base de dados, segurança das Passkeys e gerenciamento de chaves locais em memória volátil, consulte a [Documentação de Arquitetura Híbrida Multi-Conta](file:///c:/Users/Usu%C3%A1rio/Documents/GitHub/walletnow_app/docs/HYBRID_MULTI_ACCOUNT_ARCHITECTURE.md).
 
 ---
 

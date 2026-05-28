@@ -173,6 +173,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             await supabase.auth.signOut();
         } finally {
             // Libera a tela (tira do Loading) somente após a wallet ter sido criada
+            console.log("[WalletNow][AuthContext] loadProfileAndWallet: finally block. Setting loading to false.");
             setLoading(false);
         }
     };
@@ -181,7 +182,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         /**
          * Passo 1: Buscar a sessão inicial caso o usuário já estivesse logado
          */
+        console.log('[WalletNow][AuthContext] useEffect: Iniciando verificação de sessão...');
         supabase.auth.getSession().then(({ data: { session }, error }) => {
+            console.log('[WalletNow][AuthContext] getSession returned:', { sessionExists: !!session, error });
             if (error) {
                 console.error('Erro ao buscar sessão:', error.message);
                 setLoading(false);
@@ -193,8 +196,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             // Carregaremos as carteiras se o token for valido
             if (session?.user) {
+                console.log('[WalletNow][AuthContext] User exists in session. Calling loadProfileAndWallet...');
                 loadProfileAndWallet(session.user.id);
             } else {
+                console.log('[WalletNow][AuthContext] No user in session. Setting loading to false.');
                 setLoading(false);
             }
         });
@@ -205,13 +210,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const {
             data: { subscription },
         } = supabase.auth.onAuthStateChange((_event, session) => {
+            console.log('[WalletNow][AuthContext] onAuthStateChange event:', _event);
             setSession(session);
             setUser(session?.user ?? null);
 
             if (session?.user) {
                 // Toda vez que detectarmos um Login real, rechecamos a Factory
+                console.log('[WalletNow][AuthContext] onAuthStateChange: User authenticated, calling loadProfileAndWallet...');
                 loadProfileAndWallet(session.user.id);
             } else {
+                console.log('[WalletNow][AuthContext] onAuthStateChange: No user, clearing memory and setting loading to false.');
                 DeviceVault.clearSensitiveMemory();
                 MnemonicVault.clearSensitiveMnemonicMemory();
                 setProfile(null);

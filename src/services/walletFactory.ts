@@ -164,32 +164,36 @@ export const WalletFactory = {
                 await this.activateAccount(publicKey);
             }
 
-            // Setup Gasless de Trustline inicial
-            // TODO [MAINNET]: BRW é token interno de testnet. Em mainnet, configurar trustlines
-            // para USDC (Circle) e BRZ (Transfero) usando issuers reais via StellarNetwork.assets
+            // Setup Gasless de Trustlines:
+            // USDC = trustline principal (stablecoin do ecossistema, fase QA/mainnet prep)
+            // BRW = trustline secundária (token interno testnet, mantido para compatibilidade)
             const ISSUER_PUBLIC = AppConfig.stellar.issuerPublicKey;
             if (ISSUER_PUBLIC) {
                 const server = StellarNetwork.createServer();
-                // Em mainnet, usar assets reais (USDC, BRZ) — não o BRW de testnet
+                // USDC usa o mesmo issuer que BRW em testnet (mock local)
+                // Em mainnet, StellarNetwork.getAsset('USDC') resolve para Circle issuer real
+                const usdcAsset = new Asset('USDC', ISSUER_PUBLIC);
                 const brwAsset = new Asset('BRW', ISSUER_PUBLIC);
                 const userKeypair = Keypair.fromSecret(secretKey);
                 
-                // Espera um pouco para a rede processar a criação antes de mudar trust
+                // Espera a rede processar a criação antes de mudar trust
                 await new Promise(r => setTimeout(r, 2000));
 
                 try {
                     const issuerAccount = await server.loadAccount(ISSUER_PUBLIC);
+                    // Uma única transação patrocinada com USDC (principal) + BRW (secundário)
                     const transaction = new TransactionBuilder(issuerAccount, {
                         fee: StellarNetwork.baseFee,
                         networkPassphrase: StellarNetwork.passphrase
                     })
                     .addOperation(Operation.beginSponsoringFutureReserves({ sponsoredId: publicKey }))
-                    .addOperation(Operation.changeTrust({ asset: brwAsset, source: publicKey }))
+                    .addOperation(Operation.changeTrust({ asset: usdcAsset, source: publicKey })) // USDC primeiro
+                    .addOperation(Operation.changeTrust({ asset: brwAsset, source: publicKey })) // BRW secundário
                     .addOperation(Operation.endSponsoringFutureReserves({ source: publicKey }))
                     .setTimeout(30)
                     .build();
                     
-                    transaction.sign(userKeypair); // Assina apenas com a user secret
+                    transaction.sign(userKeypair);
                     const partialXdr = transaction.toXDR();
                     
                     await IssuerService.invoke('sponsor_wallet', { 
@@ -197,9 +201,9 @@ export const WalletFactory = {
                         partialXdr 
                     });
                     
-                    console.log("[WalletNow][WalletFactory] ✅ Trustline base estabelecida via Edge Function.");
+                    console.log("[WalletNow][WalletFactory] ✅ Trustlines estabelecidas: USDC (principal) + BRW (secundário) via Edge Function.");
                 } catch (setupError) {
-                    console.warn("[WalletNow][WalletFactory] ⚠️ Erro no setup inicial da Trustline. O Mint cuidará disso.", setupError);
+                    console.warn("[WalletNow][WalletFactory] ⚠️ Erro no setup inicial das Trustlines. O Mint cuidará disso.", setupError);
                 }
             }
 
@@ -374,13 +378,13 @@ export const WalletFactory = {
      * Consulta os saldos reais de múltiplos ativos na conta Stellar.
      * Estrutura Genérica de RWA suportando futuros ativos: TESOURO, CETES, USTB.
      */
-    async getBalances(publicKey: string): Promise<{ brz: string, brw: string, xlm: string, usdc: string, btc: string, tesouro: string, cetes: string, ustb: string } | null> {
+    async getBalances(publicKey: string): Promise<{ brz: string, brw: string, xlm: string, usdc: string, eurc: string, btc: string, tesouro: string, cetes: string, ustb: string } | null> {
         try {
             const server = StellarNetwork.createServer();
             const account = await server.loadAccount(publicKey);
 
-            // Inicia valores vazios para RWA-ready nativo da Stellar
-            let balances = { brz: '0.00', brw: '0.00', xlm: '0.00', usdc: '0.00', btc: '0.00', tesouro: '0.00', cetes: '0.00', ustb: '0.00' };
+            // Inicia valores vazios para todos os ativos suportados
+            let balances = { brz: '0.00', brw: '0.00', xlm: '0.00', usdc: '0.00', eurc: '0.00', btc: '0.00', tesouro: '0.00', cetes: '0.00', ustb: '0.00' };
             let foundRWAs: string[] = [];
 
             account.balances.forEach((balance: any) => {
@@ -389,6 +393,7 @@ export const WalletFactory = {
                 else if (code === 'BRZ') balances.brz = balance.balance;
                 else if (code === 'BRW') balances.brw = balance.balance;
                 else if (code === 'USDC') balances.usdc = balance.balance;
+                else if (code === 'EURC') balances.eurc = balance.balance;
                 else if (code === 'BTC') balances.btc = balance.balance;
                 // --- RWA Bonds ---
                 else if (code === 'TESOURO') {

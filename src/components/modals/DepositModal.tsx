@@ -1,6 +1,7 @@
 import { X, Copy, QrCode, CheckCircle2, Loader2, Zap, ExternalLink, CreditCard, Globe, ChevronRight, ShieldCheck, AlertCircle, TrendingUp, Wallet } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useWallet } from '../../contexts/WalletContext';
 import { PaymentService } from '../../services/paymentService';
 import { WalletFactory } from '../../services/walletFactory';
 import { WooviService } from '../../services/wooviService';
@@ -26,6 +27,7 @@ interface DepositModalProps {
 
 export default function DepositModal({ isOpen, onClose, onSuccess }: DepositModalProps) {
   const { profile } = useAuth();
+  const { activeAccount } = useWallet();
 
   // Phases do experimento KYC-First (fluxo hospedado Etherfuse)
   const [phase, setPhase] = useState<
@@ -112,13 +114,13 @@ export default function DepositModal({ isOpen, onClose, onSuccess }: DepositModa
    * Não chama quote, bankAccounts nem createOrder — apenas registra e exibe link KYC hospedado.
    */
   const handleStartEtherfuse = async () => {
-    if (!profile?.stellar_address || !profile?.id) return;
+    if (!activeAccount?.stellar_public_key || !profile?.id) return;
     setIsSimulating(true);
     setEfStatusLabel('Verificando Trustline...');
     logger.info('[WalletNow][Experiment]', 'Phase: etherfuse_customer_creation', {
       timestamp: new Date().toISOString(),
       phase: 'etherfuse_customer_creation',
-      publicKey: profile.stellar_address.substring(0, 12) + '...',
+      publicKey: activeAccount.stellar_public_key.substring(0, 12) + '...',
     });
     try {
       const secretKey = WalletFactory.getSecretKey(profile.id);
@@ -126,12 +128,12 @@ export default function DepositModal({ isOpen, onClose, onSuccess }: DepositModa
         setTrustlineResult({ success: false, error: 'Secret key não encontrada.' });
         return;
       }
-      const tr = await EtherfuseTrustlineService.createTrustline(profile.stellar_address, secretKey);
+      const tr = await EtherfuseTrustlineService.createTrustline(activeAccount.stellar_public_key, secretKey);
       setTrustlineResult(tr);
       if (!tr.success) return;
 
       setEfStatusLabel('Registrando na Etherfuse...');
-      const cust = await EtherfuseOnRampService.registerCustomer(profile.stellar_address);
+      const cust = await EtherfuseOnRampService.registerCustomer(activeAccount.stellar_public_key);
       setEfCustomerId(cust.customerId);
       setEfKycUrl(cust.kycUrl);
 
@@ -169,7 +171,7 @@ export default function DepositModal({ isOpen, onClose, onSuccess }: DepositModa
    * REGRA: sem fallback UUID — se getFiatAccounts retornar [], abortar com PROXY_ACCOUNT_NOT_PROVISIONED.
    */
   const handleFinancialOnboarding = async () => {
-    if (!profile?.stellar_address || !efCustomerId) return;
+    if (!activeAccount?.stellar_public_key || !efCustomerId) return;
     setIsSimulating(true);
     logger.info('[WalletNow][Experiment]', 'Phase: etherfuse_financial_onboarding', {
       timestamp: new Date().toISOString(),
@@ -185,13 +187,13 @@ export default function DepositModal({ isOpen, onClose, onSuccess }: DepositModa
 
       setPhase('etherfuse_quote');
       setEfStatusLabel('Obtendo cotação BRL → TESOURO...');
-      const quote = await EtherfuseOnRampService.getQuote(efCustomerId, profile.stellar_address, efAmount);
+      const quote = await EtherfuseOnRampService.getQuote(efCustomerId, activeAccount.stellar_public_key, efAmount);
       setEfQuote(quote);
 
       setPhase('etherfuse_order');
       setEfStatusLabel('Criando ordem de compra...');
       const order = await EtherfuseOnRampService.createOrder(
-        efCustomerId, realBankAccountId, quote.quoteId, profile.stellar_address
+        efCustomerId, realBankAccountId, quote.quoteId, activeAccount.stellar_public_key
       );
       setEfOrder(order);
 
@@ -247,7 +249,7 @@ export default function DepositModal({ isOpen, onClose, onSuccess }: DepositModa
    * V1 (phases etherfuse_*) permanece INTACTO — não é tocado aqui.
    */
   const handleStartEtherfuseV2 = async () => {
-    if (!profile?.stellar_address || !profile?.id) return;
+    if (!activeAccount?.stellar_public_key || !profile?.id) return;
 
     const LOG_TAG = '[WalletNow][EtherfuseV2]';
 
@@ -257,7 +259,7 @@ export default function DepositModal({ isOpen, onClose, onSuccess }: DepositModa
       setEf2StatusLabel('Verificando trustline TESOURO...');
       logger.info(LOG_TAG, 'Iniciando fluxo programático V2', {
         timestamp: new Date().toISOString(),
-        publicKey: profile.stellar_address.substring(0, 12) + '...',
+        publicKey: activeAccount.stellar_public_key.substring(0, 12) + '...',
       });
 
       const secretKey = WalletFactory.getSecretKey(profile.id);
@@ -265,7 +267,7 @@ export default function DepositModal({ isOpen, onClose, onSuccess }: DepositModa
         throw new Error('Secret key não encontrada. Verifique sua wallet.');
       }
 
-      const tr = await EtherfuseTrustlineService.createTrustline(profile.stellar_address, secretKey);
+      const tr = await EtherfuseTrustlineService.createTrustline(activeAccount.stellar_public_key, secretKey);
       if (!tr.success) {
         throw new Error(tr.error || 'Falha ao criar trustline TESOURO.');
       }
@@ -280,12 +282,12 @@ export default function DepositModal({ isOpen, onClose, onSuccess }: DepositModa
       let activeBankAccountId = '';
       let skipOnboarding = false;
 
-      const cachedCustomer = EtherfusePersistenceService.getCustomer(profile.stellar_address);
+      const cachedCustomer = EtherfusePersistenceService.getCustomer(activeAccount.stellar_public_key);
       if (cachedCustomer) {
         setPhase('ef2_customer_creation');
         setEf2StatusLabel('Validando identidade existente...');
         try {
-          const kycStatus = await EtherfuseV2ApiService.getKycStatus(cachedCustomer.customerId, profile.stellar_address);
+          const kycStatus = await EtherfuseV2ApiService.getKycStatus(cachedCustomer.customerId, activeAccount.stellar_public_key);
           if (kycStatus.status === 'approved') {
             logger.info(LOG_TAG, 'Existing customer detected', { customerId: cachedCustomer.customerId });
             logger.info(LOG_TAG, 'Skipping onboarding');
@@ -296,11 +298,11 @@ export default function DepositModal({ isOpen, onClose, onSuccess }: DepositModa
             skipOnboarding = true;
           } else {
             logger.warn(LOG_TAG, 'Cached KYC not approved, restarting onboarding.', { status: kycStatus.status });
-            EtherfusePersistenceService.clearCustomer(profile.stellar_address);
+            EtherfusePersistenceService.clearCustomer(activeAccount.stellar_public_key);
           }
         } catch (e) {
           logger.warn(LOG_TAG, 'Failed to validate cached customer, restarting onboarding.', { error: String(e) });
-          EtherfusePersistenceService.clearCustomer(profile.stellar_address);
+          EtherfusePersistenceService.clearCustomer(activeAccount.stellar_public_key);
         }
       }
 
@@ -312,7 +314,7 @@ export default function DepositModal({ isOpen, onClose, onSuccess }: DepositModa
         try {
           const customer = await EtherfuseV2ApiService.createCustomer(
             email,
-            profile.stellar_address,
+            activeAccount.stellar_public_key,
             'BR',
           );
           activeCustomerId = customer.id;
@@ -325,15 +327,15 @@ export default function DepositModal({ isOpen, onClose, onSuccess }: DepositModa
           });
 
           // Salvar localmente
-          EtherfusePersistenceService.saveCustomer(profile.stellar_address, activeCustomerId, activeBankAccountId);
+          EtherfusePersistenceService.saveCustomer(activeAccount.stellar_public_key, activeCustomerId, activeBankAccountId);
 
           // PASSO 3: KYC Programático
           setPhase('ef2_kyc_submitting');
           setEf2StatusLabel('Submetendo identidade KYC (mock)...');
-          await EtherfuseV2ApiService.submitKycIdentity(activeCustomerId, profile.stellar_address);
+          await EtherfuseV2ApiService.submitKycIdentity(activeCustomerId, activeAccount.stellar_public_key);
 
           setEf2StatusLabel('Submetendo documentos KYC (mock)...');
-          await EtherfuseV2ApiService.submitKycDocuments(activeCustomerId, profile.stellar_address);
+          await EtherfuseV2ApiService.submitKycDocuments(activeCustomerId, activeAccount.stellar_public_key);
 
           setEf2StatusLabel('Aceitando acordos Etherfuse...');
           await EtherfuseV2ApiService.acceptAgreements(customer.presignedUrl);
@@ -343,7 +345,7 @@ export default function DepositModal({ isOpen, onClose, onSuccess }: DepositModa
           setEf2StatusLabel('Aguardando aprovação do sandbox...');
           await EtherfuseV2ApiService.pollKycUntilApproved(
             activeCustomerId,
-            profile.stellar_address,
+            activeAccount.stellar_public_key,
             (status) => setEf2StatusLabel(`KYC: ${status}`),
             60_000,
           );
@@ -370,7 +372,7 @@ export default function DepositModal({ isOpen, onClose, onSuccess }: DepositModa
       setEf2StatusLabel('Obtendo cotação BRL → TESOURO...');
       const quote = await EtherfuseV2ApiService.getQuote(
         activeCustomerId,
-        profile.stellar_address,
+        activeAccount.stellar_public_key,
         ef2Amount,
       );
       setEf2Quote(quote);
@@ -386,7 +388,7 @@ export default function DepositModal({ isOpen, onClose, onSuccess }: DepositModa
         activeCustomerId,
         activeBankAccountId, // ID real retornado em createCustomer ou cache
         quote.quoteId,
-        profile.stellar_address,
+        activeAccount.stellar_public_key,
       );
       setEf2Order(order);
       logger.info(LOG_TAG, '✅ Ordem criada.', { orderId: order.orderId });
@@ -408,14 +410,14 @@ export default function DepositModal({ isOpen, onClose, onSuccess }: DepositModa
       setEf2StatusLabel('Buscando hash de liquidação on-chain...');
       let hashToUse = finalOrder?.confirmedTxSignature || order.confirmedTxSignature || null;
       if (!hashToUse) {
-        const fallbackTx = await EtherfuseActivityService.findLatestTesouroTransaction(profile.stellar_address);
+        const fallbackTx = await EtherfuseActivityService.findLatestTesouroTransaction(activeAccount.stellar_public_key);
         if (fallbackTx) {
           hashToUse = fallbackTx.txHash;
         }
       }
       setEf2TxHash(hashToUse);
 
-      EtherfuseActivityService.saveActivity(profile.stellar_address, {
+      EtherfuseActivityService.saveActivity(activeAccount.stellar_public_key, {
         orderId: order.orderId,
         txHash: hashToUse || 'Pendente',
         explorerUrl: hashToUse ? `https://stellar.expert/explorer/testnet/tx/${hashToUse}` : '',
@@ -475,10 +477,10 @@ export default function DepositModal({ isOpen, onClose, onSuccess }: DepositModa
   useEffect(() => {
     let timer: ReturnType<typeof setInterval>;
 
-    if (isOpen && phase === 'etherfuse_kyc_polling' && efCustomerId && profile?.stellar_address) {
+    if (isOpen && phase === 'etherfuse_kyc_polling' && efCustomerId && activeAccount?.stellar_public_key) {
       timer = setInterval(async () => {
         try {
-          const statusResult = await EtherfuseOnRampService.getKycStatus(efCustomerId, profile.stellar_address);
+          const statusResult = await EtherfuseOnRampService.getKycStatus(efCustomerId, activeAccount.stellar_public_key);
           logger.info('[WalletNow][Experiment]', `[Polling] KYC status: ${statusResult.status}`, {
             timestamp: new Date().toISOString(),
             phase: 'etherfuse_kyc_polling',
@@ -522,14 +524,14 @@ export default function DepositModal({ isOpen, onClose, onSuccess }: DepositModa
 
     return () => clearInterval(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, phase, efCustomerId, profile?.stellar_address]);
+  }, [isOpen, phase, efCustomerId, activeAccount?.stellar_public_key]);
 
   // Se o modal não estiver aberto (isOpen === false), não renderiza nada na tela.
   // MAS os hooks devem ficar acima disto.
   if (!isOpen) return null;
 
   const triggerMinting = async (depositAmount: number, correlationID: string) => {
-    if (!profile?.stellar_address || !profile.id) return;
+    if (!activeAccount?.stellar_public_key || !profile?.id) return;
 
     setPhase('minting');
 
@@ -548,7 +550,7 @@ export default function DepositModal({ isOpen, onClose, onSuccess }: DepositModa
         }
 
         const result = await StellarTestAnchorService.settleXLM(
-          profile.stellar_address,
+          activeAccount.stellar_public_key,
           depositAmount.toString(), // Mandar apenas o amount limpo (o toFixed(7) será feito na Service)
           correlationID
         );
@@ -566,7 +568,7 @@ export default function DepositModal({ isOpen, onClose, onSuccess }: DepositModa
       } else {
         // ── Woovi / BRW: Mint do token interno (fluxo original — intocado) ──────
         const hash = await PaymentService.mintBRW(
-          profile.stellar_address,
+          activeAccount.stellar_public_key,
           depositAmount.toString(),
           userSecret || undefined,
           correlationID
@@ -991,7 +993,9 @@ export default function DepositModal({ isOpen, onClose, onSuccess }: DepositModa
             </div>
 
             <p className="text-[10px] text-gray-500 text-center uppercase tracking-wider font-mono">
-              Woovi PIX Gateway — Conversão 1:1 BRL ➔ BRW. Fundos bloqueados até recepção na Stellar Testnet.
+              {selectedProvider?.id === 'stellar_testanchor'
+                ? 'Stellar TestAnchor — Settlement em XLM Nativo. Fundos enviados para a sua carteira Stellar.'
+                : 'Woovi PIX Gateway — Conversão 1:1 BRL ➔ BRW. Fundos bloqueados até recepção na Stellar Testnet.'}
             </p>
 
             <button
@@ -1043,7 +1047,9 @@ export default function DepositModal({ isOpen, onClose, onSuccess }: DepositModa
             </div>
 
             <div className="w-full">
-              <label className="text-xs text-gray-500 uppercase tracking-wider font-medium mb-2 block">Chave Copia e Cola Oficial (Woovi)</label>
+              <label className="text-xs text-gray-500 uppercase tracking-wider font-medium mb-2 block">
+                {selectedProvider?.id === 'stellar_testanchor' ? 'Chave Copia e Cola Oficial' : 'Chave Copia e Cola Oficial (Woovi)'}
+              </label>
               <button
                 onClick={handleCopy}
                 className="w-full flex items-center justify-between bg-black/50 border border-[#00E676]/30 p-4 rounded-xl hover:border-[#00E676]/80 transition-colors group"

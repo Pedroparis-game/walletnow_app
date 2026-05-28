@@ -4,7 +4,7 @@ import { useWallet } from '../../contexts/WalletContext';
 import { useNavigate } from 'react-router-dom';
 
 export default function AccountSwitcher() {
-    const { accounts, activeAccount, switchAccount } = useWallet();
+    const { accounts, activeAccount, switchAccount, loading: walletLoading } = useWallet();
     const [isOpen, setIsOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
     const navigate = useNavigate();
@@ -35,10 +35,19 @@ export default function AccountSwitcher() {
     };
 
     if (!activeAccount) {
+        if (walletLoading) {
+            return (
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/5">
+                    <div className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse" />
+                    <span className="text-xs text-gray-400">Carregando contas...</span>
+                </div>
+            );
+        }
+
         return (
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/5">
-                <div className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse" />
-                <span className="text-xs text-gray-400">Carregando contas...</span>
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-red-500/10 border border-red-500/20">
+                <div className="w-2 h-2 rounded-full bg-red-500" />
+                <span className="text-xs text-red-400">Conta não configurada</span>
             </div>
         );
     }
@@ -102,20 +111,13 @@ export default function AccountSwitcher() {
                         ))}
                     </div>
 
-                    <div className="mt-2 pt-2 border-t border-white/5 px-2 space-y-1">
+                    <div className="mt-2 pt-2 border-t border-white/5 px-2">
                         <button 
                             onClick={() => { setIsOpen(false); navigate('/settings'); }}
                             className="w-full flex items-center gap-2 p-2 rounded-xl hover:bg-white/5 text-gray-400 hover:text-white transition-colors"
                         >
                             <LogIn className="w-4 h-4" />
-                            <span className="text-sm font-medium">Importar Carteira</span>
-                        </button>
-                        <button 
-                            onClick={() => { setIsOpen(false); navigate('/settings'); }}
-                            className="w-full flex items-center gap-2 p-2 rounded-xl hover:bg-white/5 text-gray-400 hover:text-white transition-colors"
-                        >
-                            <Plus className="w-4 h-4" />
-                            <span className="text-sm font-medium">Nova Carteira</span>
+                            <span className="text-sm font-medium">Gerenciar Carteiras</span>
                         </button>
                     </div>
                 </div>

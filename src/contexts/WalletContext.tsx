@@ -40,14 +40,16 @@ const WalletContext = createContext<WalletContextProps>({
 });
 
 export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const { user } = useAuth();
+    const { user, profile } = useAuth();
     const [accounts, setAccounts] = useState<WalletAccount[]>([]);
     const [activeAccount, setActiveAccount] = useState<WalletAccount | null>(null);
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);
 
     const refreshAccounts = useCallback(async () => {
+        console.log('[WalletContext] refreshAccounts: START', { userId: user?.id });
         if (!user) {
+            console.log('[WalletContext] refreshAccounts: NO USER, aborting');
             setAccounts([]);
             setActiveAccount(null);
             setLoading(false);
@@ -55,6 +57,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }
 
         try {
+            console.log('[WalletContext] refreshAccounts: Fetching wallet_accounts from Supabase...');
             setLoading(true);
             const { data, error: fetchError } = await supabase
                 .from('wallet_accounts')
@@ -63,17 +66,42 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                 .order('created_at', { ascending: true });
 
             if (fetchError) throw fetchError;
+            console.log('[WalletContext] refreshAccounts: Fetched accounts', data);
 
             const fetchedAccounts = data as WalletAccount[] || [];
+
+            // HYBRID COMPATIBILITY LAYER: Garante coexistência da conta legada com contas importadas/geradas.
+            // Injeta a conta sintetizada em memória SE o profile tem stellar_address E ainda não há
+            // um registro real na wallet_accounts com essa mesma public key.
+            if (profile?.stellar_address) {
+                const alreadyHasLegacy = fetchedAccounts.some(
+                    a => a.stellar_public_key === profile.stellar_address
+                );
+                if (!alreadyHasLegacy) {
+                    fetchedAccounts.unshift({
+                        id: 'legacy-profile-account',
+                        user_id: user.id,
+                        label: 'Main Account',
+                        account_type: 'legacy',
+                        stellar_public_key: profile.stellar_address,
+                        is_active: fetchedAccounts.length === 0,
+                        is_default: true,
+                        created_at: new Date().toISOString()
+                    });
+                }
+            }
+
             setAccounts(fetchedAccounts);
 
             const storedActiveId = localStorage.getItem(`@walletnow:active_account:${user.id}`);
+            console.log('[WalletContext] refreshAccounts: storedActiveId from localStorage:', storedActiveId);
             
             let currentActive = fetchedAccounts.find(a => a.id === storedActiveId) 
                              || fetchedAccounts.find(a => a.is_active) 
                              || fetchedAccounts[0] 
                              || null;
 
+            console.log('[WalletContext] refreshAccounts: setting currentActive:', currentActive?.stellar_public_key);
             setActiveAccount(currentActive);
             if (currentActive) {
                 localStorage.setItem(`@walletnow:active_account:${user.id}`, currentActive.id);
@@ -83,11 +111,13 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             console.error('[WalletContext] Erro ao buscar contas:', err);
             setError(err.message || 'Falha ao carregar as carteiras.');
         } finally {
+            console.log('[WalletContext] refreshAccounts: END');
             setLoading(false);
         }
-    }, [user]);
+    }, [user, profile?.stellar_address]);
 
     useEffect(() => {
+        console.log('[WalletContext] useEffect mounted or refreshAccounts changed');
         refreshAccounts();
     }, [refreshAccounts]);
 
@@ -129,6 +159,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const saveImportedAccount = async (publicKey: string, secretKey: string, label: string) => {
         if (!user) throw new Error("Usuário não autenticado");
         
+        // Verifica se conta já existe para evitar duplicatas
         const { data: existing } = await supabase
             .from('wallet_accounts')
             .select('id')
@@ -140,24 +171,28 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             throw new Error("Esta conta já está vinculada ao seu usuário");
         }
 
+        // Criptografa e persiste localmente
         const encKey = await DeviceVault.generateEncryptionKey(user.id);
         const encryptedData = await DeviceVault.encryptSecret(secretKey, encKey);
-        
         localStorage.setItem(`@walletnow:secret:${user.id}:${publicKey}`, JSON.stringify(encryptedData));
         
+        // Insere no banco (is_active = false — refreshAccounts decide o ativo via storedActiveId)
         const { error, data } = await supabase.from('wallet_accounts').insert({
             user_id: user.id,
             label,
             account_type: 'imported',
             stellar_public_key: publicKey,
-            is_active: true
+            is_active: false,
+            is_default: false
         }).select().single();
 
         if (error) throw error;
         
-        // Atualiza UI e background
-        await supabase.from('wallet_accounts').update({ is_active: false }).eq('user_id', user.id).neq('id', data.id);
+        // Carrega a chave na memória volátil e seta como conta ativa no localStorage
         DeviceVault.setVolatileSecret(secretKey);
+        localStorage.setItem(`@walletnow:active_account:${user.id}`, data.id);
+        
+        // Recarrega a lista completa (com merge da conta legada)
         await refreshAccounts();
     };
 

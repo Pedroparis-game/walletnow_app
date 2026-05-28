@@ -1,28 +1,20 @@
 /// <reference types="vite/client" />
 import { sha3_256 } from 'js-sha3';
-import { Keypair, Horizon, TransactionBuilder, Networks, Asset, Operation, Memo, BASE_FEE } from '@stellar/stellar-sdk';
-import { GoogleGenAI } from '@google/genai';
+import { Keypair, TransactionBuilder, Asset, Operation, Memo, BASE_FEE } from '@stellar/stellar-sdk';
 import { StellarNetwork } from '../config/stellarNetwork';
 import { AppConfig } from '../config/environment';
 import { IssuerService } from '../utils/issuerService';
+import { KycValidatorService, type KycValidationResult } from './kycValidatorService';
 
 /**
- * TODO [SECURITY-HIGH — BLOCKER MAINNET]:
- * A VITE_GEMINI_API_KEY está exposta no bundle do browser.
- * Em produção, qualquer pessoa pode extrair a chave e usar a cota de KYC da WalletNow.
+ * ✅ BLOCKER-02 RESOLVIDO:
+ * A VITE_GEMINI_API_KEY foi REMOVIDA do bundle do browser.
+ * O KYC agora é processado pela Edge Function `kyc-validator` (server-side).
+ * O frontend envia apenas as imagens e dados, recebe apenas o resultado sanitizado.
  *
- * PLANO DE MIGRAÇÃO:
- * 1. Criar Supabase Edge Function: `kyc-validator`
- * 2. O frontend envia apenas as imagens (base64) para a Edge Function via API segura
- * 3. A Edge Function chama o Gemini server-side com a chave protegida
- * 4. VITE_GEMINI_API_KEY deve ser REMOVIDA do bundle
- *
- * STATUS: Mantida para funcionamento do testnet KYC. NÃO deploy mainnet sem resolver.
+ * @see supabase/functions/kyc-validator/index.ts
+ * @see src/services/kycValidatorService.ts
  */
-
-// TODO [SECURITY-HIGH]: mover para Edge Function 'kyc-validator' — chave exposta no bundle
-const VITE_GEMINI_API_KEY = AppConfig.ai.geminiApiKey || '';
-const ai = new GoogleGenAI({ apiKey: VITE_GEMINI_API_KEY });
 
 // Rede Stellar via abstração centralizada (não hardcode)
 const server = StellarNetwork.createServer();
@@ -63,10 +55,16 @@ export const IdentityService = {
     },
 
     /**
-     * 2. Visão Computacional Gemini (Análise e OCR IA Multi-Modal)
-     * O Gemini analisa o documento e a selfie simultaneamente.
-     * Realiza OCR no documento, faz validção de Liveness/Facial Match 
-     * e garante extração correta dos dados propostos.
+     * 2. Validação de Documento via KYC Server-Side (Edge Function `kyc-validator`)
+     *
+     * ✅ BLOCKER-02 RESOLVIDO:
+     * O processamento de KYC agora é server-side. O frontend envia apenas as imagens
+     * e recebe o resultado sanitizado. Nenhuma API Key de IA é exposta no bundle.
+     *
+     * Providers suportados (configurados via Supabase Vault):
+     * - 'gemini'    → Google Gemini (dev/sandbox)
+     * - 'etherfuse' → Etherfuse KYC (produção futura)
+     * - 'transfero' → Transfero KYC (produção futura)
      */
     async validateDocumentWithAI(
         documentBase64: string,
@@ -75,140 +73,25 @@ export const IdentityService = {
         expectedName: string,
         expectedBirthDate: string
     ): Promise<{ isApproved: boolean; errorDetails: string[] }> {
-        const errorDetails: string[] = [];
-
         try {
-            // Sanitizado para Produção
-
-            // [OTIMIZAÇÃO] Filtro Criptográfico de Estouro de Memória
-            if (documentBase64.length > 8000000 || selfieBase64.length > 8000000) {
-                errorDetails.push("A imagem capturada é muito pesada (> 5MB). Reduza a resolução da câmera.");
-                return { isApproved: false, errorDetails };
-            }
-
-            const prompt = `Você é um perito criminal digital de KYC (Conheça Seu Cliente).
-      Foram anexadas duas imagens:
-      1. Um Documento de Identidade oficial Brasileiro (RG ou CNH).
-      2. Uma "Selfie" (foto do rosto do usuário).
-      
-      Tarefas:
-      1. Identifique o tipo de documento (RG, CNH, ou OUTRO). 
-      2. Leia os campos do documento via OCR: Nome, CPF e Data de Nascimento.
-         - ATENÇÃO SUPREMA: Ao ler CNH, NÃO confunda a Data de Nascimento com a data de "1ª Habilitação" (que fica no topo direito, ex: 21/07/2006) nem com a validade. A real Data de Nascimento fica na seção "3 DATA, LOCAL E UF DE NASCIMENTO" (próxima ao CPF) e deve indicar alguém maior de 18 anos.
-      3. Verifique se a foto no documento é da mesma pessoa da Selfie anexada (Facial Match / Liveness).
-      4. Verifique se a imagem 1 parece de fato um documento autêntico.
-      
-      Você deve responder ESTRITAMENTE num JSON perfeito (mínimo, sem formatações Markdown ou crases na resposta), neste esquema:
-      {
-        "tipo_documento": "RG" ou "CNH" ou "INVALIDO",
-        "nome": "NOME LIDO NO DOCUMENTO",
-        "cpf": "12345678900",
-        "data_nascimento": "DD/MM/AAAA",
-        "facial_match": true ou false,
-        "is_valid_document": true ou false
-      }`;
-
-            // Processar Documento Base64
-            const docMimeTypeMatch = documentBase64.match(/data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+).*,.*/);
-            const docMimeType = docMimeTypeMatch ? docMimeTypeMatch[1] : 'image/jpeg';
-            const docBase64Data = documentBase64.split(',')[1] || documentBase64;
-
-            // Processar Selfie Base64
-            const selfieMimeTypeMatch = selfieBase64.match(/data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+).*,.*/);
-            const selfieMimeType = selfieMimeTypeMatch ? selfieMimeTypeMatch[1] : 'image/jpeg';
-            const selfieBase64Data = selfieBase64.split(',')[1] || selfieBase64;
-
-            // Enviando Request para a API nativa
-            const response = await ai.models.generateContent({
-                model: 'gemini-2.5-flash-lite',
-                contents: [
-                    prompt,
-                    {
-                        inlineData: {
-                            data: docBase64Data,
-                            mimeType: docMimeType
-                        }
-                    },
-                    {
-                        inlineData: {
-                            data: selfieBase64Data,
-                            mimeType: selfieMimeType
-                        }
-                    }
-                ]
+            const result: KycValidationResult = await KycValidatorService.validate({
+                documentBase64,
+                selfieBase64,
+                expectedCpf,
+                expectedName,
+                expectedBirthDate,
             });
 
-            const responseText = response.text || '';
-            // Sanitizado para Produção: Não vazamos a saída bruta do JSON do Gemini no client
-
-            // Remoção de formatações Markdown da resposta
-            const cleanJson = responseText.replace(/\`\`\`json|\`\`\`/gi, '').trim();
-            const extractedData = JSON.parse(cleanJson);
-
-            const cleanExpectedCpf = expectedCpf.replace(/\D/g, '');
-            const readCpfClean = String(extractedData.cpf || '').replace(/\D/g, '');
-            const cpfMatch = readCpfClean === cleanExpectedCpf;
-
-            const expectedFirstName = expectedName.split(' ')[0].toLowerCase();
-            const extractedNome = (extractedData.nome || '').toLowerCase();
-            const nameMatch = extractedNome.includes(expectedFirstName);
-
-            const cleanExpectedBirthDate = expectedBirthDate.replace(/\D/g, '');
-            const parsedBirthDate = (extractedData.data_nascimento || '').replace(/\D/g, '');
-            const birthDateMatch = parsedBirthDate === cleanExpectedBirthDate;
-
-            // Análise Granular de Passos (Sucessos e Falhas)
-            // Para UI apresentar o Checklist exato
-            if (extractedData.is_valid_document) {
-                errorDetails.push(`✅ Legibilidade: Documento reconhecido como ${extractedData.tipo_documento}.`);
-            } else {
-                errorDetails.push("❌ Legibilidade: O anexo 1 não parece ser um CNH/RG oficial nítido.");
-            }
-
-            if (cpfMatch) {
-                errorDetails.push(`✅ CPF: Autenticado com sucesso.`);
-            } else {
-                errorDetails.push(`❌ CPF: Divergente. Digitado: ${expectedCpf} | Lido: ${extractedData.cpf || 'Não legível'}`);
-            }
-
-            if (nameMatch) {
-                errorDetails.push(`✅ Titularidade: Nome confere com documento.`);
-            } else {
-                errorDetails.push(`❌ Titularidade: Nome divergente. O impresso deve bater com o primeiro nome digitado.`);
-            }
-
-            if (birthDateMatch) {
-                errorDetails.push(`✅ Maioridade: Data de Nascimento confere. (${parsedBirthDate})`);
-            } else {
-                errorDetails.push(`❌ Data de Nascimento: Divergente (Lida: ${extractedData.data_nascimento || 'Não visível'}). Não confunda com a 1ª Habilitação.`);
-            }
-
-            if (extractedData.facial_match) {
-                errorDetails.push(`✅ Biometria Facial: Selfie autêntica (Liveness Match).`);
-            } else {
-                errorDetails.push("❌ Biometria Facial: A pessoa da Selfie tem traços divergentes da foto no Documento.");
-            }
-
-            const isAllApproved = extractedData.is_valid_document && cpfMatch && nameMatch && birthDateMatch && extractedData.facial_match;
-
-            if (isAllApproved) {
-                console.log('✅ IA aprovou! O documento do usuário é legítimo, idêntico ao formulário e o rosto confere.');
-                return { isApproved: true, errorDetails: [] };
-            } else {
-                console.warn('⚠️ ALERTA KYC! Falha de Perícia. Dados divergentes ou Facial Match Negado.', errorDetails);
-                return { isApproved: false, errorDetails };
-            }
+            return {
+                isApproved: result.isApproved,
+                errorDetails: result.errorDetails,
+            };
         } catch (err: any) {
-            console.error('❌ Erro na Comunicação com API IA do Gemini:', err.message);
-
-            // Tratamento real para Rate Limit e Quota Excedida do Gemini
-            if (err.message.includes('429') || err.message.includes('Quota')) {
-                errorDetails.push(`Limite da IA excedido (O Google bloqueou a requisição gratuita). Aguarde de 1 a 2 minutos e tente novamente.`);
-            } else {
-                errorDetails.push(`Serviço de IA Indisponível: ${err.message}`);
-            }
-
-            return { isApproved: false, errorDetails };
+            console.error('❌ Erro no serviço KYC server-side:', err.message);
+            return {
+                isApproved: false,
+                errorDetails: [err.message ?? 'Serviço de KYC indisponível. Tente novamente.'],
+            };
         }
     },
 

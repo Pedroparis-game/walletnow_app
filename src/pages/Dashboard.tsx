@@ -6,6 +6,7 @@ import SendModal from '../components/modals/SendModal';
 import SacarModal from '../components/modals/SacarModal';
 import WithdrawModal from '../components/modals/WithdrawModal';
 import { useAuth } from '../contexts/AuthContext';
+import { useWallet } from '../contexts/WalletContext';
 import { WalletFactory } from '../services/walletFactory';
 import { logger } from '../utils/logger';
 import { DemoConfig } from '../config/demoMode';
@@ -13,16 +14,24 @@ import { EtherfuseActivityService, EfV2Activity } from '../services/providers/et
 import AccountSwitcher from '../components/wallet/AccountSwitcher';
 
 /**
- * Tela do Dashboard Principal (The Money Layer)
- * 
- * Esta é a tela central do aplicativo. Aqui o usuário vê o seu saldo (sempre em Reais/BRZ),
- * o histórico de transações e tem acesso aos botões principais de ação (Depositar e Sacar).
- * A ideia é que pareça um banco digital comum (como Nubank), escondendo toda a complexidade da rede Stellar.
+ * Dashboard Principal — The Money Layer
+ *
+ * Tela central do aplicativo. Exibe o saldo on-chain da conta ativa (XLM nativo como principal),
+ * histórico de transações Stellar, seção de Tokenized Treasury (Etherfuse BRT),
+ * e botões de ação para depósito PIX, saque e off-ramp via Anchor.
+ *
+ * A UI usa XLM como ativo de saldo primário e exibe USDC/BRW como ativos secundários,
+ * escondendo a complexidade da rede Stellar do usuário final.
+ *
+ * GUARDS DE RUNTIME:
+ * - Aguarda walletLoading=false antes de abortar (evita race condition de provisionamento).
+ * - activeAccount vem do WalletContext (suporta conta legada, importada e gerada).
  */
 export default function Dashboard() {
   const navigate = useNavigate();
   // Consumindo dados do Usuário Logado e seu Profile (que contem o endereco Stellar e Dados de KYC)
   const { user, profile } = useAuth();
+  const { activeAccount, loading: walletLoading } = useWallet();
 
   // Prioriza o nome validado no KYC, fazendo fallback para o email ou 'Usuário' genérico
   const userFirstName = profile?.full_name
@@ -38,7 +47,7 @@ export default function Dashboard() {
 
   // Estados de Saldo (Extraídos do Blockchain via Stellar Horizon)
   const [totalBalance, setTotalBalance] = useState<string>('0.00');
-  const [assetDetails, setAssetDetails] = useState<{ brz: string, brw: string, tesouro: string, cetes: string, ustb: string, xlm: string }>({ brz: '0.00', brw: '0.00', tesouro: '0.00', cetes: '0.00', ustb: '0.00', xlm: '0.00' });
+  const [assetDetails, setAssetDetails] = useState<{ brz: string, brw: string, usdc: string, tesouro: string, cetes: string, ustb: string, xlm: string }>({ brz: '0.00', brw: '0.00', usdc: '0.00', tesouro: '0.00', cetes: '0.00', ustb: '0.00', xlm: '0.00' });
   const [isLoadingBalance, setIsLoadingBalance] = useState(true);
   const [isAccountActive, setIsAccountActive] = useState<boolean | null>(null); // null = checking, false = 404
   const [isActivating, setIsActivating] = useState(false);
@@ -46,11 +55,18 @@ export default function Dashboard() {
   const [ef2Activities, setEf2Activities] = useState<EfV2Activity[]>([]);
 
   const fetchOnChainBalance = async () => {
-    if (!profile?.stellar_address) return;
+    console.log('[Dashboard] fetchOnChainBalance: START. activeAccount:', activeAccount?.stellar_public_key);
+    if (!activeAccount?.stellar_public_key) {
+      console.log('[Dashboard] fetchOnChainBalance: ABORTED (no activeAccount public key)');
+      if (!walletLoading) {
+        setIsLoadingBalance(false);
+      }
+      return;
+    }
     setIsLoadingBalance(true);
 
     try {
-      logger.info('[WalletNow][UI]', 'Fetching On-Chain balance and history', { address: profile.stellar_address });
+      logger.info('[WalletNow][UI]', 'Fetching On-Chain balance and history', { address: activeAccount.stellar_public_key });
 
       const timeoutPromise = new Promise((_, reject) =>
         setTimeout(() => reject(new Error('TIMEOUT')), DemoConfig.hardTimeoutMs)
@@ -59,27 +75,30 @@ export default function Dashboard() {
       // Busca Blockchain (Saldo BRZ & Histórico) com Hard Timeout
       const [balances, history] = await Promise.race([
         Promise.all([
-          WalletFactory.getBalances(profile.stellar_address),
-          WalletFactory.getHistory(profile.stellar_address)
+          WalletFactory.getBalances(activeAccount.stellar_public_key),
+          WalletFactory.getHistory(activeAccount.stellar_public_key)
         ]),
         timeoutPromise
       ]) as any;
 
       if (balances) {
         setIsAccountActive(true);
-        setAssetDetails({ brz: balances.brz, brw: balances.brw, tesouro: balances.tesouro, cetes: balances.cetes, ustb: balances.ustb, xlm: balances.xlm || '0.00' });
+        setAssetDetails({ brz: balances.brz, brw: balances.brw, usdc: balances.usdc || '0.00', tesouro: balances.tesouro, cetes: balances.cetes, ustb: balances.ustb, xlm: balances.xlm || '0.00' });
         // XLM Nativo é o ativo principal agora.
         const totalXlm = parseFloat(balances.xlm || '0');
         setTotalBalance(totalXlm.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 7 }));
+        console.log('[Dashboard] fetchOnChainBalance: SUCCESS (balances loaded)');
       } else {
+        console.log('[Dashboard] fetchOnChainBalance: WARNING (balances null, trying emergency activation)');
         // Se balances for null (404), tentamos ativar
         setIsAccountActive(false);
         handleEmergencyActivation();
       }
       if (history) {
+        console.log('[Dashboard] fetchOnChainBalance: SUCCESS (history loaded, length:', history.length, ')');
         setTransactions(history);
       }
-      setEf2Activities(EtherfuseActivityService.getActivities(profile.stellar_address));
+      setEf2Activities(EtherfuseActivityService.getActivities(activeAccount.stellar_public_key));
     } catch (e: any) {
       if (e.message === 'TIMEOUT') {
         logger.error('[WalletNow][System]', 'Dashboard timeout on fetch balance');
@@ -99,12 +118,12 @@ export default function Dashboard() {
    * Ativação de Emergência via Sponsor
    */
   const handleEmergencyActivation = async () => {
-    if (!profile?.stellar_address || isActivating || isAccountActive) return;
+    if (!activeAccount?.stellar_public_key || isActivating || isAccountActive) return;
 
     setIsActivating(true);
     try {
       logger.info('[WalletNow][Blockchain]', 'Iniciando ativação automática (emergency)');
-      const success = await WalletFactory.activateAccount(profile.stellar_address);
+      const success = await WalletFactory.activateAccount(activeAccount.stellar_public_key);
       if (success) {
         logger.info('[WalletNow][Blockchain]', 'Ativação automática concluída');
         setIsAccountActive(true);
@@ -118,10 +137,10 @@ export default function Dashboard() {
     }
   };
 
-  // Efeito Executado na montagem da tela
+  // Efeito Executado na montagem da tela ou quando a conta ativa muda
   useEffect(() => {
     fetchOnChainBalance();
-  }, [profile?.stellar_address]);
+  }, [activeAccount?.stellar_public_key, walletLoading]);
 
   // Transações On-Chain alimentam o State `transactions`
 
@@ -173,12 +192,21 @@ export default function Dashboard() {
                 <div className="flex flex-col">
                   <h2 className="text-5xl font-bold text-white tracking-tight">{totalBalance}</h2>
                   <div className="flex gap-3 mt-2">
-                    <span className="text-[10px] text-gray-500 uppercase font-bold tracking-wider px-2 py-0.5 bg-white/5 rounded-md border border-white/5">
-                      BRW: {parseFloat(assetDetails.brw).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                    </span>
-                    <span className="text-[10px] text-gray-500 uppercase font-bold tracking-wider px-2 py-0.5 bg-white/5 rounded-md border border-white/5">
-                      BRZ: {parseFloat(assetDetails.brz).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                    </span>
+                    {parseFloat(assetDetails.usdc) > 0 && (
+                      <span className="text-[10px] text-blue-400 uppercase font-bold tracking-wider px-2 py-0.5 bg-blue-500/10 rounded-md border border-blue-500/20">
+                        USDC: {parseFloat(assetDetails.usdc).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    )}
+                    {parseFloat(assetDetails.brw) > 0 && (
+                      <span className="text-[10px] text-gray-500 uppercase font-bold tracking-wider px-2 py-0.5 bg-white/5 rounded-md border border-white/5">
+                        BRW: {parseFloat(assetDetails.brw).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </span>
+                    )}
+                    {parseFloat(assetDetails.brz) > 0 && (
+                      <span className="text-[10px] text-gray-500 uppercase font-bold tracking-wider px-2 py-0.5 bg-white/5 rounded-md border border-white/5">
+                        BRZ: {parseFloat(assetDetails.brz).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </span>
+                    )}
                   </div>
                 </div>
               )}
@@ -201,22 +229,21 @@ export default function Dashboard() {
               {isActivating ? 'Ativando...' : (isAccountActive === false ? 'Configurando...' : 'Depositar')}
             </button>
 
-            {/* Botão Sacar: Abre o novo modal de Saque PIX via Woovi */}
             <button
               onClick={() => setIsSacarOpen(true)}
               className="flex-1 flex items-center justify-center gap-2 bg-white/10 hover:bg-white/15 text-white py-3.5 rounded-2xl font-semibold transition-colors border border-white/5"
             >
               <ArrowUpRight className="w-5 h-5" />
-              Sacar (BRW)
+              Sacar BRW
             </button>
 
-            {/* Botão Withdraw Anchor: Abre o Offramp via Anchor */}
+            {/* Botão Off-Ramp: Saque de XLM via Anchor SEP-24 */}
             <button
               onClick={() => setIsWithdrawOpen(true)}
               className="flex-1 flex items-center justify-center gap-2 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 py-3.5 rounded-2xl font-semibold transition-colors border border-blue-500/20"
             >
               <ArrowUpRight className="w-5 h-5" />
-              Off-Ramp (Anchor)
+              Off-Ramp XLM
             </button>
           </div>
         </div>
@@ -369,9 +396,10 @@ export default function Dashboard() {
             <span className="text-gray-500">{new Date().toLocaleTimeString()}</span>
           </div>
           <div className="space-y-1">
-            <p><strong>Treasury Balance:</strong> XLM Nativo</p>
-            <p><strong>Destination:</strong> {profile?.stellar_address ? `${profile.stellar_address.slice(0, 8)}...${profile.stellar_address.slice(-4)}` : 'N/A'}</p>
-            <p><strong>Horizon Status:</strong> {isAccountActive ? 'Account Active' : 'Checking...'}</p>
+            <p><strong>Conta Ativa:</strong> {activeAccount?.label || 'N/A'} ({activeAccount?.account_type || '?'})</p>
+            <p><strong>Public Key:</strong> {activeAccount?.stellar_public_key ? `${activeAccount.stellar_public_key.slice(0, 8)}...${activeAccount.stellar_public_key.slice(-4)}` : 'N/A'}</p>
+            <p><strong>Horizon:</strong> {isAccountActive ? '✅ Conta Ativa' : 'Verificando...'}</p>
+            <p><strong>XLM:</strong> {assetDetails.xlm} | <strong>USDC:</strong> {assetDetails.usdc} | <strong>BRW:</strong> {assetDetails.brw}</p>
           </div>
         </div>
       </div>

@@ -1,6 +1,7 @@
 import { X, ArrowRight, Loader2, CheckCircle2, ExternalLink, ShieldCheck, AlertCircle, RefreshCw } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useWallet } from '../../contexts/WalletContext';
 import { StellarOfframpService, OfframpSession, OfframpStatus, OfframpInfo } from '../../services/providers/stellarTestAnchor/stellarOfframpService';
 import { WalletFactory } from '../../services/walletFactory';
 import { logger } from '../../utils/logger';
@@ -14,6 +15,7 @@ interface WithdrawModalProps {
 
 export default function WithdrawModal({ isOpen, onClose, onSuccess }: WithdrawModalProps) {
   const { profile } = useAuth();
+  const { activeAccount } = useWallet();
   
   const [phase, setPhase] = useState<'input' | 'generating' | 'interactive' | 'transferring' | 'success'>('input');
   const [amount, setAmount] = useState('');
@@ -76,7 +78,7 @@ export default function WithdrawModal({ isOpen, onClose, onSuccess }: WithdrawMo
   }, [isOpen, phase, session, authData]);
 
   const handleStartWithdraw = async () => {
-    if (!profile?.stellar_address || !profile.id) return;
+    if (!activeAccount?.stellar_public_key || !profile?.id) return;
     const numAmount = Number(amount);
     if (!amount || isNaN(numAmount) || numAmount <= 0) return;
 
@@ -99,11 +101,11 @@ export default function WithdrawModal({ isOpen, onClose, onSuccess }: WithdrawMo
       if (!userSecret) throw new Error('Secret key não encontrada');
 
       const endpoints = await StellarOfframpService.getAnchorEndpoints();
-      const jwt = await StellarOfframpService.authenticate(profile.stellar_address, userSecret, endpoints.authEndpoint);
+      const jwt = await StellarOfframpService.authenticate(activeAccount.stellar_public_key, userSecret, endpoints.authEndpoint);
       
       setAuthData({ jwt, endpoints });
 
-      const newSession = await StellarOfframpService.initInteractiveWithdraw(profile.stellar_address, jwt, endpoints.sep24Endpoint, amount);
+      const newSession = await StellarOfframpService.initInteractiveWithdraw(activeAccount.stellar_public_key, jwt, endpoints.sep24Endpoint, amount);
       setSession(newSession);
       setPhase('interactive');
 
@@ -115,7 +117,7 @@ export default function WithdrawModal({ isOpen, onClose, onSuccess }: WithdrawMo
   };
 
   const executeOnChainTransfer = async (status: OfframpStatus) => {
-    if (!profile?.stellar_address || !profile.id) return;
+    if (!activeAccount?.stellar_public_key || !profile?.id) return;
     try {
       logger.info('[WalletNow][OffRamp]', 'Iniciando transferência on-chain para o Anchor...', status);
       
