@@ -1,5 +1,23 @@
-import { Keypair, Memo, Operation, TransactionBuilder, Networks, Asset, Horizon } from "@stellar/stellar-sdk";
+import { Keypair, Memo, Operation, TransactionBuilder, Asset, Horizon } from "@stellar/stellar-sdk";
 import { WooviService } from "./wooviService";
+import { StellarNetwork } from '../config/stellarNetwork';
+import { AppConfig } from '../config/environment';
+import { IssuerService } from '../utils/issuerService';
+
+/**
+ * TODO [SECURITY-CRITICAL — BLOCKER MAINNET]:
+ * A ISSUER_SECRET (VITE_STELLAR_ISSUER_SECRET) está exposta no bundle do browser.
+ * QUALQUER PESSOA com DevTools pode lê-la e mintar BRW / drenar a treasury.
+ *
+ * PLANO DE MITIGAÇÃO (obrigatório antes do go-live mainnet):
+ * 1. Criar Supabase Edge Function: `stellar-issuer` (mint, burn, sponsor)
+ * 2. O frontend nunca mais recebe ou usa a ISSUER_SECRET
+ * 3. Edge Function valida JWT do usuário + rate limit antes de assinar
+ * 4. VITE_STELLAR_ISSUER_SECRET deve ser REMOVIDA do .env e do bundle
+ *
+ * STATUS ATUAL: Mantida apenas para preservar funcionamento do testnet.
+ * NÃO FAZER DEPLOY EM MAINNET SEM RESOLVER ESTE BLOCKER.
+ */
 
 /**
  * PaymentService
@@ -17,8 +35,8 @@ import { WooviService } from "./wooviService";
  * ISSUER_SECRET is loaded in env variables for MVP. In production, this must be moved to Backend Functions.
  */
 
-const ISSUER_SECRET = import.meta.env.VITE_STELLAR_ISSUER_SECRET;
-const BASE_FEE = '100000'; // 0.01 XLM (Alta para prioridade em Testnet)
+// A ISSUER_SECRET foi movida para a Edge Function stellar-issuer
+const BASE_FEE = StellarNetwork.baseFee;
 
 /** Trava de concorrência em memória para evitar Duplo Mint/Burn no mesmo ciclo */
 const processingLock = new Set<string>();
@@ -46,9 +64,9 @@ export const PaymentService = {
             if (correlationID) processingLock.add(`mint_${correlationID}`);
 
             // Verificação Crítica de Ambiente (Auditoria Hostinger)
-            if (!ISSUER_SECRET) {
-                console.error("❌ [PaymentService] Erro Fatal: VITE_STELLAR_ISSUER_SECRET não encontrada no ambiente.");
-                throw new Error("Configuração do servidor incompleta (Missing Issuer Key).");
+            if (!AppConfig.stellar.issuerPublicKey) {
+                console.error("❌ [PaymentService] Erro Fatal: VITE_STELLAR_ISSUER_PUBLIC não encontrada no ambiente.");
+                throw new Error("Configuração do servidor incompleta (Missing Issuer Public Key).");
             }
 
             // X402: Rastreabilidade ponta-a-ponta Woovi <-> Stellar
@@ -56,13 +74,12 @@ export const PaymentService = {
                 ? Memo.text(`X402:${correlationID.slice(0, 22)}`)
                 : Memo.none();
 
-            const server = new Horizon.Server('https://horizon-testnet.stellar.org');
-            const issuerKeypair = Keypair.fromSecret(ISSUER_SECRET);
-            const issuerAccount = await server.loadAccount(issuerKeypair.publicKey());
-            const brwAsset = new Asset('BRW', issuerKeypair.publicKey());
+            const server = StellarNetwork.createServer();
+            const ISSUER_PUBLIC = AppConfig.stellar.issuerPublicKey!;
+            const brwAsset = new Asset('BRW', ISSUER_PUBLIC);
 
-            console.log(`📡 [Stellar-Audit] Iniciando Mintagem para: ${targetPublicKey.slice(0, 8)}...`);
-            console.log(`🔑 [Stellar-Audit] Conta Pagadora/Emissora: ${issuerKeypair.publicKey().slice(0, 8)}...`);
+            console.log(`📡 [Stellar-Audit] Iniciando Mintagem para: ${targetPublicKey.slice(0, 8)}... [rede: ${StellarNetwork.networkType}]`);
+            console.log(`🔑 [Stellar-Audit] Conta Pagadora/Emissora: ${ISSUER_PUBLIC.slice(0, 8)}...`);
 
             let isNewAccount = false;
             let hasTrustLine = false;
@@ -71,7 +88,7 @@ export const PaymentService = {
             try {
                 const userAccount = await server.loadAccount(targetPublicKey);
                 hasTrustLine = userAccount.balances.some(
-                    (b: any) => b.asset_code === 'BRW' && b.asset_issuer === issuerKeypair.publicKey()
+                    (b: any) => b.asset_code === 'BRW' && b.asset_issuer === ISSUER_PUBLIC
                 );
             } catch (error: any) {
                 if (error.response?.status === 404) {
@@ -109,29 +126,46 @@ export const PaymentService = {
                 amount: amount
             }));
 
-            const transaction = new TransactionBuilder(issuerAccount, {
-                fee: BASE_FEE,
-                networkPassphrase: Networks.TESTNET,
-                memo: x402Memo,
-            })
-            .setTimeout(30);
+            let hash: string;
             
-            operations.forEach(op => transaction.addOperation(op));
-            
-            const builtTx = transaction.build();
-
-            // Assinaturas Dinâmicas
-            console.log("✍️ [Stellar-Audit] Coletando assinatura do Issuer...");
-            builtTx.sign(issuerKeypair);
-
             if (isNewAccount || !hasTrustLine) {
-                console.log("✍️ [Stellar-Audit] Coletando assinatura do Usuário (Setup de Confiança)...");
+                // Precisa do co-signing (usuário + issuer) pois tem alteração de trustline
+                const issuerAccount = await server.loadAccount(ISSUER_PUBLIC);
+                const transaction = new TransactionBuilder(issuerAccount, {
+                    fee: BASE_FEE,
+                    networkPassphrase: StellarNetwork.passphrase,
+                    memo: x402Memo,
+                }).setTimeout(30);
+                
+                operations.forEach(op => transaction.addOperation(op));
+                const builtTx = transaction.build();
+
+                console.log("✍️ [Stellar-Audit] Coletando assinatura local do Usuário (Setup de Confiança)...");
                 builtTx.sign(Keypair.fromSecret(userSecretKey!));
+                
+                const partialXdr = builtTx.toXDR();
+                
+                console.log("☁️ [Stellar-Audit] Enviando para Edge Function (Mint + Setup)...");
+                hash = await IssuerService.invoke('mint_asset', {
+                    publicKey: targetPublicKey,
+                    assetCode: 'BRW',
+                    amount,
+                    correlationId: correlationID,
+                    partialXdr
+                });
+            } else {
+                // Trustline já existe, o mint é simples e 100% server-side
+                console.log("☁️ [Stellar-Audit] Enviando para Edge Function (Apenas Mint)...");
+                hash = await IssuerService.invoke('mint_asset', {
+                    publicKey: targetPublicKey,
+                    assetCode: 'BRW',
+                    amount,
+                    correlationId: correlationID
+                });
             }
 
-            const response = await server.submitTransaction(builtTx);
-            console.info(`[WalletNow][Mint] ✨ Mintagem de ${amount} BRW concluída com sucesso! Hash: ${response.hash}`);
-            return response.hash;
+            console.info(`[WalletNow][Mint] ✨ Mintagem de ${amount} BRW concluída com sucesso via Edge Function! Hash: ${hash}`);
+            return hash;
         } catch (error: any) {
             this._handleStellarError('OnRamp BRW', error);
             return null;
@@ -162,15 +196,15 @@ export const PaymentService = {
             }
             processingLock.add(`burn_${correlationID}`);
 
-            const server = new Horizon.Server('https://horizon-testnet.stellar.org');
+            const server = StellarNetwork.createServer();
             const userKeypair = Keypair.fromSecret(userSecretKey);
             const userPublicKey = userKeypair.publicKey();
-            const issuerKeypair = Keypair.fromSecret(ISSUER_SECRET!);
+            const ISSUER_PUBLIC = AppConfig.stellar.issuerPublicKey!;
 
             // Validação de Saldo Prévio (Pre-flight check)
             const account = await server.loadAccount(userPublicKey);
             const brwBalance = account.balances.find(
-                (b: any) => b.asset_code === 'BRW' && b.asset_issuer === issuerKeypair.publicKey()
+                (b: any) => b.asset_code === 'BRW' && b.asset_issuer === ISSUER_PUBLIC
             );
 
             // Impedir burn negativo ou de saldo insuficiente.
@@ -187,27 +221,34 @@ export const PaymentService = {
 
             // Memo X402 formatado para Saque
             const x402Memo = Memo.text(`saque-pix:${correlationID.slice(0, 18)}`);
-            const issuerAccount = await server.loadAccount(issuerKeypair.publicKey());
-            const brwAsset = new Asset('BRW', issuerKeypair.publicKey());
+            const issuerAccount = await server.loadAccount(ISSUER_PUBLIC);
+            const brwAsset = new Asset('BRW', ISSUER_PUBLIC);
 
             const transaction = new TransactionBuilder(issuerAccount, {
                 fee: BASE_FEE,
-                networkPassphrase: Networks.TESTNET,
+                networkPassphrase: StellarNetwork.passphrase,
                 memo: x402Memo
             })
             .addOperation(Operation.payment({
                 source: userPublicKey,
-                destination: issuerKeypair.publicKey(),
+                destination: ISSUER_PUBLIC,
                 asset: brwAsset,
                 amount: amount
             }))
             .setTimeout(30)
             .build();
 
-            transaction.sign(userKeypair, issuerKeypair);
-            const response = await server.submitTransaction(transaction);
-            console.info(`[WalletNow][Burn] ✨ Queima na Blockchain finalizada com sucesso. Hash: ${response.hash}`);
-            return response.hash;
+            transaction.sign(userKeypair); // Apenas user assina no client
+            const partialXdr = transaction.toXDR();
+            
+            const hash = await IssuerService.invoke('burn_asset', {
+                partialXdr,
+                amount,
+                correlationId: correlationID
+            });
+            
+            console.info(`[WalletNow][Burn] ✨ Queima na Blockchain finalizada com sucesso via Edge Function. Hash: ${hash}`);
+            return hash;
         } catch (error: any) {
             this._handleStellarError('Off-Ramp Blockchain', error);
             return null;
@@ -259,15 +300,15 @@ export const PaymentService = {
      */
     async swapAssets(userSecretKey: string, fromAssetCode: string, toAssetCode: string, payAmount: string, receiveAmount: string): Promise<string | null> {
         try {
-            const server = new Horizon.Server('https://horizon-testnet.stellar.org');
+            const server = StellarNetwork.createServer();
             const userKeypair = Keypair.fromSecret(userSecretKey);
             const userPublicKey = userKeypair.publicKey();
-            const issuerKeypair = Keypair.fromSecret(ISSUER_SECRET!);
+            const ISSUER_PUBLIC = AppConfig.stellar.issuerPublicKey!;
 
-            const issuerAccount = await server.loadAccount(issuerKeypair.publicKey());
+            const issuerAccount = await server.loadAccount(ISSUER_PUBLIC);
             const userAccount = await server.loadAccount(userPublicKey);
 
-            const getAsset = (code: string) => code === 'XLM' ? Asset.native() : new Asset(code, issuerKeypair.publicKey());
+            const getAsset = (code: string) => code === 'XLM' ? Asset.native() : new Asset(code, ISSUER_PUBLIC);
             const fromAsset = getAsset(fromAssetCode);
             const toAsset = getAsset(toAssetCode);
 
@@ -276,7 +317,7 @@ export const PaymentService = {
             // 1. Recebe o ativo do usuário
             operations.push(Operation.payment({
                 source: userPublicKey,
-                destination: issuerKeypair.publicKey(),
+                destination: ISSUER_PUBLIC,
                 asset: fromAsset,
                 amount: String(parseFloat(payAmount).toFixed(7))
             }));
@@ -293,7 +334,7 @@ export const PaymentService = {
 
             // 3. Envia o novo ativo para o usuário
             operations.push(Operation.payment({
-                source: issuerKeypair.publicKey(),
+                source: ISSUER_PUBLIC,
                 destination: userPublicKey,
                 asset: toAsset,
                 amount: String(parseFloat(receiveAmount).toFixed(7))
@@ -301,7 +342,7 @@ export const PaymentService = {
 
             const transaction = new TransactionBuilder(issuerAccount, {
                 fee: BASE_FEE,
-                networkPassphrase: Networks.TESTNET
+                networkPassphrase: StellarNetwork.passphrase
             })
             .setTimeout(30);
 
@@ -309,9 +350,17 @@ export const PaymentService = {
 
             const builtTx = transaction.build();
 
-            builtTx.sign(issuerKeypair, userKeypair);
-            const response = await server.submitTransaction(builtTx);
-            return response.hash;
+            builtTx.sign(userKeypair); // User assina
+            
+            const hash = await IssuerService.invoke('swap_assets', {
+                partialXdr: builtTx.toXDR(),
+                fromAssetCode,
+                toAssetCode,
+                payAmount: String(parseFloat(payAmount).toFixed(7)),
+                receiveAmount: String(parseFloat(receiveAmount).toFixed(7))
+            });
+            
+            return hash;
         } catch (error: any) {
             this._handleStellarError('Swap API', error);
             return null;
@@ -323,16 +372,16 @@ export const PaymentService = {
      */
     async sendAssetOnChain(userSecretKey: string, destPublicKey: string, assetCode: string, amount: string): Promise<string | null> {
         try {
-            const server = new Horizon.Server('https://horizon-testnet.stellar.org');
+            const server = StellarNetwork.createServer();
             const userKeypair = Keypair.fromSecret(userSecretKey);
-            const issuerKeypair = Keypair.fromSecret(ISSUER_SECRET!);
-            const issuerAccount = await server.loadAccount(issuerKeypair.publicKey());
+            const ISSUER_PUBLIC = AppConfig.stellar.issuerPublicKey!;
+            const issuerAccount = await server.loadAccount(ISSUER_PUBLIC);
 
-            const getAsset = (code: string) => code === 'XLM' ? Asset.native() : new Asset(code, issuerKeypair.publicKey());
+            const getAsset = (code: string) => code === 'XLM' ? Asset.native() : new Asset(code, ISSUER_PUBLIC);
 
             const transaction = new TransactionBuilder(issuerAccount, {
                 fee: BASE_FEE,
-                networkPassphrase: Networks.TESTNET
+                networkPassphrase: StellarNetwork.passphrase
             })
             .addOperation(Operation.payment({
                 source: userKeypair.publicKey(),
@@ -343,9 +392,15 @@ export const PaymentService = {
             .setTimeout(30)
             .build();
 
-            transaction.sign(issuerKeypair, userKeypair);
-            const response = await server.submitTransaction(transaction);
-            return response.hash;
+            transaction.sign(userKeypair);
+            
+            const hash = await IssuerService.invoke('send_on_chain', {
+                partialXdr: transaction.toXDR(),
+                destPublicKey,
+                assetCode,
+                amount: String(parseFloat(amount).toFixed(7))
+            });
+            return hash;
         } catch (error: any) {
             this._handleStellarError('Send On-Chain', error);
             return null;

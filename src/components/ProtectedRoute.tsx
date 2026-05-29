@@ -1,6 +1,7 @@
 import React from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { EnvironmentBanner } from './system/EnvironmentBanner';
 
 /**
  * Rota Protegida (Guarda de Rota)
@@ -28,5 +29,10 @@ export const ProtectedRoute: React.FC = () => {
     }
 
     // Usuário autenticado, permite o acesso.
-    return <Outlet />;
+    return (
+        <>
+            <EnvironmentBanner />
+            <Outlet />
+        </>
+    );
 };

@@ -3,6 +3,18 @@ import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
 
+import { AppConfig } from './config/environment';
+import { StellarNetwork } from './config/stellarNetwork';
+
+// Boot log de Ambiente
+console.log(
+  `%c[WalletNow][Environment]\n` +
+  `APP_ENV=${AppConfig.isProduction ? 'production' : (AppConfig.isHomolog ? 'homolog' : 'dev')}\n` +
+  `STELLAR_NETWORK=${AppConfig.stellar.network}\n` +
+  `HORIZON=${StellarNetwork.horizonUrl}`,
+  'color: #0ea5e9; font-weight: bold;'
+);
+
 /**
  * Ponto de Entrada Principal (Entry Point)
  * 

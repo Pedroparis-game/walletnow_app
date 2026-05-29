@@ -1,6 +1,7 @@
 import { X, QrCode, Copy, CheckCircle2 } from 'lucide-react';
 import { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useWallet } from '../../contexts/WalletContext';
 
 interface ReceiveModalProps {
     isOpen: boolean;
@@ -9,13 +10,16 @@ interface ReceiveModalProps {
 
 export default function ReceiveCryptoModal({ isOpen, onClose }: ReceiveModalProps) {
     const { profile } = useAuth();
+    const { activeAccount } = useWallet();
     const [copied, setCopied] = useState(false);
 
     if (!isOpen) return null;
 
+    const displayAddress = activeAccount?.stellar_public_key || profile?.stellar_address;
+
     const handleCopy = () => {
-        if (profile?.stellar_address) {
-            navigator.clipboard.writeText(profile.stellar_address);
+        if (displayAddress) {
+            navigator.clipboard.writeText(displayAddress);
             setCopied(true);
             setTimeout(() => setCopied(false), 2000);
         }
@@ -47,7 +51,7 @@ export default function ReceiveCryptoModal({ isOpen, onClose }: ReceiveModalProp
                             className="w-full flex items-center justify-between bg-black/50 border border-white/10 p-4 rounded-xl hover:border-white/20 transition-colors group"
                         >
                             <span className="text-xs sm:text-sm text-gray-300 truncate mr-4 font-mono">
-                                {profile?.stellar_address}
+                                {displayAddress}
                             </span>
                             {copied ? (
                                 <CheckCircle2 className="w-5 h-5 text-[#00E676] flex-shrink-0" />

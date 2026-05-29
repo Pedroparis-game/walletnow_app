@@ -1,7 +1,28 @@
-import { Keypair, Horizon, TransactionBuilder, Networks, Asset, Operation } from '@stellar/stellar-sdk';
+import { Keypair, TransactionBuilder, Asset, Operation } from '@stellar/stellar-sdk';
 import { supabase } from '../lib/supabase';
 import { isValidPublicKey, isValidSecretKey } from '../utils/stellarValidation';
 import { DeviceVault } from '../security/deviceVault';
+import { MnemonicVault } from '../security/mnemonicVault';
+import { AppConfig } from '../config/environment';
+import { StellarNetwork } from '../config/stellarNetwork';
+import { isCurrentNetworkMainnet } from '../contexts/NetworkContext';
+import { IssuerService } from '../utils/issuerService';
+import { MainnetService } from './mainnetService';
+import { generateMnemonic, deriveKeypairFromMnemonic, verifyMnemonicMatchesWallet } from '../utils/bip39Wallet';
+
+/**
+ * TODO [SECURITY-CRITICAL — BLOCKER MAINNET]:
+ * VITE_STELLAR_ISSUER_SECRET está sendo lida no bundle do frontend.
+ * Isso expõe a chave privada do issuer ao browser (inspecionável via DevTools).
+ *
+ * PLANO DE MIGRAÇÃO:
+ * 1. Criar Edge Function `stellar-issuer` no Supabase
+ * 2. Mover activateAccount(), provisionWalletForUser() (ativação + trustline) para server-side
+ * 3. O frontend passa apenas publicKey + userId, nunca recebe a issuer secret
+ * 4. Remover VITE_STELLAR_ISSUER_SECRET do bundle completamente
+ *
+ * STATUS: Mantido para preservar fluxo atual de testnet. NÃO fazer deploy em mainnet sem resolver.
+ */
 
 /**
  * WalletFactory
@@ -35,47 +56,70 @@ export const WalletFactory = {
      * Tenta ativar a conta do usuário usando o Issuer como Sponsor (Emergência).
      * Envia 1.5 XLM para cobrir o reserve balance e trustlines.
      */
+    /**
+     * Ativa a conta do usuário via Issuer como Sponsor (mainnet) ou Friendbot (testnet).
+     * Implementa retry com backoff exponencial (3 tentativas: 1s, 2s, 4s).
+     */
     async activateAccount(publicKey: string): Promise<boolean> {
-        try {
-            const ISSUER_SECRET = import.meta.env.VITE_STELLAR_ISSUER_SECRET;
-            if (!ISSUER_SECRET) return false;
-
-            const server = new Horizon.Server('https://horizon-testnet.stellar.org');
-            const issuerKeypair = Keypair.fromSecret(ISSUER_SECRET);
-            const issuerAccount = await server.loadAccount(issuerKeypair.publicKey());
-
-            console.log(`[WalletNow][WalletFactory] 🛡️ [Stellar-Audit] Ativando conta via Sponsor: ${publicKey.slice(0, 8)}...`);
-
-            const transaction = new TransactionBuilder(issuerAccount, {
-                fee: '100000',
-                networkPassphrase: Networks.TESTNET
-            })
-            .addOperation(Operation.createAccount({
-                destination: publicKey,
-                startingBalance: '1.5' // Reserva mínima para conta + algumas trustlines
-            }))
-            .setTimeout(30)
-            .build();
-
-            transaction.sign(issuerKeypair);
-            await server.submitTransaction(transaction);
-            console.log("[WalletNow][WalletFactory] ✅ [Stellar-Audit] Conta ativada com sucesso via Sponsor.");
-            return true;
-        } catch (error: any) {
-            console.error('[WalletNow][WalletFactory] ❌ [Stellar-Audit] Falha na ativação via Sponsor:', error?.response?.data || error.message);
-            return false;
+        // ⛔ BLOQUEIO ABSOLUTO MAINNET: Este método usa IssuerService/Sponsor (Testnet only).
+        // NUNCA deve ser chamado quando isCurrentNetworkMainnet() === true.
+        // Se chegar aqui na Mainnet, é um bug de orquestração — falhar rápido e silenciosamente
+        // para não entrar em loop com ALREADY_FUNDED.
+        if (isCurrentNetworkMainnet()) {
+            console.error(
+                '[WalletNow][WalletFactory] ⛔ [MainnetFunding] BLOCKED_SPONSOR_FALLBACK — ' +
+                'activateAccount() não pode ser chamado na MAINNET. ' +
+                'Use MainnetService.requestMainnetFunding() diretamente.'
+            );
+            throw new Error('Sponsor activation blocked in MAINNET runtime.');
         }
+
+        const maxAttempts = 3;
+        const baseDelay = 1000; // 1 segundo
+
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+            try {
+                console.log(`[WalletNow][WalletFactory] 🛡️ Ativando conta via Sponsor (tentativa ${attempt}/${maxAttempts}): ${publicKey.slice(0, 8)}...`);
+                await IssuerService.invoke('fund_wallet', { publicKey });
+                console.log('[WalletNow][WalletFactory] ✅ Conta ativada com sucesso via Sponsor Edge Function.');
+                return true;
+            } catch (error: any) {
+                const isLastAttempt = attempt === maxAttempts;
+                if (isLastAttempt) {
+                    console.error('[WalletNow][WalletFactory] ❌ Falha na ativação após 3 tentativas:', error.message);
+                    return false;
+                }
+                const delay = baseDelay * Math.pow(2, attempt - 1); // 1s, 2s, 4s
+                console.warn(`[WalletNow][WalletFactory] ⚠️ Tentativa ${attempt} falhou. Aguardando ${delay}ms...`);
+                await new Promise(r => setTimeout(r, delay));
+            }
+        }
+        return false;
     },
 
     /**
      * Provisiona uma nova carteira Stellar completa para o usuário.
+     *
+     * FLUXO BIP39 (wallets novas):
+     * 1. Gera mnemonic de 12 palavras via @scure/bip39 (128 bits de entropia, WebCrypto)
+     * 2. Deriva keypair ED25519 via SLIP-0010 / SEP-0005 (path m/44'/148'/0')
+     * 3. Valida chaves antes de persistir qualquer dado
+     * 4. Salva Public Key no Supabase
+     * 5. Criptografa Secret Key no DeviceVault (AES-GCM)
+     * 6. Criptografa mnemonic no MnemonicVault (AES-GCM, separado)
+     * 7. Marca versão como 'bip39' no localStorage
+     *
+     * Wallets legadas (criadas antes desta versão) não são afetadas.
      */
     async provisionWalletForUser(userId: string): Promise<string | null> {
         try {
-            console.log("[WalletNow][WalletFactory] Iniciando provisionamento de carteira para o usuário:", userId);
-            const keypair = Keypair.random();
-            const publicKey = keypair.publicKey();
-            const secretKey = keypair.secret();
+            console.log("[WalletNow][WalletFactory] Iniciando provisionamento BIP39 para o usuário:", userId);
+
+            // --- ETAPA 1: Gerar keypair via BIP39/SLIP-0010 (determinístico e recuperável) ---
+            const mnemonic = generateMnemonic();
+            const derived = deriveKeypairFromMnemonic(mnemonic);
+            const publicKey = derived.publicKey;
+            const secretKey = derived.secretKey;
 
             // Validação de segurança (Hard Validation) ANTES de persistir qualquer coisa
             if (!isValidPublicKey(publicKey) || !isValidSecretKey(secretKey)) {
@@ -105,48 +149,91 @@ export const WalletFactory = {
                 DeviceVault.setVolatileSecret(secretKey);
 
                 console.log("[WalletNow][WalletFactory] Secret Key encriptada (AES-GCM) e armazenada com segurança localmente.");
+
+                // --- ETAPA BIP39: Salvar mnemonic criptografada no MnemonicVault ---
+                // A mnemonic é criptografada separadamente com a mesma chave PBKDF2
+                // Nunca é enviada ao servidor nem armazenada em plaintext
+                await MnemonicVault.saveMnemonic(mnemonic, userId);
+                console.log("[WalletNow][WalletFactory] ✅ Mnemonic BIP39 criptografada e salva no MnemonicVault.");
             } catch (storageError) {
                 console.error("[WalletNow][WalletFactory] 🚨 Falha catastrófica no DeviceVault/LocalStorage. Abortando!");
                 throw storageError;
             }
 
-            // Tenta ativar via Friendbot primariamente
-            try {
-                await fetch(`https://horizon-testnet.stellar.org/friendbot?addr=${encodeURIComponent(publicKey)}`);
-                console.log("[WalletNow][WalletFactory] ✅ [Stellar-Audit] Conta ativada via Friendbot.");
-            } catch (e) {
-                console.warn("[WalletNow][WalletFactory] ⚠️ Friendbot indisponível. Tentando ativação via Sponsor...");
-                await this.activateAccount(publicKey);
+
+            // Ativação de conta: Friendbot (testnet) ou Auto-Funding (mainnet)
+            // CRIT: Usa isCurrentNetworkMainnet() dinâmico (NetworkContext/localStorage)
+            //       em vez de AppConfig.stellar.isMainnet (estático/env var).
+            const isMainnet = isCurrentNetworkMainnet();
+            console.log(`[WalletNow][WalletFactory] Rede detectada para funding: ${isMainnet ? 'MAINNET' : 'TESTNET'}`);
+            if (isMainnet) {
+                // MAINNET: Aciona Edge Function de auto-funding com 2 XLM
+                console.log("[MainnetWallet] Inciando fluxo de auto-funding via Edge Function na MAINNET.");
+                console.log("[WalletNow][WalletFactory] 🛡️ [Stellar-Audit] Ativando conta na MAINNET via Mainnet Funding Treasury.");
+                try {
+                    await MainnetService.requestMainnetFunding(publicKey);
+                    console.log("[MainnetWallet] ✅ Auto-funding executado com sucesso e conta ativada na MAINNET.");
+                    console.log("[WalletNow][WalletFactory] ✅ Conta ativada com sucesso na MAINNET.");
+                } catch (fundingErr) {
+                    console.error("[WalletNow][WalletFactory] ❌ Falha no auto-funding da Mainnet:", fundingErr);
+                    // Opcional: permitir o usuário prosseguir, mas a wallet não estará ativa on-chain
+                }
+            } else {
+                // TESTNET: Tenta Friendbot, ou faz fallback para Sponsor via IssuerService (Testnet Treasury)
+                const friendbotUrl = StellarNetwork.getFriendbotUrl(publicKey);
+                if (friendbotUrl) {
+                    try {
+                        await fetch(friendbotUrl);
+                        console.log("[WalletNow][WalletFactory] ✅ [Stellar-Audit] Conta ativada via Friendbot (testnet).");
+                    } catch (e) {
+                        console.warn("[WalletNow][WalletFactory] ⚠️ Friendbot indisponível. Tentando ativação via Sponsor Testnet...");
+                        await this.activateAccount(publicKey); // fallback testnet
+                    }
+                } else {
+                    await this.activateAccount(publicKey);
+                }
             }
 
-            // Setup Gasless de Ativo Soberano (BRW) se possível
-            const ISSUER_SECRET = import.meta.env.VITE_STELLAR_ISSUER_SECRET;
-            if (ISSUER_SECRET) {
-                const server = new Horizon.Server('https://horizon-testnet.stellar.org');
-                const issuerKeypair = Keypair.fromSecret(ISSUER_SECRET);
-                const brwAsset = new Asset('BRW', issuerKeypair.publicKey());
+            // Setup Gasless de Trustlines:
+            // USDC = trustline principal (stablecoin do ecossistema, fase QA/mainnet prep)
+            // BRW = trustline secundária (token interno testnet, mantido para compatibilidade)
+            const ISSUER_PUBLIC = AppConfig.stellar.issuerPublicKey;
+            if (ISSUER_PUBLIC) {
+                const server = StellarNetwork.createServer();
+                // USDC usa o mesmo issuer que BRW em testnet (mock local)
+                // Em mainnet, StellarNetwork.getAsset('USDC') resolve para Circle issuer real
+                const usdcAsset = new Asset('USDC', ISSUER_PUBLIC);
+                const brwAsset = new Asset('BRW', ISSUER_PUBLIC);
                 const userKeypair = Keypair.fromSecret(secretKey);
                 
-                // Espera um pouco para a rede processar a criação antes de mudar trust
+                // Espera a rede processar a criação antes de mudar trust
                 await new Promise(r => setTimeout(r, 2000));
 
                 try {
-                    const issuerAccount = await server.loadAccount(issuerKeypair.publicKey());
+                    const issuerAccount = await server.loadAccount(ISSUER_PUBLIC);
+                    // Uma única transação patrocinada com USDC (principal) + BRW (secundário)
                     const transaction = new TransactionBuilder(issuerAccount, {
-                        fee: '100000',
-                        networkPassphrase: Networks.TESTNET
+                        fee: StellarNetwork.baseFee,
+                        networkPassphrase: StellarNetwork.passphrase
                     })
                     .addOperation(Operation.beginSponsoringFutureReserves({ sponsoredId: publicKey }))
-                    .addOperation(Operation.changeTrust({ asset: brwAsset, source: publicKey }))
+                    .addOperation(Operation.changeTrust({ asset: usdcAsset, source: publicKey })) // USDC primeiro
+                    .addOperation(Operation.changeTrust({ asset: brwAsset, source: publicKey })) // BRW secundário
                     .addOperation(Operation.endSponsoringFutureReserves({ source: publicKey }))
                     .setTimeout(30)
                     .build();
                     
-                    transaction.sign(issuerKeypair, userKeypair);
-                    await server.submitTransaction(transaction);
-                    console.log("[WalletNow][WalletFactory] ✅ Trustline base estabelecida.");
+                    transaction.sign(userKeypair);
+                    const partialXdr = transaction.toXDR();
+                    
+                    await IssuerService.invoke('sponsor_wallet', { 
+                        publicKey, 
+                        partialXdr 
+                    });
+                    
+                    console.log("[WalletNow][WalletFactory] ✅ Trustlines estabelecidas: USDC (principal) + BRW (secundário) via Edge Function.");
                 } catch (setupError) {
-                    console.warn("[WalletNow][WalletFactory] ⚠️ Erro no setup inicial da Trustline. O Mint cuidará disso.", setupError);
+                    console.warn("[WalletNow][WalletFactory] ⚠️ Erro no setup inicial das Trustlines. O Mint cuidará disso.", setupError);
                 }
             }
 
@@ -154,51 +241,108 @@ export const WalletFactory = {
             return publicKey;
         } catch (error) {
             console.error('[WalletNow][WalletFactory] ❌ Erro fatal no provisionamento da carteira:', error);
+            // FAIL-SAFE: Limpar qualquer resíduo se falhar no meio do fluxo
+            DeviceVault.clearSensitiveMemory();
+            MnemonicVault.clearSensitiveMnemonicMemory();
             return null;
         }
     },
 
     /**
      * Recupera a Secret Key do usuário diretamente da memória VOLÁTIL.
+    /**
+     * Recupera a Secret Key do usuário da memória volátil.
      * Requer que a carteira já tenha sido destrancada (unlockWallet) após o login.
      */
     getSecretKey(userId: string): string | null {
-        // Garantimos que a chave em memória pertence ao userId correto implicitamente
-        // já que o unlockWallet usou o userId para derivar a chave de descriptografia.
         return DeviceVault.getVolatileSecret();
     },
 
     /**
      * Descriptografa o cofre local usando a autenticação biométrica associada ao userId.
+     * Suporta tanto carteiras BIP39 (novas) quanto wallets legadas (Keypair.random()).
      */
     async unlockWallet(userId: string): Promise<boolean> {
         try {
             const rawStorage = localStorage.getItem(`${STORAGE_KEY_PREFIX}${userId}`);
             if (!rawStorage) return false;
 
-            // Se for um JSON válido, é a versão nova (v1) criptografada
             if (rawStorage.startsWith('{')) {
+                // Versão criptografada (v1 AES-GCM)
                 const vaultData = JSON.parse(rawStorage);
                 const encKey = await DeviceVault.generateEncryptionKey(userId);
                 const plaintext = await DeviceVault.decryptSecret(vaultData.ciphertext, vaultData.iv, encKey);
-                
                 DeviceVault.setVolatileSecret(plaintext);
-                console.log("[WalletNow][WalletFactory] Carteira destrancada via WebCrypto.");
+                console.log('[WalletNow][WalletFactory] Carteira destrancada via WebCrypto.');
                 return true;
             } else {
-                // FALLBACK TEMPORÁRIO DE MIGRAÇÃO (se a chave era plaintext antiga)
-                // Vamos migrá-la silenciosamente
-                console.warn("[WalletNow][WalletFactory] Chave legacy detectada. Migrando para AES-GCM Vault...");
+                // FALLBACK: chave legacy plaintext — migra silenciosamente para AES-GCM
+                console.warn('[WalletNow][WalletFactory] Chave legacy detectada. Migrando para AES-GCM Vault...');
                 const encKey = await DeviceVault.generateEncryptionKey(userId);
                 const encryptedData = await DeviceVault.encryptSecret(rawStorage, encKey);
                 localStorage.setItem(`${STORAGE_KEY_PREFIX}${userId}`, JSON.stringify(encryptedData));
                 DeviceVault.setVolatileSecret(rawStorage);
-                console.log("[WalletNow][WalletFactory] Migração de segurança concluída com sucesso.");
+                // Marca como legacy se ainda não tiver versão definida
+                MnemonicVault.markAsLegacy(userId);
+                console.log('[WalletNow][WalletFactory] Migração de segurança concluída com sucesso.');
                 return true;
             }
         } catch (e) {
-            console.error("[WalletNow][WalletFactory] Erro ao destrancar carteira:", e);
+            console.error('[WalletNow][WalletFactory] Erro ao destrancar carteira:', e);
             DeviceVault.clearSensitiveMemory();
+            MnemonicVault.clearSensitiveMnemonicMemory();
+            return false;
+        }
+    },
+
+    /**
+     * Recupera uma carteira BIP39 a partir da mnemonic de recuperação.
+     *
+     * FLUXO:
+     * 1. Valida a mnemonic BIP39
+     * 2. Deriva o keypair determinístico (SLIP-0010/SEP-0005)
+     * 3. Verifica se o publicKey bate com o endereço registrado no Supabase
+     * 4. Salva o secret key criptografado no vault local
+     * 5. Salva a mnemonic criptografada no MnemonicVault
+     *
+     * @param mnemonic 12 palavras de recuperação
+     * @param userId ID do usuário Supabase
+     * @param expectedPublicKey Chave pública registrada (para verificação)
+     * @returns true se a recuperação foi bem-sucedida
+     */
+    async recoverWalletFromMnemonic(
+        mnemonic: string,
+        userId: string,
+        expectedPublicKey: string
+    ): Promise<boolean> {
+        try {
+            // Deriva o keypair a partir da mnemonic
+            const derived = deriveKeypairFromMnemonic(mnemonic);
+
+            // Verifica se a mnemonic gera o mesmo endereço da carteira
+            if (!verifyMnemonicMatchesWallet(mnemonic, expectedPublicKey)) {
+                console.warn('[WalletNow][WalletFactory] ⚠️ Mnemonic não corresponde ao endereço da carteira.');
+                return false;
+            }
+
+            // Salva o secret key criptografado (substitui vault existente)
+            const encKey = await DeviceVault.generateEncryptionKey(userId);
+            const encryptedSecret = await DeviceVault.encryptSecret(derived.secretKey, encKey);
+            localStorage.setItem(`${STORAGE_KEY_PREFIX}${userId}`, JSON.stringify(encryptedSecret));
+
+            // Salva a mnemonic criptografada
+            await MnemonicVault.saveMnemonic(mnemonic, userId);
+
+            // Carrega na memória volátil
+            DeviceVault.setVolatileSecret(derived.secretKey);
+            
+            console.log('[WalletNow][WalletFactory] ✅ Carteira recuperada com sucesso via mnemonic BIP39.');
+            return true;
+        } catch (err: any) {
+            console.error('[WalletNow][WalletFactory] ❌ Falha na recuperação via mnemonic:', err.message);
+            // FAIL-SAFE CRÍTICO: Previne chaves órfãs na RAM
+            DeviceVault.clearSensitiveMemory();
+            MnemonicVault.clearSensitiveMnemonicMemory();
             return false;
         }
     },
@@ -211,7 +355,7 @@ export const WalletFactory = {
      */
     async getHistory(publicKey: string): Promise<any[]> {
         try {
-            const server = new Horizon.Server('https://horizon-testnet.stellar.org');
+            const server = StellarNetwork.createServer();
             const page = await server.payments()
                 .forAccount(publicKey)
                 .limit(20)
@@ -264,13 +408,13 @@ export const WalletFactory = {
      * Consulta os saldos reais de múltiplos ativos na conta Stellar.
      * Estrutura Genérica de RWA suportando futuros ativos: TESOURO, CETES, USTB.
      */
-    async getBalances(publicKey: string): Promise<{ brz: string, brw: string, xlm: string, usdc: string, btc: string, tesouro: string, cetes: string, ustb: string } | null> {
+    async getBalances(publicKey: string): Promise<{ brz: string, brw: string, xlm: string, usdc: string, eurc: string, btc: string, tesouro: string, cetes: string, ustb: string } | null> {
         try {
-            const server = new Horizon.Server('https://horizon-testnet.stellar.org');
+            const server = StellarNetwork.createServer();
             const account = await server.loadAccount(publicKey);
 
-            // Inicia valores vazios para RWA-ready nativo da Stellar
-            let balances = { brz: '0.00', brw: '0.00', xlm: '0.00', usdc: '0.00', btc: '0.00', tesouro: '0.00', cetes: '0.00', ustb: '0.00' };
+            // Inicia valores vazios para todos os ativos suportados
+            let balances = { brz: '0.00', brw: '0.00', xlm: '0.00', usdc: '0.00', eurc: '0.00', btc: '0.00', tesouro: '0.00', cetes: '0.00', ustb: '0.00' };
             let foundRWAs: string[] = [];
 
             account.balances.forEach((balance: any) => {
@@ -279,6 +423,7 @@ export const WalletFactory = {
                 else if (code === 'BRZ') balances.brz = balance.balance;
                 else if (code === 'BRW') balances.brw = balance.balance;
                 else if (code === 'USDC') balances.usdc = balance.balance;
+                else if (code === 'EURC') balances.eurc = balance.balance;
                 else if (code === 'BTC') balances.btc = balance.balance;
                 // --- RWA Bonds ---
                 else if (code === 'TESOURO') {

@@ -3,7 +3,6 @@ import { supabase } from "../lib/supabase";
 import { WalletFactory } from "./walletFactory";
 
 // Recupera informações da nossa Conta Master (Issuer de Testes)
-const ISSUER_SECRET = import.meta.env.VITE_STELLAR_ISSUER_SECRET;
 const ISSUER_PUBLIC = import.meta.env.VITE_STELLAR_ISSUER_PUBLIC;
 const BASE_FEE = '10000'; // 0.001 XLM (10x a taxa base para rápida aprovação)
 

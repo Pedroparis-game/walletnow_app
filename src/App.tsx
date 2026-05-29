@@ -11,6 +11,8 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Settings from './pages/Settings';
 import { AuthProvider } from './contexts/AuthContext';
+import { WalletProvider } from './contexts/WalletContext';
+import { NetworkProvider } from './contexts/NetworkContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import QADebugPanel from './components/QADebugPanel';
 import { AppErrorBoundary } from './components/system/AppErrorBoundary';
@@ -30,8 +32,12 @@ export default function App() {
   return (
 
     <AppErrorBoundary>
+      {/* NetworkProvider: Contexto global de rede Stellar (TESTNET/MAINNET) */}
+      <NetworkProvider>
       {/* Envolve a aplicação com o estado global de Autenticação (Supabase) */}
       <AuthProvider>
+      {/* Envolve com o estado global de Múltiplas Contas de Carteira */}
+      <WalletProvider>
       {/* BrowserRouter: Habilita o roteamento baseado na URL com Base Dinâmica (Vite/Vercel/Hostinger) */}
       <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, '')}>
         {/* Routes: Container que agrupa todas as rotas possíveis da aplicação */}
@@ -64,7 +70,9 @@ export default function App() {
         </Routes>
         <QADebugPanel />
       </BrowserRouter>
+      </WalletProvider>
     </AuthProvider>
+    </NetworkProvider>
     </AppErrorBoundary>
   );
 }
