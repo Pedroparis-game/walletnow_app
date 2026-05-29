@@ -5,7 +5,9 @@ import { DeviceVault } from '../security/deviceVault';
 import { MnemonicVault } from '../security/mnemonicVault';
 import { AppConfig } from '../config/environment';
 import { StellarNetwork } from '../config/stellarNetwork';
+import { isCurrentNetworkMainnet } from '../contexts/NetworkContext';
 import { IssuerService } from '../utils/issuerService';
+import { MainnetService } from './mainnetService';
 import { generateMnemonic, deriveKeypairFromMnemonic, verifyMnemonicMatchesWallet } from '../utils/bip39Wallet';
 
 /**
@@ -59,6 +61,19 @@ export const WalletFactory = {
      * Implementa retry com backoff exponencial (3 tentativas: 1s, 2s, 4s).
      */
     async activateAccount(publicKey: string): Promise<boolean> {
+        // ⛔ BLOQUEIO ABSOLUTO MAINNET: Este método usa IssuerService/Sponsor (Testnet only).
+        // NUNCA deve ser chamado quando isCurrentNetworkMainnet() === true.
+        // Se chegar aqui na Mainnet, é um bug de orquestração — falhar rápido e silenciosamente
+        // para não entrar em loop com ALREADY_FUNDED.
+        if (isCurrentNetworkMainnet()) {
+            console.error(
+                '[WalletNow][WalletFactory] ⛔ [MainnetFunding] BLOCKED_SPONSOR_FALLBACK — ' +
+                'activateAccount() não pode ser chamado na MAINNET. ' +
+                'Use MainnetService.requestMainnetFunding() diretamente.'
+            );
+            throw new Error('Sponsor activation blocked in MAINNET runtime.');
+        }
+
         const maxAttempts = 3;
         const baseDelay = 1000; // 1 segundo
 
@@ -146,22 +161,37 @@ export const WalletFactory = {
             }
 
 
-            // Ativação de conta: Friendbot (testnet) ou Sponsor (mainnet / fallback)
-            // StellarNetwork.getFriendbotUrl() retorna null em mainnet — nunca chama Friendbot em produção
-            const friendbotUrl = StellarNetwork.getFriendbotUrl(publicKey);
-            if (friendbotUrl) {
+            // Ativação de conta: Friendbot (testnet) ou Auto-Funding (mainnet)
+            // CRIT: Usa isCurrentNetworkMainnet() dinâmico (NetworkContext/localStorage)
+            //       em vez de AppConfig.stellar.isMainnet (estático/env var).
+            const isMainnet = isCurrentNetworkMainnet();
+            console.log(`[WalletNow][WalletFactory] Rede detectada para funding: ${isMainnet ? 'MAINNET' : 'TESTNET'}`);
+            if (isMainnet) {
+                // MAINNET: Aciona Edge Function de auto-funding com 2 XLM
+                console.log("[MainnetWallet] Inciando fluxo de auto-funding via Edge Function na MAINNET.");
+                console.log("[WalletNow][WalletFactory] 🛡️ [Stellar-Audit] Ativando conta na MAINNET via Mainnet Funding Treasury.");
                 try {
-                    await fetch(friendbotUrl);
-                    console.log("[WalletNow][WalletFactory] ✅ [Stellar-Audit] Conta ativada via Friendbot (testnet).");
-                } catch (e) {
-                    console.warn("[WalletNow][WalletFactory] ⚠️ Friendbot indisponível. Tentando ativação via Sponsor...");
-                    await this.activateAccount(publicKey);
+                    await MainnetService.requestMainnetFunding(publicKey);
+                    console.log("[MainnetWallet] ✅ Auto-funding executado com sucesso e conta ativada na MAINNET.");
+                    console.log("[WalletNow][WalletFactory] ✅ Conta ativada com sucesso na MAINNET.");
+                } catch (fundingErr) {
+                    console.error("[WalletNow][WalletFactory] ❌ Falha no auto-funding da Mainnet:", fundingErr);
+                    // Opcional: permitir o usuário prosseguir, mas a wallet não estará ativa on-chain
                 }
             } else {
-                // MAINNET: Friendbot não existe. Sponsor é obrigatório.
-                // TODO [MAINNET-BLOCKER]: Mover ativação via Sponsor para Edge Function server-side
-                console.log("[WalletNow][WalletFactory] 🛡️ [Stellar-Audit] Ativando conta via Treasury Sponsor (mainnet).");
-                await this.activateAccount(publicKey);
+                // TESTNET: Tenta Friendbot, ou faz fallback para Sponsor via IssuerService (Testnet Treasury)
+                const friendbotUrl = StellarNetwork.getFriendbotUrl(publicKey);
+                if (friendbotUrl) {
+                    try {
+                        await fetch(friendbotUrl);
+                        console.log("[WalletNow][WalletFactory] ✅ [Stellar-Audit] Conta ativada via Friendbot (testnet).");
+                    } catch (e) {
+                        console.warn("[WalletNow][WalletFactory] ⚠️ Friendbot indisponível. Tentando ativação via Sponsor Testnet...");
+                        await this.activateAccount(publicKey); // fallback testnet
+                    }
+                } else {
+                    await this.activateAccount(publicKey);
+                }
             }
 
             // Setup Gasless de Trustlines:

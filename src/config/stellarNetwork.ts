@@ -23,6 +23,7 @@
 
 import { Networks, Asset, Horizon } from '@stellar/stellar-sdk';
 import { AppConfig, StellarNetworkType } from './environment';
+import { isCurrentNetworkMainnet, getCurrentNetwork } from '../contexts/NetworkContext';
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
 
@@ -162,7 +163,7 @@ export const StellarNetwork = {
    * Configuração completa da rede ativa.
    */
   get config(): StellarNetworkConfig {
-    return AppConfig.stellar.isMainnet ? MAINNET_CONFIG : TESTNET_CONFIG;
+    return isCurrentNetworkMainnet() ? MAINNET_CONFIG : TESTNET_CONFIG;
   },
 
   /**
@@ -216,7 +217,7 @@ export const StellarNetwork = {
    * Retorna os assets configurados para a rede ativa.
    */
   get assets(): Record<string, StellarAssetConfig> {
-    return AppConfig.stellar.isMainnet ? MAINNET_ASSETS : TESTNET_ASSETS;
+    return isCurrentNetworkMainnet() ? MAINNET_ASSETS : TESTNET_ASSETS;
   },
 
   /**
@@ -270,7 +271,7 @@ export const StellarNetwork = {
    * NUNCA chamar Friendbot em mainnet.
    */
   get friendbotAvailable(): boolean {
-    return !AppConfig.stellar.isMainnet;
+    return !isCurrentNetworkMainnet();
   },
 
   /**
@@ -286,7 +287,7 @@ export const StellarNetwork = {
    * Tipo de rede ativa para uso em logs e UI.
    */
   get networkType(): StellarNetworkType {
-    return AppConfig.stellar.network;
+    return getCurrentNetwork();
   },
 
   /**
