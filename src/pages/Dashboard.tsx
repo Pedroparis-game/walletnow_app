@@ -1,4 +1,4 @@
-import { ArrowDownLeft, ArrowUpRight, History, Settings as SettingsIcon, Wallet, ShieldCheck, Award, Loader2, Globe } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, History, Settings as SettingsIcon, ShieldCheck, Award, Loader2, Globe, Lock } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import DepositModal from '../components/modals/DepositModal';
@@ -7,11 +7,13 @@ import SacarModal from '../components/modals/SacarModal';
 import WithdrawModal from '../components/modals/WithdrawModal';
 import { useAuth } from '../contexts/AuthContext';
 import { useWallet } from '../contexts/WalletContext';
+import { useNetwork } from '../contexts/NetworkContext';
 import { WalletFactory } from '../services/walletFactory';
 import { logger } from '../utils/logger';
 import { DemoConfig } from '../config/demoMode';
 import { EtherfuseActivityService, EfV2Activity } from '../services/providers/etherfuseV2/etherfuseActivityService';
 import AccountSwitcher from '../components/wallet/AccountSwitcher';
+import NetworkToggle from '../components/wallet/NetworkToggle';
 
 /**
  * Dashboard Principal — The Money Layer
@@ -32,6 +34,7 @@ export default function Dashboard() {
   // Consumindo dados do Usuário Logado e seu Profile (que contem o endereco Stellar e Dados de KYC)
   const { user, profile } = useAuth();
   const { activeAccount, loading: walletLoading } = useWallet();
+  const { currentNetwork, isMainnet } = useNetwork();
 
   // Prioriza o nome validado no KYC, fazendo fallback para o email ou 'Usuário' genérico
   const userFirstName = profile?.full_name
@@ -44,6 +47,13 @@ export default function Dashboard() {
   const [isSendOpen, setIsSendOpen] = useState(false);
   const [isSacarOpen, setIsSacarOpen] = useState(false);
   const [isWithdrawOpen, setIsWithdrawOpen] = useState(false);
+
+  // Toast de bloqueio para botões financeiros em MAINNET
+  const [showMainnetBlockToast, setShowMainnetBlockToast] = useState(false);
+  const handleMainnetBlocked = () => {
+    setShowMainnetBlockToast(true);
+    setTimeout(() => setShowMainnetBlockToast(false), 3500);
+  };
 
   // Estados de Saldo (Extraídos do Blockchain via Stellar Horizon)
   const [totalBalance, setTotalBalance] = useState<string>('0.00');
@@ -150,8 +160,9 @@ export default function Dashboard() {
       {/* Cabeçalho (Header) */}
       <header className="px-6 pt-8 pb-4 flex justify-between items-center relative z-50">
         <div className="flex items-center gap-3">
-          {/* Account Switcher substitui o Ícone da Carteira Simples */}
+          {/* Account Switcher + Network Toggle (lado a lado) */}
           <AccountSwitcher />
+          <NetworkToggle />
         </div>
 
         <div className="flex items-center gap-3">
@@ -213,37 +224,61 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Botões de Ação Principais */}
+          {/* Botões de Ação Principais
+               - TESTNET: comportamento normal
+               - MAINNET: disabled + opacity + cursor-not-allowed + badge Sandbox Only */}
           <div className="flex gap-4">
-            {/* Botão Depositar: Abre o modal de PIX */}
+            {/* Depositar */}
             <button
-              onClick={() => setIsDepositOpen(true)}
-              disabled={isLoadingBalance || isAccountActive === false || isActivating}
-              className="flex-1 flex items-center justify-center gap-2 bg-[#00E676] hover:bg-[#00E676]/90 text-black py-3.5 rounded-2xl font-bold transition-colors shadow-[0_0_15px_rgba(0,230,118,0.2)] disabled:opacity-50 disabled:grayscale transition-all"
+              onClick={isMainnet ? handleMainnetBlocked : () => setIsDepositOpen(true)}
+              disabled={!isMainnet && (isLoadingBalance || isAccountActive === false || isActivating)}
+              className={`flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl font-bold transition-all ${
+                isMainnet
+                  ? 'bg-[#00E676]/20 text-black/40 cursor-not-allowed opacity-50 border border-[#00E676]/10'
+                  : 'bg-[#00E676] hover:bg-[#00E676]/90 text-black shadow-[0_0_15px_rgba(0,230,118,0.2)] disabled:opacity-50 disabled:grayscale'
+              }`}
+              title={isMainnet ? 'Sandbox Only — disponível apenas em TESTNET' : undefined}
             >
-              {isActivating || (isAccountActive === false && isLoadingBalance) ? (
+              {isMainnet ? (
+                <Lock className="w-4 h-4" />
+              ) : isActivating || (isAccountActive === false && isLoadingBalance) ? (
                 <Loader2 className="w-5 h-5 animate-spin" />
               ) : (
                 <ArrowDownLeft className="w-5 h-5" />
               )}
-              {isActivating ? 'Ativando...' : (isAccountActive === false ? 'Configurando...' : 'Depositar')}
+              <span className="text-sm">
+                {isMainnet ? 'Sandbox Only' : isActivating ? 'Ativando...' : (isAccountActive === false ? 'Configurando...' : 'Depositar')}
+              </span>
             </button>
 
+            {/* Sacar BRW */}
             <button
-              onClick={() => setIsSacarOpen(true)}
-              className="flex-1 flex items-center justify-center gap-2 bg-white/10 hover:bg-white/15 text-white py-3.5 rounded-2xl font-semibold transition-colors border border-white/5"
+              onClick={isMainnet ? handleMainnetBlocked : () => setIsSacarOpen(true)}
+              disabled={isMainnet}
+              className={`flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl font-semibold transition-colors border ${
+                isMainnet
+                  ? 'bg-white/5 border-white/5 text-gray-600 cursor-not-allowed opacity-50'
+                  : 'bg-white/10 hover:bg-white/15 text-white border-white/5'
+              }`}
+              title={isMainnet ? 'Sandbox Only — disponível apenas em TESTNET' : undefined}
             >
-              <ArrowUpRight className="w-5 h-5" />
-              Sacar BRW
+              {isMainnet ? <Lock className="w-4 h-4" /> : <ArrowUpRight className="w-5 h-5" />}
+              <span className="text-sm">{isMainnet ? 'Sandbox Only' : 'Sacar BRW'}</span>
             </button>
 
-            {/* Botão Off-Ramp: Saque de XLM via Anchor SEP-24 */}
+            {/* Off-Ramp XLM */}
             <button
-              onClick={() => setIsWithdrawOpen(true)}
-              className="flex-1 flex items-center justify-center gap-2 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 py-3.5 rounded-2xl font-semibold transition-colors border border-blue-500/20"
+              onClick={isMainnet ? handleMainnetBlocked : () => setIsWithdrawOpen(true)}
+              disabled={isMainnet}
+              className={`flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl font-semibold transition-colors border ${
+                isMainnet
+                  ? 'bg-blue-600/5 border-blue-500/10 text-blue-900 cursor-not-allowed opacity-50'
+                  : 'bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border-blue-500/20'
+              }`}
+              title={isMainnet ? 'Sandbox Only — disponível apenas em TESTNET' : undefined}
             >
-              <ArrowUpRight className="w-5 h-5" />
-              Off-Ramp XLM
+              {isMainnet ? <Lock className="w-4 h-4" /> : <ArrowUpRight className="w-5 h-5" />}
+              <span className="text-sm">{isMainnet ? 'Sandbox Only' : 'Off-Ramp XLM'}</span>
             </button>
           </div>
         </div>
@@ -266,7 +301,15 @@ export default function Dashboard() {
                 <h3 className="text-white font-bold tracking-tight">Brazilian Real Treasury</h3>
               </div>
             </div>
-            <span className="text-[10px] text-slate-500 font-mono bg-slate-900 px-2 py-1 rounded border border-slate-800">BRT</span>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-slate-500 font-mono bg-slate-900 px-2 py-1 rounded border border-slate-800">BRT</span>
+              {isMainnet && (
+                <span className="text-[9px] text-amber-400 font-mono bg-amber-900/20 px-2 py-1 rounded border border-amber-800/30 flex items-center gap-1">
+                  <Lock className="w-2.5 h-2.5" />
+                  Mainnet prep
+                </span>
+              )}
+            </div>
           </div>
 
           <div className="mt-6 flex items-end justify-between">
@@ -279,13 +322,20 @@ export default function Dashboard() {
               ) : (
                 <div className="flex items-baseline gap-1.5">
                   <span className="text-lg text-slate-500 font-semibold">R$</span>
-                  <span className="text-3xl font-bold text-white tracking-tight">{(parseFloat(assetDetails.tesouro || '0') || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                  <span className={`text-3xl font-bold tracking-tight ${isMainnet ? 'text-slate-600' : 'text-white'}`}>
+                    {isMainnet ? '—' : (parseFloat(assetDetails.tesouro || '0') || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </span>
                 </div>
+              )}
+              {isMainnet && (
+                <p className="text-[10px] text-slate-600 mt-1">Mainnet Treasury em preparação</p>
               )}
             </div>
             <div className="text-right">
               <p className="text-[10px] text-blue-400 uppercase tracking-wider font-semibold mb-1">Est. APY</p>
-              <span className="text-sm font-bold text-blue-300">~ 10.4%</span>
+              <span className={`text-sm font-bold ${isMainnet ? 'text-slate-600' : 'text-blue-300'}`}>
+                {isMainnet ? '—' : '~ 10.4%'}
+              </span>
             </div>
           </div>
         </div>
@@ -400,9 +450,22 @@ export default function Dashboard() {
             <p><strong>Public Key:</strong> {activeAccount?.stellar_public_key ? `${activeAccount.stellar_public_key.slice(0, 8)}...${activeAccount.stellar_public_key.slice(-4)}` : 'N/A'}</p>
             <p><strong>Horizon:</strong> {isAccountActive ? '✅ Conta Ativa' : 'Verificando...'}</p>
             <p><strong>XLM:</strong> {assetDetails.xlm} | <strong>USDC:</strong> {assetDetails.usdc} | <strong>BRW:</strong> {assetDetails.brw}</p>
+            <p><strong>Rede:</strong> <span className={currentNetwork === 'mainnet' ? 'text-blue-400' : 'text-amber-400'}>{currentNetwork.toUpperCase()}</span> {isMainnet ? '🌐 XLM Real' : '⚡ Sandbox'}</p>
           </div>
         </div>
       </div>
+
+      {/* Toast global: clique em botões bloqueados em MAINNET */}
+      {showMainnetBlockToast && (
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[300] animate-in slide-in-from-bottom-4 duration-300">
+          <div className="flex items-center gap-2.5 px-4 py-3 bg-[#1a1a1a] border border-amber-500/30 rounded-2xl shadow-2xl max-w-xs">
+            <Lock className="w-4 h-4 text-amber-400 flex-shrink-0" />
+            <p className="text-xs text-amber-200">
+              <strong className="text-amber-300">On/Off Ramp ainda em homologação sandbox.</strong> Alterne para TESTNET para usar depósitos e saques.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Seção de NFTs / Identidade ZK */}
       {profile?.kyc_verified && (
