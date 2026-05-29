@@ -1,5 +1,5 @@
-import { X, Copy, QrCode, CheckCircle2, Loader2, Zap, ExternalLink, CreditCard, Globe, ChevronRight, ShieldCheck, AlertCircle, TrendingUp, Wallet } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { X, Copy, QrCode, CheckCircle2, Loader2, Zap, ExternalLink, CreditCard, Globe, ChevronRight, ShieldCheck, AlertCircle, TrendingUp, Wallet, RefreshCw } from 'lucide-react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useWallet } from '../../contexts/WalletContext';
 import { PaymentService } from '../../services/paymentService';
@@ -16,6 +16,7 @@ import { EtherfuseV2ApiService, EfV2HttpError } from '../../services/providers/e
 import { EtherfusePersistenceService } from '../../services/providers/etherfuseV2/etherfusePersistenceService';
 import { EtherfuseActivityService } from '../../services/providers/etherfuseV2/etherfuseActivityService';
 import type { EfV2QuoteResult, EfV2OrderResult } from '../../services/providers/etherfuseV2/etherfuseV2Types';
+import { PriceOracleService, type XlmPriceResult } from '../../services/priceOracleService';
 
 
 // Define quais propriedades (props) este componente espera receber.
@@ -83,10 +84,28 @@ export default function DepositModal({ isOpen, onClose, onSuccess }: DepositModa
 
   // Dados Inputados e Retornados
   const [amount, setAmount] = useState('');
-  const [pixData, setPixData] = useState<{ brCode: string, correlationID: string, amount: number } | null>(null);
+  /**
+   * pixData.amount      = valor em BRL (usado pelo Woovi/BRW em 1:1)
+   * pixData.quotedXlmAmount = valor em XLM calculado via oráculo NO momento da geração
+   *                           (usado pelo TestAnchor para settlement real)
+   * Separação explícita evita o bug brlAmount → XLM amount.
+   */
+  const [pixData, setPixData] = useState<{
+    brCode: string;
+    correlationID: string;
+    amount: number;          // BRL — para Woovi/BRW (1:1)
+    quotedXlmAmount: number; // XLM — para TestAnchor (via oráculo)
+    xlmSource: string;       // Fonte do oráculo (para log QA)
+  } | null>(null);
   const [copied, setCopied] = useState(false);
   const [txHash, setTxHash] = useState<string | null>(null);
   const [ef2TxHash, setEf2TxHash] = useState<string | null>(null);
+
+  // ── Cotação XLM/BRL (PriceOracleService) ─────────────────────────────────
+  const [xlmPrice, setXlmPrice] = useState<XlmPriceResult | null>(null);
+  const [xlmPriceLoading, setXlmPriceLoading] = useState(false);
+  const [xlmPriceError, setXlmPriceError] = useState(false);
+  const xlmDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -105,8 +124,49 @@ export default function DepositModal({ isOpen, onClose, onSuccess }: DepositModa
       setEf2CustomerId('');
       setEf2ErrorMsg('');
       setEf2TxHash(null);
+      // Reset cotação
+      setXlmPrice(null);
+      setXlmPriceError(false);
     }
   }, [isOpen]);
+
+  /**
+   * Busca cotação XLM/BRL via PriceOracleService com debounce de 400ms.
+   * Só executa quando o provider selecionado é o stellar_testanchor
+   * e o usuário está na fase 'input' com um valor válido.
+   * Não faz flood: o cache interno do PriceOracleService garante 20s entre requests reais.
+   */
+  const fetchXlmQuote = useCallback(async () => {
+    if (selectedProvider?.id !== 'stellar_testanchor') return;
+    if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
+      setXlmPrice(null);
+      setXlmPriceError(false);
+      return;
+    }
+    setXlmPriceLoading(true);
+    setXlmPriceError(false);
+    try {
+      const result = await PriceOracleService.getXlmBrlPrice();
+      setXlmPrice(result);
+    } catch {
+      setXlmPriceError(true);
+      setXlmPrice(null);
+    } finally {
+      setXlmPriceLoading(false);
+    }
+  }, [selectedProvider?.id, amount]);
+
+  // Debounce: espera 400ms após o usuário parar de digitar antes de buscar cotação
+  useEffect(() => {
+    if (phase !== 'input' || selectedProvider?.id !== 'stellar_testanchor') return;
+    if (xlmDebounceRef.current) clearTimeout(xlmDebounceRef.current);
+    xlmDebounceRef.current = setTimeout(() => {
+      fetchXlmQuote();
+    }, 400);
+    return () => {
+      if (xlmDebounceRef.current) clearTimeout(xlmDebounceRef.current);
+    };
+  }, [amount, phase, selectedProvider?.id, fetchXlmQuote]);
 
   /**
    * [Experiment] FASE 1: Trustline + registerCustomer via onboarding-url.
@@ -530,6 +590,17 @@ export default function DepositModal({ isOpen, onClose, onSuccess }: DepositModa
   // MAS os hooks devem ficar acima disto.
   if (!isOpen) return null;
 
+  /**
+   * triggerMinting — Orquestra o settlement on-chain após confirmação do PIX.
+   *
+   * IMPORTANTE (bug fix):
+   *   - Para stellar_testanchor: usa pixData.quotedXlmAmount (XLM real via oráculo)
+   *   - Para Woovi/BRW:         usa depositAmount (BRL em 1:1 → BRW)
+   *   - Os dois valores são DISTINTOS e não devem ser trocados.
+   *
+   * @param depositAmount   Valor em BRL cobrado no PIX (Woovi) — NÃO usar para XLM.
+   * @param correlationID   ID da cobrança Woovi para Memo X402.
+   */
   const triggerMinting = async (depositAmount: number, correlationID: string) => {
     if (!activeAccount?.stellar_public_key || !profile?.id) return;
 
@@ -538,10 +609,20 @@ export default function DepositModal({ isOpen, onClose, onSuccess }: DepositModa
     try {
       const userSecret = WalletFactory.getSecretKey(profile.id);
 
-      // ── Despacho por Provider ────────────────────────────────────────────────
-      // Stellar Native: settlement real de XLM via treasury wallet separada
+      // ── Despacho por Provider ────────────────────────────────────────────
       if (selectedProvider?.id === 'stellar_testanchor') {
-        logger.info('[WalletNow][Settlement]', `🚀 Iniciando settlement XLM via treasury wallet`, { correlationID });
+        // ── TestAnchor: settlement real de XLM via treasury ─────────────
+        //
+        // BUG CORRIGIDO: O valor enviado para settleXLM DEVE ser o quotedXlmAmount
+        // (calculado em BRL/XLM via oráculo no momento da geração do PIX),
+        // NÃO o depositAmount (que é BRL e causava entrega de 100 XLM para R$100).
+        //
+        const quotedXlmAmount = pixData?.quotedXlmAmount;
+        if (!quotedXlmAmount || quotedXlmAmount <= 0) {
+          throw new Error(
+            'Cotação XLM não disponível. Reinicie o depósito para obter um novo quote.'
+          );
+        }
 
         if (!import.meta.env.VITE_STELLAR_TREASURY_SECRET) {
           throw new Error(
@@ -549,9 +630,26 @@ export default function DepositModal({ isOpen, onClose, onSuccess }: DepositModa
           );
         }
 
+        // ── [QA LOG] Final Settlement ──────────────────────────────────
+        logger.info('[DepositFlow]', 'Final Settlement — valores unificados', {
+          brlInput: depositAmount,
+          oracleQuote: quotedXlmAmount.toFixed(7),
+          deliveredAmount: `${quotedXlmAmount.toFixed(7)} XLM`,
+          xlmSource: pixData?.xlmSource || 'N/A',
+          correlationID,
+          check: depositAmount === quotedXlmAmount
+            ? '⚠️ BRL == XLM (possível bug de passagem)'
+            : '✅ BRL != XLM (separação correta)',
+        });
+
+        logger.info('[WalletNow][Settlement]',
+          `🚀 Iniciando settlement XLM | R$${depositAmount} BRL → ${quotedXlmAmount.toFixed(7)} XLM`,
+          { correlationID, quotedXlmAmount }
+        );
+
         const result = await StellarTestAnchorService.settleXLM(
           activeAccount.stellar_public_key,
-          depositAmount.toString(), // Mandar apenas o amount limpo (o toFixed(7) será feito na Service)
+          quotedXlmAmount.toFixed(7), // ← XLM real (oráculo), não BRL
           correlationID
         );
 
@@ -560,23 +658,35 @@ export default function DepositModal({ isOpen, onClose, onSuccess }: DepositModa
         }
 
         setTxHash(result.txHash);
-        logger.info(
-          '[WalletNow][Settlement]',
-          `✅ Settlement XLM concluído! Hash: ${result.txHash}`
+
+        // ── [QA LOG] Delivered Amount ──────────────────────────────────
+        logger.info('[DepositFlow]', 'Delivered Amount confirmado', {
+          deliveredXlm: quotedXlmAmount.toFixed(7),
+          txHash: result.txHash,
+          ledger: result.ledger,
+          brlPaid: depositAmount,
+          consistent: true,
+        });
+
+        logger.info('[WalletNow][Settlement]',
+          `✅ Settlement XLM concluído! ${quotedXlmAmount.toFixed(7)} XLM → Hash: ${result.txHash}`
         );
 
       } else {
-        // ── Woovi / BRW: Mint do token interno (fluxo original — intocado) ──────
+        // ── Woovi / BRW: Mint do token interno (fluxo original — intocado) ──
+        // BRW é 1:1 com BRL, então depositAmount (BRL) == BRW correto.
         const hash = await PaymentService.mintBRW(
           activeAccount.stellar_public_key,
-          depositAmount.toString(),
+          depositAmount.toString(), // BRL → BRW (1:1, correto)
           userSecret || undefined,
           correlationID
         );
 
         if (hash) {
           setTxHash(hash);
-          logger.info('[WalletNow][Blockchain]', `✅ Depósito Liquidado via PIX com sucesso! Hash: ${hash}`);
+          logger.info('[WalletNow][Blockchain]',
+            `✅ Depósito Liquidado via PIX com sucesso! ${depositAmount} BRW | Hash: ${hash}`
+          );
         }
       }
 
@@ -589,7 +699,9 @@ export default function DepositModal({ isOpen, onClose, onSuccess }: DepositModa
       }, 3000);
     } catch (e: any) {
       const isTestAnchor = selectedProvider?.id === 'stellar_testanchor';
-      logger.error('[WalletNow][Settlement]', `❌ Falha crítica no settlement (${isTestAnchor ? 'XLM Nativo' : 'BRW Mint'})`, e);
+      logger.error('[WalletNow][Settlement]',
+        `❌ Falha crítica no settlement (${isTestAnchor ? 'XLM Nativo' : 'BRW Mint'})`, e
+      );
       alert(`⚠️ PIX Recebido, mas falha no settlement: ${e.message}`);
       setPhase('input');
     }
@@ -601,11 +713,79 @@ export default function DepositModal({ isOpen, onClose, onSuccess }: DepositModa
     setPhase('generating');
 
     try {
+      const brlAmount = Number(amount);
+
+      // ── [QA LOG] Início do fluxo de depósito ────────────────────────────
+      logger.info('[DepositFlow]', 'BRL Input recebido', {
+        brlAmount,
+        provider: selectedProvider?.id,
+        timestamp: new Date().toISOString(),
+      });
+
+      // ── Consulta oráculo ANTES de gerar o PIX (para fixar o quote) ──────
+      // Apenas para o TestAnchor (XLM settlement real).
+      // Para Woovi/BRW o ratio é 1:1 BRL→BRW, sem conversão.
+      let quotedXlmAmount = brlAmount; // fallback neutro (nunca usado para XLM sem override abaixo)
+      let xlmSource = 'N/A';
+
+      if (selectedProvider?.id === 'stellar_testanchor') {
+        try {
+          // Busca cotação no momento exato da geração — fixa o quote para o settlement
+          const priceData = await PriceOracleService.getXlmBrlPrice();
+          quotedXlmAmount = brlAmount / priceData.xlm_brl;
+          xlmSource = priceData.source;
+
+          // ── [QA LOG] Oracle Quote ────────────────────────────────────────
+          logger.info('[DepositFlow]', 'Oracle Quote calculado', {
+            brlAmount,
+            xlmBrlRate: priceData.xlm_brl,
+            quotedXlmAmount: quotedXlmAmount.toFixed(7),
+            source: priceData.source,
+            updatedAt: priceData.updated_at,
+            fromCache: priceData.from_cache,
+          });
+        } catch (oracleError) {
+          // Se o oráculo falhar após retry, usa o xlmPrice do estado (já buscado pelo debounce)
+          if (xlmPrice && xlmPrice.xlm_brl > 0) {
+            quotedXlmAmount = brlAmount / xlmPrice.xlm_brl;
+            xlmSource = `${xlmPrice.source} (state cache)`;
+            logger.warn('[DepositFlow]', 'Oráculo falhou no handleGeneratePix, usando state cache', {
+              brlAmount,
+              quotedXlmAmount: quotedXlmAmount.toFixed(7),
+              source: xlmSource,
+            });
+          } else {
+            // Fallback estático conservador — nunca deve chegar aqui com o sistema normal
+            const STATIC_RATE = 0.80;
+            quotedXlmAmount = brlAmount / STATIC_RATE;
+            xlmSource = 'fallback estático (0.80 BRL/XLM)';
+            logger.error('[DepositFlow]', '⚠️ Oráculo completamente indisponível — usando fallback estático', {
+              brlAmount,
+              quotedXlmAmount: quotedXlmAmount.toFixed(7),
+            });
+          }
+        }
+      }
+
       // 1. Chama o Gateway Woovi para gerar a cobrança Pix (QR Code EMV)
-      const result = await WooviService.createCharge(Number(amount), profile.id);
-      
-      logger.info('[WalletNow][Payment]', `⏳ Cobrança PIX gerada: ${result.correlationID}. Exibindo QR Code...`);
-      setPixData({ brCode: result.brCode, correlationID: result.correlationID, amount: result.amount });
+      const result = await WooviService.createCharge(brlAmount, profile.id);
+
+      // ── [QA LOG] PIX Gerado ──────────────────────────────────────────────
+      logger.info('[DepositFlow]', 'PIX gerado com sucesso', {
+        correlationID: result.correlationID,
+        brlCharged: result.amount,
+        quotedXlmAmount: quotedXlmAmount.toFixed(7),
+        xlmSource,
+        settlementAsset: selectedProvider?.id === 'stellar_testanchor' ? 'XLM' : 'BRW',
+      });
+
+      setPixData({
+        brCode: result.brCode,
+        correlationID: result.correlationID,
+        amount: result.amount,          // BRL — Woovi/BRW settlement (1:1)
+        quotedXlmAmount,                // XLM — TestAnchor settlement (via oráculo)
+        xlmSource,
+      });
       setPhase('waiting_payment');
 
     } catch (e: any) {
@@ -990,6 +1170,65 @@ export default function DepositModal({ isOpen, onClose, onSuccess }: DepositModa
                   autoFocus
                 />
               </div>
+
+              {/* ── Bloco de Cotação XLM/BRL (apenas TestAnchor) ─────────── */}
+              {selectedProvider?.id === 'stellar_testanchor' && (
+                <div className="mt-4 w-full px-4">
+                  {/* Carregando cotação */}
+                  {xlmPriceLoading && (
+                    <div className="flex items-center justify-center gap-2 py-2">
+                      <Loader2 className="w-3.5 h-3.5 text-[#00E676] animate-spin" />
+                      <span className="text-xs text-gray-500 font-mono">Buscando cotação...</span>
+                    </div>
+                  )}
+
+                  {/* Erro na cotação — fallback visual amigável */}
+                  {xlmPriceError && !xlmPriceLoading && (
+                    <div className="flex items-center justify-center gap-2 py-2 px-3 bg-amber-950/20 border border-amber-800/30 rounded-xl">
+                      <AlertCircle className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
+                      <span className="text-xs text-amber-400 font-mono">
+                        Cotação indisponível — verifique sua conexão
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Cotação disponível + XLM estimado */}
+                  {xlmPrice && !xlmPriceLoading && Number(amount) > 0 && (
+                    <div className="flex flex-col gap-1.5 py-2 px-3 bg-[#00E676]/5 border border-[#00E676]/20 rounded-xl">
+                      {/* Quantidade estimada de XLM — destaque principal */}
+                      <div className="flex items-center justify-center gap-1.5">
+                        <span className="text-[#00E676] font-bold text-base">
+                          ≈ {(Number(amount) / xlmPrice.xlm_brl).toFixed(4)} XLM
+                        </span>
+                        {xlmPrice.from_cache && (
+                          <span className="text-[9px] text-gray-600 font-mono">(cache)</span>
+                        )}
+                      </div>
+
+                      {/* Linha de detalhes da cotação */}
+                      <div className="flex items-center justify-between text-[10px] font-mono text-gray-500 border-t border-white/5 pt-1.5 mt-0.5">
+                        <span>
+                          Cotação: <span className="text-gray-400">R$ {xlmPrice.xlm_brl.toFixed(4)}/XLM</span>
+                        </span>
+                        <button
+                          onClick={() => { PriceOracleService.clearCache(); fetchXlmQuote(); }}
+                          className="p-0.5 hover:text-[#00E676] transition-colors"
+                          title="Atualizar cotação"
+                        >
+                          <RefreshCw className="w-3 h-3" />
+                        </button>
+                      </div>
+
+                      <div className="flex items-center justify-between text-[10px] font-mono text-gray-600">
+                        <span>Fonte: <span className="text-gray-500">{xlmPrice.source}</span></span>
+                        <span>Atualizado: <span className="text-gray-500">
+                          {new Date(xlmPrice.updated_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                        </span></span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             <p className="text-[10px] text-gray-500 text-center uppercase tracking-wider font-mono">
