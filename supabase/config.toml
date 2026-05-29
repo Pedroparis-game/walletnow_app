@@ -48,3 +48,10 @@ verify_jwt = false
 # não enviam o header Authorization no preflight. O JWT é validado manualmente no Deno script (POST).
 [functions.stellar-issuer]
 verify_jwt = false
+
+# mainnet-funding: Edge Function de Auto-Funding (createAccount) para wallets MAINNET.
+# verify_jwt = false: Mesma razão do stellar-issuer — CORS preflight (OPTIONS) não envia
+# Authorization header. O JWT é validado manualmente no handler POST via supabase.auth.getUser().
+# A função possui proteção tripla: Rate Limit (memória), Trava Dupla (audit table) e Horizon check.
+[functions.mainnet-funding]
+verify_jwt = false
