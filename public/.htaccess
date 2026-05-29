@@ -1,9 +1,74 @@
+# Options -MultiViews
+# Desabilita MultiViews do Apache para evitar conflitos com SPA routing
+
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase /walletnow/
+
+  # ── 1. Não reescrever arquivos e diretórios que existem fisicamente ───────────
   RewriteRule ^index\.html$ - [L]
-  RewriteCond %{REQUEST_FILENAME} !-f
-  RewriteCond %{REQUEST_FILENAME} !-d
-  RewriteCond %{REQUEST_FILENAME} !-l
-  RewriteRule . /walletnow/index.html [L]
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d [OR]
+  RewriteCond %{REQUEST_FILENAME} -l
+  RewriteRule ^ - [L]
+
+  # ── 2. Fallback SPA: qualquer rota que não existe → index.html ───────────────
+  # Isso resolve o white screen em refresh direto de rotas como /walletnow/dashboard
+  RewriteRule ^ /walletnow/index.html [L]
+</IfModule>
+
+# ── 3. MIME Types corretos para evitar bloqueio de scripts ──────────────────────
+# Sem isso, Apache pode servir .js como text/plain e o browser rejeita (MIME error)
+<IfModule mod_mime.c>
+  AddType application/javascript          .js .mjs
+  AddType text/css                        .css
+  AddType image/svg+xml                   .svg
+  AddType image/x-icon                    .ico
+  AddType application/manifest+json       .webmanifest .json
+  AddType font/woff                       .woff
+  AddType font/woff2                      .woff2
+  AddType font/ttf                        .ttf
+</IfModule>
+
+# ── 4. Compressão Gzip/Deflate para assets (reduz tempo de carregamento) ─────────
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html
+  AddOutputFilterByType DEFLATE text/css
+  AddOutputFilterByType DEFLATE application/javascript
+  AddOutputFilterByType DEFLATE application/json
+  AddOutputFilterByType DEFLATE image/svg+xml
+  AddOutputFilterByType DEFLATE font/woff2
+</IfModule>
+
+# ── 5. Cache Headers ─────────────────────────────────────────────────────────────
+# Assets com hash (ex: index-D07zikgI.js): cache imutável de 1 ano
+# index.html: sem cache (garante que o usuário sempre pega a versão mais nova)
+<IfModule mod_headers.c>
+  # Assets hashed pelo Vite: imutáveis (o hash muda se o conteúdo mudar)
+  <FilesMatch "\.(js|css|woff2?|ttf|svg|png|jpg|jpeg|gif|ico|webp)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+
+  # index.html: sem cache para garantir atualização de deploy
+  <FilesMatch "index\.html$">
+    Header set Cache-Control "no-cache, no-store, must-revalidate"
+    Header set Pragma "no-cache"
+    Header set Expires "0"
+  </FilesMatch>
+
+  # Cabeçalhos de segurança
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set X-Frame-Options "SAMEORIGIN"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
+
+# ── 6. Proteção de arquivos sensíveis ───────────────────────────────────────────
+<FilesMatch "\.(env|env\.local|env\.production|log|sql|sh|bak)$">
+  Order allow,deny
+  Deny from all
+</FilesMatch>
+
+# Bloquear acesso a .git
+<IfModule mod_rewrite.c>
+  RewriteRule ^\.git - [F,L]
 </IfModule>
