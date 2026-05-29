@@ -1,9 +1,25 @@
 import React from 'react';
 import { AppConfig } from '../../config/environment';
+import { useNetwork } from '../../contexts/NetworkContext';
 
+/**
+ * EnvironmentBanner
+ *
+ * Exibe um banner fixo no topo da tela para indicar o ambiente de execução.
+ *
+ * REGRAS:
+ * - MAINNET (runtime toggle ou env): banner OCULTO — usuário está em produção real.
+ * - HOMOLOG (env): banner AZUL.
+ * - TESTNET/DEV (env): banner LARANJA.
+ *
+ * IMPORTANTE: A detecção de Mainnet usa o hook useNetwork() (NetworkContext/localStorage),
+ * e NÃO o AppConfig.isProduction estático, para refletir o toggle dinâmico em runtime.
+ */
 export const EnvironmentBanner: React.FC = () => {
-  // Não renderizar em produção
-  if (AppConfig.isProduction) {
+  const { isMainnet } = useNetwork();
+
+  // Ocultar sempre que o runtime estiver na Mainnet (toggle ou env prod)
+  if (isMainnet || AppConfig.isProduction) {
     return null;
   }
 

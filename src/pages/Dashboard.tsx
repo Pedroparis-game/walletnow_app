@@ -14,6 +14,8 @@ import { DemoConfig } from '../config/demoMode';
 import { EtherfuseActivityService, EfV2Activity } from '../services/providers/etherfuseV2/etherfuseActivityService';
 import AccountSwitcher from '../components/wallet/AccountSwitcher';
 import NetworkToggle from '../components/wallet/NetworkToggle';
+import { MainnetService } from '../services/mainnetService';
+import { isCurrentNetworkMainnet } from '../contexts/NetworkContext';
 
 /**
  * Dashboard Principal — The Money Layer
@@ -63,6 +65,10 @@ export default function Dashboard() {
   const [isActivating, setIsActivating] = useState(false);
   const [transactions, setTransactions] = useState<any[]>([]);
   const [ef2Activities, setEf2Activities] = useState<EfV2Activity[]>([]);
+  // Anti-loop: impede múltiplas tentativas de funding Mainnet na mesma sessão.
+  // A Mainnet Edge Function já tem trava dupla server-side (audit table + Horizon check),
+  // mas este flag evita flood de requisições do frontend.
+  const [mainnetFundingAttempted, setMainnetFundingAttempted] = useState(false);
 
   const fetchOnChainBalance = async () => {
     console.log('[Dashboard] fetchOnChainBalance: START. activeAccount:', activeAccount?.stellar_public_key);
@@ -98,10 +104,26 @@ export default function Dashboard() {
         const totalXlm = parseFloat(balances.xlm || '0');
         setTotalBalance(totalXlm.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 7 }));
         console.log('[Dashboard] fetchOnChainBalance: SUCCESS (balances loaded)');
+        if (currentNetwork === 'mainnet') {
+            console.log(`[MainnetBalance] Saldos carregados com sucesso usando Horizon Public: ${balances.xlm} XLM.`);
+        }
       } else {
         console.log('[Dashboard] fetchOnChainBalance: WARNING (balances null, trying emergency activation)');
-        // Se balances for null (404), tentamos ativar
+        if (currentNetwork === 'mainnet') {
+            console.log(`[MainnetBalance] ⚠️ Conta Mainnet ainda não existe (404). Zombificando saldos até o auto-funding.`);
+        }
+        // Se balances for null (conta não existe no ledger = 404):
         setIsAccountActive(false);
+        setTotalBalance('0,00');
+        setAssetDetails({ brz: '0.00', brw: '0.00', usdc: '0.00', tesouro: '0.00', cetes: '0.00', ustb: '0.00', xlm: '0.00' });
+
+        const networkIsMainnet = isCurrentNetworkMainnet();
+        if (networkIsMainnet) {
+          console.log('[MainnetFunding] Horizon 404 detected — conta não existe no ledger Mainnet.');
+        } else {
+          console.log('[Dashboard] fetchOnChainBalance: WARNING (balances null, trying emergency activation)');
+        }
+
         handleEmergencyActivation();
       }
       if (history) {
@@ -125,32 +147,83 @@ export default function Dashboard() {
   };
 
   /**
-   * Ativação de Emergência via Sponsor
+   * Ativação de Emergência — rede-aware.
+   *
+   * MAINNET: Aciona MainnetService.requestMainnetFunding() (Edge Function real).
+   *   - Trava de sessão: apenas 1 tentativa por sessão de app (mainnetFundingAttempted).
+   *   - A Edge Function já possui trava dupla server-side (audit table + Horizon check).
+   *   - NUNCA usa Sponsor/IssuerService/fund_wallet na Mainnet.
+   *
+   * TESTNET: Usa WalletFactory.activateAccount() (Sponsor via stellar-issuer).
+   *   - Comportamento original preservado intacto.
    */
   const handleEmergencyActivation = async () => {
     if (!activeAccount?.stellar_public_key || isActivating || isAccountActive) return;
 
-    setIsActivating(true);
-    try {
-      logger.info('[WalletNow][Blockchain]', 'Iniciando ativação automática (emergency)');
-      const success = await WalletFactory.activateAccount(activeAccount.stellar_public_key);
-      if (success) {
-        logger.info('[WalletNow][Blockchain]', 'Ativação automática concluída');
-        setIsAccountActive(true);
-        // Pequeno delay para o Horizon indexar antes de atualizar saldos
-        setTimeout(fetchOnChainBalance, 2000);
+    const networkIsMainnet = isCurrentNetworkMainnet();
+
+    if (networkIsMainnet) {
+      // ⛔ MAINNET: Nunca usar Sponsor. Usar MainnetService.requestMainnetFunding().
+      if (mainnetFundingAttempted) {
+        console.log('[MainnetFunding] BLOCKED_LOOP — já houve tentativa de funding nesta sessão. Aguardando Horizon indexar...');
+        return;
       }
-    } catch (err: any) {
-      logger.error('[WalletNow][Blockchain]', 'Erro na ativação automática', err);
-    } finally {
-      setIsActivating(false);
+
+      console.log('[MainnetFunding] START — conta não encontrada no Horizon Mainnet. Acionando Edge Function...');
+      setMainnetFundingAttempted(true);
+      setIsActivating(true);
+
+      try {
+        console.log('[MainnetFunding] REQUEST_SENT — MainnetService.requestMainnetFunding()');
+        const txHash = await MainnetService.requestMainnetFunding(activeAccount.stellar_public_key);
+        console.log(`[MainnetFunding] SUCCESS — txHash: ${txHash}. Aguardando Horizon indexar...`);
+        setIsAccountActive(true);
+        // Aguarda o Horizon indexar a transação antes de buscar o saldo
+        setTimeout(fetchOnChainBalance, 4000);
+      } catch (err: any) {
+        console.error('[MainnetFunding] FAILED — erro no auto-funding Mainnet:', err?.message || err);
+        // Não retenta: trava de sessão já definida. O usuário pode recarregar para tentar novamente.
+      } finally {
+        setIsActivating(false);
+      }
+
+    } else {
+      // TESTNET: comportamento original via Sponsor (stellar-issuer/fund_wallet)
+      setIsActivating(true);
+      try {
+        logger.info('[WalletNow][Blockchain]', 'Iniciando ativação automática (emergency) — TESTNET');
+        const success = await WalletFactory.activateAccount(activeAccount.stellar_public_key);
+        if (success) {
+          logger.info('[WalletNow][Blockchain]', 'Ativação automática concluída — TESTNET');
+          setIsAccountActive(true);
+          setTimeout(fetchOnChainBalance, 2000);
+        }
+      } catch (err: any) {
+        logger.error('[WalletNow][Blockchain]', 'Erro na ativação automática — TESTNET', err);
+      } finally {
+        setIsActivating(false);
+      }
     }
   };
 
-  // Efeito Executado na montagem da tela ou quando a conta ativa muda
+  // Efeito Executado na montagem da tela, quando a conta ativa muda, OU quando a rede muda (TESTNET <-> MAINNET)
   useEffect(() => {
-    fetchOnChainBalance();
-  }, [activeAccount?.stellar_public_key, walletLoading]);
+    // FASE 10: Invalidate state on network change
+    setIsLoadingBalance(true);
+    setTotalBalance('0.00');
+    setAssetDetails({ brz: '0.00', brw: '0.00', usdc: '0.00', tesouro: '0.00', cetes: '0.00', ustb: '0.00', xlm: '0.00' });
+    setTransactions([]);
+    setEf2Activities([]);
+    // Reset da trava anti-loop: ao trocar de rede ou de conta, uma nova tentativa de funding é legítima.
+    setMainnetFundingAttempted(false);
+    
+    // Pequeno debounce para dar tempo da alteração do localStorage propagar para os services.
+    const timerId = setTimeout(() => {
+        fetchOnChainBalance();
+    }, 100);
+
+    return () => clearTimeout(timerId);
+  }, [activeAccount?.stellar_public_key, walletLoading, currentNetwork]);
 
   // Transações On-Chain alimentam o State `transactions`
 
