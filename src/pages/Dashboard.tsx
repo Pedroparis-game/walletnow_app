@@ -147,12 +147,47 @@ export default function Dashboard() {
   };
 
   /**
+   * Polling com retry para esperar Horizon indexar a conta.
+   * Implementa backoff exponencial: 2s, 4s, 6s, 8s, 10s (max 30s total)
+   */
+  const pollHorizonUntilAccountExists = async (publicKey: string, maxRetries: number = 5) => {
+    let retryCount = 0;
+    const baseDelay = 2000; // 2 segundos
+
+    while (retryCount < maxRetries) {
+      try {
+        console.log(`[MainnetFunding] POLLING (${retryCount + 1}/${maxRetries}) — esperando Horizon indexar...`);
+        
+        // Tenta carregar a conta
+        const balances = await WalletFactory.getBalances(publicKey);
+        
+        if (balances) {
+          console.log('[MainnetFunding] ✅ POLLING_SUCCESS — conta indexada no Horizon. Carregando saldos...');
+          return fetchOnChainBalance();
+        }
+      } catch (err: any) {
+        console.warn(`[MainnetFunding] ⚠️ POLLING_RETRY — Horizon ainda não indexou (${err?.message || 'timeout'})`);
+      }
+
+      retryCount++;
+      if (retryCount < maxRetries) {
+        const delay = baseDelay * retryCount; // 2s, 4s, 6s, 8s, 10s
+        console.log(`[MainnetFunding] Aguardando ${delay}ms antes da próxima tentativa...`);
+        await new Promise(r => setTimeout(r, delay));
+      }
+    }
+
+    console.error('[MainnetFunding] ❌ POLLING_FAILED — Horizon não indexou a conta após 30s. Recarregue a página.');
+  };
+
+  /**
    * Ativação de Emergência — rede-aware.
    *
    * MAINNET: Aciona MainnetService.requestMainnetFunding() (Edge Function real).
    *   - Trava de sessão: apenas 1 tentativa por sessão de app (mainnetFundingAttempted).
    *   - A Edge Function já possui trava dupla server-side (audit table + Horizon check).
    *   - NUNCA usa Sponsor/IssuerService/fund_wallet na Mainnet.
+   *   - Implementa polling com retry até Horizon indexar (máx 30s).
    *
    * TESTNET: Usa WalletFactory.activateAccount() (Sponsor via stellar-issuer).
    *   - Comportamento original preservado intacto.
@@ -176,10 +211,10 @@ export default function Dashboard() {
       try {
         console.log('[MainnetFunding] REQUEST_SENT — MainnetService.requestMainnetFunding()');
         const txHash = await MainnetService.requestMainnetFunding(activeAccount.stellar_public_key);
-        console.log(`[MainnetFunding] SUCCESS — txHash: ${txHash}. Aguardando Horizon indexar...`);
+        console.log(`[MainnetFunding] SUCCESS — txHash: ${txHash}. Aguardando Horizon indexar com polling...`);
         setIsAccountActive(true);
-        // Aguarda o Horizon indexar a transação antes de buscar o saldo
-        setTimeout(fetchOnChainBalance, 4000);
+        // Polling com retry até Horizon indexar (máx 30 segundos)
+        pollHorizonUntilAccountExists(activeAccount.stellar_public_key);
       } catch (err: any) {
         console.error('[MainnetFunding] FAILED — erro no auto-funding Mainnet:', err?.message || err);
         // Não retenta: trava de sessão já definida. O usuário pode recarregar para tentar novamente.
