@@ -1,7 +1,11 @@
 import React from 'react';
 import { ArrowRight, Github } from 'lucide-react';
+import { useLanding } from '../../../contexts/LandingContext';
 
 export default function BottomCTASection() {
+  const { t } = useLanding();
+  const bc = t.v2.bottomCta;
+
   return (
     <section style={{
       padding: '100px 24px 120px',
@@ -10,14 +14,14 @@ export default function BottomCTASection() {
     }}>
       <style>{`
         .bottom-cta-primary:hover {
-          background: rgba(0,255,153,0.2) !important;
-          border-color: rgba(0,255,153,0.6) !important;
-          box-shadow: 0 8px 32px -8px rgba(0,255,153,0.25) !important;
+          background: rgba(0,168,107,0.18) !important;
+          border-color: rgba(0,168,107,0.6) !important;
+          box-shadow: 0 8px 32px -8px rgba(0,168,107,0.22) !important;
           transform: translateY(-2px);
         }
         .bottom-cta-secondary:hover {
-          border-color: rgba(255,255,255,0.2) !important;
-          background: rgba(255,255,255,0.04) !important;
+          border-color: var(--border-subtle) !important;
+          background: rgba(0,0,0,0.04) !important;
           transform: translateY(-2px);
         }
       `}</style>
@@ -27,7 +31,7 @@ export default function BottomCTASection() {
         position: 'absolute', top: '50%', left: '50%',
         transform: 'translate(-50%, -50%)',
         width: 800, height: 400,
-        background: 'radial-gradient(ellipse, rgba(0,255,153,0.05) 0%, transparent 60%)',
+        background: 'radial-gradient(ellipse, var(--glow-primary) 0%, transparent 60%)',
         pointerEvents: 'none',
       }} />
 
@@ -37,13 +41,13 @@ export default function BottomCTASection() {
         <div style={{
           display: 'inline-flex', alignItems: 'center', gap: 8,
           padding: '5px 14px', borderRadius: 999,
-          background: 'rgba(0,255,153,0.06)',
-          border: '1px solid rgba(0,255,153,0.18)',
+          background: 'rgba(0,168,107,0.07)',
+          border: '1px solid rgba(0,168,107,0.2)',
           marginBottom: 28,
         }}>
-          <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#00FF99', boxShadow: '0 0 6px #00FF99' }} />
-          <span style={{ fontSize: 12, fontWeight: 600, color: '#00FF99', letterSpacing: '0.04em' }}>
-            Available now on Stellar Testnet
+          <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--color-wn-green)', boxShadow: '0 0 6px var(--color-wn-green)' }} />
+          <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-wn-green)', letterSpacing: '0.04em' }}>
+            {bc.badge}
           </span>
         </div>
 
@@ -52,12 +56,12 @@ export default function BottomCTASection() {
           fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.1,
           color: 'var(--text-primary)', marginBottom: 20,
         }}>
-          Ready to stop building{' '}
+          {bc.headlinePlain}{' '}
           <span style={{
-            background: 'linear-gradient(135deg, #00FF99 0%, #00C46A 100%)',
+            background: 'linear-gradient(135deg, var(--color-wn-green) 0%, #00C46A 100%)',
             WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
           }}>
-            infrastructure?
+            {bc.headlineGreen}
           </span>
         </h2>
 
@@ -65,8 +69,7 @@ export default function BottomCTASection() {
           fontSize: 18, color: 'var(--text-secondary)', lineHeight: 1.7,
           maxWidth: 500, margin: '0 auto 40px',
         }}>
-          Start with the docs. Have a wallet running in minutes. 
-          No signup required.
+          {bc.body}
         </p>
 
         {/* CTAs */}
@@ -74,13 +77,13 @@ export default function BottomCTASection() {
           <a href="/docs" className="bottom-cta-primary" style={{
             display: 'inline-flex', alignItems: 'center', gap: 10,
             padding: '14px 28px', borderRadius: 12,
-            background: 'rgba(0,255,153,0.1)',
-            border: '1px solid rgba(0,255,153,0.35)',
-            color: '#00FF99', fontWeight: 700, fontSize: 15,
+            background: 'rgba(0,168,107,0.1)',
+            border: '1px solid rgba(0,168,107,0.35)',
+            color: 'var(--color-wn-green)', fontWeight: 700, fontSize: 15,
             textDecoration: 'none', cursor: 'pointer',
             transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
           }}>
-            Read the Docs
+            {bc.ctaDocs}
             <ArrowRight size={16} />
           </a>
           <a href="https://github.com/nsdBRoficial/walletnow_app"
@@ -89,13 +92,13 @@ export default function BottomCTASection() {
               display: 'inline-flex', alignItems: 'center', gap: 10,
               padding: '14px 28px', borderRadius: 12,
               background: 'transparent',
-              border: '1px solid rgba(255,255,255,0.1)',
+              border: '1px solid var(--border-subtle)',
               color: 'var(--text-secondary)', fontWeight: 700, fontSize: 15,
               textDecoration: 'none', cursor: 'pointer',
               transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
             }}>
             <Github size={16} />
-            View on GitHub
+            {bc.ctaGitHub}
           </a>
         </div>
 
@@ -105,12 +108,7 @@ export default function BottomCTASection() {
           borderTop: '1px solid var(--border-subtle)',
           display: 'flex', justifyContent: 'center', gap: 32, flexWrap: 'wrap',
         }}>
-          {[
-            { label: 'Documentation', href: '/docs' },
-            { label: 'GitHub', href: 'https://github.com/nsdBRoficial/walletnow_app' },
-            { label: 'Stellar.org', href: 'https://stellar.org' },
-            { label: 'Community', href: '#' },
-          ].map(link => (
+          {bc.footerLinks.map(link => (
             <a key={link.label} href={link.href}
               target={link.href.startsWith('http') ? '_blank' : undefined}
               rel="noopener noreferrer"
@@ -127,7 +125,7 @@ export default function BottomCTASection() {
         </div>
 
         <div style={{ marginTop: 24, fontSize: 12, color: 'var(--text-secondary)', opacity: 0.5 }}>
-          WalletNow — MIT License · Public Goods Infrastructure for Stellar
+          {bc.copy}
         </div>
       </div>
     </section>

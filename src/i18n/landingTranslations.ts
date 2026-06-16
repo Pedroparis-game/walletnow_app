@@ -8,6 +8,12 @@ export const landingTranslations = {
       roadmap: 'Roadmap',
       faq: 'FAQ',
       launch: 'Launch MVP',
+      // v2 nav links
+      why: 'Why WalletNow',
+      openSource: 'Open Source',
+      ecosystem: 'Ecosystem',
+      launchApp: 'Launch Demo App →',
+      viewGitHub: 'GitHub',
     },
     hero: {
       badge1: 'Built on Stellar Testnet',
@@ -19,6 +25,18 @@ export const landingTranslations = {
       ctaPrimary: 'Launch Testnet MVP',
       ctaSecondary: 'View Architecture',
       statusTitle: 'Live Network Status',
+      // v2 hero
+      badge: 'Public Goods Infrastructure for Stellar',
+      headline: 'Stop building <green>Web3 infrastructure.</green> Start building products.',
+      headlinePlain1: 'Stop building',
+      headlineGreen: 'Web3 infrastructure.',
+      headlinePlain2: 'Start building products.',
+      description: 'The open-source abstraction layer that makes Stellar applications feel like modern apps. Passkeys, gasless transactions, wallet provisioning — all handled.',
+      ctaDocs: 'Read the Docs',
+      ctaGitHub: 'View on GitHub',
+      statStellar: 'Stellar Native',
+      statOpenSource: 'Open Source',
+      statSetup: 'Setup Time',
     },
     problem: {
       badge: 'Why WalletNow',
@@ -113,6 +131,105 @@ export const landingTranslations = {
       github: 'View GitHub',
     },
     footer: 'Hackathon Edition',
+
+    // ── v2 section-specific strings ──
+    v2: {
+      // WhyWeExistSection
+      why: {
+        label: 'Why We Exist',
+        headlinePlain1: 'Most Stellar builders are forced to solve',
+        headlineGreen: 'the same problem',
+        headlinePlain2: 'repeatedly.',
+        body1: 'Seed phrases, wallet configurations, gas fee abstractions, and recovery flows take months to build and are not your competitive advantage. They are infrastructure problems.',
+        body2Plain1: 'WalletNow exists so builders can focus entirely on their core products.',
+        body2Gray: 'We believe seamless onboarding and wallet abstraction should be a',
+        body2Green: 'Public Good',
+        body2Gray2: 'for the entire Stellar ecosystem.',
+        painCards: [
+          { emoji: '🔑', title: 'Seed Phrases', desc: 'Users abandon immediately' },
+          { emoji: '⛽', title: 'Gas Fees', desc: 'Confusing and unexpected' },
+          { emoji: '🛠️', title: 'Wallet Setup', desc: 'Hours of friction' },
+          { emoji: '🔄', title: 'Recovery Flows', desc: 'Complex and error-prone' },
+        ],
+      },
+      // PublicGoodsSection
+      publicGoods: {
+        label: 'Public Goods',
+        headlinePlain: 'Built for the Ecosystem.',
+        headlineGreen: '100% Open Source.',
+        body: "Onboarding should not be a competitive moat hoarded by proprietary SaaS platforms. It should be a shared foundation that lifts every builder in the ecosystem.",
+        githubCTA: 'Star on GitHub — MIT Licensed',
+        features: [
+          { icon: '📦', title: '@walletnow/core', desc: 'Vanilla TypeScript. Zero framework dependencies. Works everywhere — React, Vue, Node, Edge.' },
+          { icon: '⚛️', title: '@walletnow/react', desc: 'Drop-in hooks and components. <WalletNowConnect /> and useWallet() ready for production.' },
+          { icon: '🏗️', title: 'Open Source Templates', desc: 'Starter projects for Next.js and Vite with WalletNow pre-configured. Clone and build.' },
+          { icon: '🛍️', title: 'Marketplace Demo', desc: 'Full e-commerce app on Stellar showing embedded checkout and gasless payments.' },
+          { icon: '🎮', title: 'Gaming Demo', desc: 'In-game microtransactions and wallet provisioning without any crypto UX.' },
+          { icon: '🏠', title: 'RWA Demo', desc: 'Real World Asset tokenization using Stellar and WalletNow as the onboarding layer.' },
+        ],
+      },
+      // AbstractionFeaturesSection
+      abstraction: {
+        label: 'The Abstraction Layer',
+        headlinePlain: 'Everything you need.',
+        headlineGreen: "Nothing you don't.",
+        body: "Four pillars. Fully abstracted. Deeply optimized for Stellar's architecture.",
+        features: [
+          { icon: '🔑', title: 'Passkey Authentication', desc: 'Biometric-native login. Face ID, fingerprint, or device PIN. No passwords. No seed phrases. Works on every device.', tag: 'Core' },
+          { icon: '⛽', title: 'Gasless Infrastructure', desc: "Built on Stellar's native Fee Bump transactions. Your users never see a gas fee. You control the sponsorship rules.", tag: 'Unique to Stellar' },
+          { icon: '⚡', title: 'Transaction Abstraction', desc: 'Send payments, call smart contracts, and manage assets with a single unified API. No XDR. No manual signing.', tag: 'DX' },
+          { icon: '🧩', title: 'Embedded UI Components', desc: 'Drop-in React components that handle the full onboarding flow inside your app. One tag. Zero configuration.', tag: 'React' },
+        ],
+      },
+      // EducationalComparisonSection
+      comparison: {
+        label: 'Our Philosophy',
+        headline: 'Built specifically for Stellar.',
+        body: "General-purpose tools exist, but they treat Stellar as an afterthought and lock you into expensive vendor contracts. Our philosophy is different.",
+        colFeature: 'Feature',
+        colSaas: 'Generic SaaS Tools',
+        colWn: 'WalletNow',
+        rows: [
+          { feature: 'Focus',        saas: 'Multi-chain / Generic',         wn: 'Stellar-native' },
+          { feature: 'Model',        saas: 'SaaS-first (monthly pricing)',   wn: 'Public Goods-first (open source)' },
+          { feature: 'Integration',  saas: 'Generic onboarding',            wn: 'Optimized for Stellar (Soroban)' },
+          { feature: 'Scope',        saas: 'Wallet creation only',          wn: 'Full onboarding abstraction' },
+          { feature: 'Ecosystem',    saas: 'Vendor dependency',             wn: 'Open ecosystem approach' },
+          { feature: 'Gas Handling', saas: 'User-pays or wrapped tokens',   wn: 'Native Fee Bump transactions' },
+        ],
+      },
+      // EcosystemFlywheelSection
+      flywheel: {
+        label: 'Ecosystem Flywheel',
+        headlinePlain: 'We grow when',
+        headlineGreen: 'Stellar grows.',
+        body: 'WalletNow is not building a standalone business. We are strengthening the entire Stellar ecosystem through a self-reinforcing growth loop.',
+        repeats: '↺ Repeats',
+        nodes: [
+          { id: 'builders',      label: 'Builders',            sub: 'integrate WalletNow infrastructure',  icon: '👨‍💻', accent: false },
+          { id: 'products',      label: 'Better Products',     sub: 'ship faster with frictionless UX',    icon: '🚀', accent: false },
+          { id: 'users',         label: 'More Stellar Users',  sub: 'onboarding without Web3 friction',    icon: '🌍', accent: true },
+          { id: 'apps',          label: 'More Applications',   sub: 'ecosystem grows and diversifies',     icon: '📱', accent: false },
+          { id: 'more-builders', label: 'More Builders',       sub: 'attracted by thriving ecosystem',     icon: '🏗️', accent: false },
+        ],
+      },
+      // BottomCTASection
+      bottomCta: {
+        badge: 'Available now on Stellar Testnet',
+        headlinePlain: 'Ready to stop building',
+        headlineGreen: 'infrastructure?',
+        body: 'Start with the docs. Have a wallet running in minutes. No signup required.',
+        ctaDocs: 'Read the Docs',
+        ctaGitHub: 'View on GitHub',
+        footerLinks: [
+          { label: 'Documentation', href: '/docs' },
+          { label: 'GitHub', href: 'https://github.com/nsdBRoficial/walletnow_app' },
+          { label: 'Stellar.org', href: 'https://stellar.org' },
+          { label: 'Community', href: '#' },
+        ],
+        copy: 'WalletNow — MIT License · Public Goods Infrastructure for Stellar',
+      },
+    },
   },
 
   pt: {
@@ -122,6 +239,12 @@ export const landingTranslations = {
       roadmap: 'Roadmap',
       faq: 'FAQ',
       launch: 'Acessar MVP',
+      // v2 nav links
+      why: 'Por que WalletNow',
+      openSource: 'Código Aberto',
+      ecosystem: 'Ecossistema',
+      launchApp: 'Acessar Demo →',
+      viewGitHub: 'GitHub',
     },
     hero: {
       badge1: 'Construído na Stellar Testnet',
@@ -133,6 +256,18 @@ export const landingTranslations = {
       ctaPrimary: 'Lançar MVP (Testnet)',
       ctaSecondary: 'Ver Arquitetura',
       statusTitle: 'Status da Rede em Tempo Real',
+      // v2 hero
+      badge: 'Infraestrutura de Bens Públicos para Stellar',
+      headline: 'Pare de construir <green>infraestrutura Web3.</green> Comece a construir produtos.',
+      headlinePlain1: 'Pare de construir',
+      headlineGreen: 'infraestrutura Web3.',
+      headlinePlain2: 'Comece a construir produtos.',
+      description: 'A camada de abstração open-source que faz aplicações Stellar parecerem apps modernos. Passkeys, transações sem gas, provisionamento de carteiras — tudo resolvido.',
+      ctaDocs: 'Ler a Documentação',
+      ctaGitHub: 'Ver no GitHub',
+      statStellar: 'Nativo Stellar',
+      statOpenSource: 'Código Aberto',
+      statSetup: 'Tempo de Setup',
     },
     problem: {
       badge: 'Por que WalletNow',
@@ -227,6 +362,105 @@ export const landingTranslations = {
       github: 'Ver GitHub',
     },
     footer: 'Edição Hackathon',
+
+    // ── v2 section-specific strings ──
+    v2: {
+      // WhyWeExistSection
+      why: {
+        label: 'Por que Existimos',
+        headlinePlain1: 'A maioria dos builders Stellar é forçada a resolver',
+        headlineGreen: 'o mesmo problema',
+        headlinePlain2: 'repetidamente.',
+        body1: 'Seed phrases, configurações de carteira, abstração de gas fees e fluxos de recuperação levam meses para construir e não são sua vantagem competitiva. São problemas de infraestrutura.',
+        body2Plain1: 'A WalletNow existe para que builders possam focar totalmente em seus produtos.',
+        body2Gray: 'Acreditamos que onboarding e abstração de carteira devem ser um',
+        body2Green: 'Bem Público',
+        body2Gray2: 'para todo o ecossistema Stellar.',
+        painCards: [
+          { emoji: '🔑', title: 'Seed Phrases', desc: 'Usuários abandonam imediatamente' },
+          { emoji: '⛽', title: 'Gas Fees', desc: 'Confusas e inesperadas' },
+          { emoji: '🛠️', title: 'Configuração', desc: 'Horas de fricção' },
+          { emoji: '🔄', title: 'Recuperação', desc: 'Complexo e sujeito a erros' },
+        ],
+      },
+      // PublicGoodsSection
+      publicGoods: {
+        label: 'Bens Públicos',
+        headlinePlain: 'Construído para o Ecossistema.',
+        headlineGreen: '100% Código Aberto.',
+        body: 'O onboarding não deve ser um fosso competitivo guardado por plataformas SaaS proprietárias. Deve ser uma fundação compartilhada que eleva cada builder do ecossistema.',
+        githubCTA: 'Estrelar no GitHub — Licença MIT',
+        features: [
+          { icon: '📦', title: '@walletnow/core', desc: 'TypeScript puro. Zero dependências de framework. Funciona em qualquer lugar — React, Vue, Node, Edge.' },
+          { icon: '⚛️', title: '@walletnow/react', desc: 'Hooks e componentes prontos. <WalletNowConnect /> e useWallet() para produção.' },
+          { icon: '🏗️', title: 'Templates Open Source', desc: 'Projetos iniciais para Next.js e Vite com WalletNow pré-configurado. Clone e construa.' },
+          { icon: '🛍️', title: 'Demo Marketplace', desc: 'App de e-commerce completo na Stellar com checkout embutido e pagamentos sem gas.' },
+          { icon: '🎮', title: 'Demo Gaming', desc: 'Microtransações in-game e provisionamento de carteira sem UX cripto.' },
+          { icon: '🏠', title: 'Demo RWA', desc: 'Tokenização de Ativos do Mundo Real usando Stellar e WalletNow como camada de onboarding.' },
+        ],
+      },
+      // AbstractionFeaturesSection
+      abstraction: {
+        label: 'A Camada de Abstração',
+        headlinePlain: 'Tudo que você precisa.',
+        headlineGreen: 'Nada que você não precisa.',
+        body: 'Quatro pilares. Totalmente abstraídos. Profundamente otimizados para a arquitetura da Stellar.',
+        features: [
+          { icon: '🔑', title: 'Autenticação Passkey', desc: 'Login biométrico nativo. Face ID, impressão digital ou PIN. Sem senhas. Sem seed phrases. Funciona em qualquer dispositivo.', tag: 'Core' },
+          { icon: '⛽', title: 'Infraestrutura Gasless', desc: 'Baseado nas transações Fee Bump nativas da Stellar. Seus usuários nunca veem uma gas fee. Você controla as regras de patrocínio.', tag: 'Único no Stellar' },
+          { icon: '⚡', title: 'Abstração de Transações', desc: 'Envie pagamentos, chame smart contracts e gerencie ativos com uma única API unificada. Sem XDR. Sem assinatura manual.', tag: 'DX' },
+          { icon: '🧩', title: 'Componentes UI Embutidos', desc: 'Componentes React prontos que gerenciam todo o fluxo de onboarding dentro do seu app. Uma tag. Zero configuração.', tag: 'React' },
+        ],
+      },
+      // EducationalComparisonSection
+      comparison: {
+        label: 'Nossa Filosofia',
+        headline: 'Construído especificamente para Stellar.',
+        body: 'Ferramentas genéricas existem, mas tratam a Stellar como algo secundário e te prendem em contratos de vendor caros. Nossa filosofia é diferente.',
+        colFeature: 'Recurso',
+        colSaas: 'Ferramentas SaaS Genéricas',
+        colWn: 'WalletNow',
+        rows: [
+          { feature: 'Foco',           saas: 'Multi-chain / Genérico',            wn: 'Nativo Stellar' },
+          { feature: 'Modelo',         saas: 'SaaS primeiro (preço mensal)',       wn: 'Bens Públicos (código aberto)' },
+          { feature: 'Integração',     saas: 'Onboarding genérico',               wn: 'Otimizado para Stellar (Soroban)' },
+          { feature: 'Escopo',         saas: 'Criação de carteira apenas',         wn: 'Abstração completa de onboarding' },
+          { feature: 'Ecossistema',    saas: 'Dependência de vendor',             wn: 'Abordagem de ecossistema aberto' },
+          { feature: 'Gas',            saas: 'Usuário paga ou tokens embrulhados', wn: 'Transações Fee Bump nativas' },
+        ],
+      },
+      // EcosystemFlywheelSection
+      flywheel: {
+        label: 'Flywheel do Ecossistema',
+        headlinePlain: 'Crescemos quando',
+        headlineGreen: 'a Stellar cresce.',
+        body: 'A WalletNow não está construindo um negócio isolado. Estamos fortalecendo todo o ecossistema Stellar por meio de um ciclo de crescimento auto-reforçante.',
+        repeats: '↺ Se Repete',
+        nodes: [
+          { id: 'builders',      label: 'Builders',              sub: 'integram a infraestrutura WalletNow',   icon: '👨‍💻', accent: false },
+          { id: 'products',      label: 'Melhores Produtos',     sub: 'lançam mais rápido com UX sem atrito',  icon: '🚀', accent: false },
+          { id: 'users',         label: 'Mais Usuários Stellar', sub: 'onboarding sem fricção Web3',           icon: '🌍', accent: true },
+          { id: 'apps',          label: 'Mais Aplicações',       sub: 'ecossistema cresce e se diversifica',   icon: '📱', accent: false },
+          { id: 'more-builders', label: 'Mais Builders',         sub: 'atraídos pelo ecossistema vibrante',    icon: '🏗️', accent: false },
+        ],
+      },
+      // BottomCTASection
+      bottomCta: {
+        badge: 'Disponível agora na Stellar Testnet',
+        headlinePlain: 'Pronto para parar de construir',
+        headlineGreen: 'infraestrutura?',
+        body: 'Comece pela documentação. Tenha uma carteira rodando em minutos. Sem cadastro.',
+        ctaDocs: 'Ler a Documentação',
+        ctaGitHub: 'Ver no GitHub',
+        footerLinks: [
+          { label: 'Documentação', href: '/docs' },
+          { label: 'GitHub', href: 'https://github.com/nsdBRoficial/walletnow_app' },
+          { label: 'Stellar.org', href: 'https://stellar.org' },
+          { label: 'Comunidade', href: '#' },
+        ],
+        copy: 'WalletNow — Licença MIT · Infraestrutura de Bens Públicos para Stellar',
+      },
+    },
   },
 
   es: {
@@ -236,6 +470,11 @@ export const landingTranslations = {
       roadmap: 'Roadmap',
       faq: 'FAQ',
       launch: 'Lanzar MVP',
+      why: 'Por qué WalletNow',
+      openSource: 'Código Abierto',
+      ecosystem: 'Ecosistema',
+      launchApp: 'Demo →',
+      viewGitHub: 'GitHub',
     },
     hero: {
       badge1: 'Construido en Stellar Testnet',
@@ -247,6 +486,17 @@ export const landingTranslations = {
       ctaPrimary: 'Lanzar MVP (Testnet)',
       ctaSecondary: 'Ver Arquitectura',
       statusTitle: 'Estado de la Red en Vivo',
+      badge: 'Infraestructura de Bienes Públicos para Stellar',
+      headline: '',
+      headlinePlain1: 'Deja de construir',
+      headlineGreen: 'infraestructura Web3.',
+      headlinePlain2: 'Empieza a construir productos.',
+      description: 'La capa de abstracción open-source que hace que las aplicaciones Stellar parezcan apps modernas.',
+      ctaDocs: 'Leer Documentación',
+      ctaGitHub: 'Ver en GitHub',
+      statStellar: 'Nativo Stellar',
+      statOpenSource: 'Código Abierto',
+      statSetup: 'Tiempo de Setup',
     },
     problem: {
       badge: 'Por qué WalletNow',
@@ -341,6 +591,98 @@ export const landingTranslations = {
       github: 'Ver GitHub',
     },
     footer: 'Edición Hackathon',
+
+    v2: {
+      why: {
+        label: 'Por qué Existimos',
+        headlinePlain1: 'La mayoría de los builders de Stellar se ven forzados a resolver',
+        headlineGreen: 'el mismo problema',
+        headlinePlain2: 'una y otra vez.',
+        body1: 'Frases semilla, configuraciones de billetera, abstracción de gas fees y flujos de recuperación toman meses en construir y no son tu ventaja competitiva. Son problemas de infraestructura.',
+        body2Plain1: 'WalletNow existe para que los builders puedan enfocarse totalmente en sus productos.',
+        body2Gray: 'Creemos que el onboarding sin fricción y la abstracción de billeteras deben ser un',
+        body2Green: 'Bien Público',
+        body2Gray2: 'para todo el ecosistema Stellar.',
+        painCards: [
+          { emoji: '🔑', title: 'Frases Semilla', desc: 'Usuarios abandonan inmediatamente' },
+          { emoji: '⛽', title: 'Gas Fees', desc: 'Confusas e inesperadas' },
+          { emoji: '🛠️', title: 'Configuración', desc: 'Horas de fricción' },
+          { emoji: '🔄', title: 'Recuperación', desc: 'Complejo y propenso a errores' },
+        ],
+      },
+      publicGoods: {
+        label: 'Bienes Públicos',
+        headlinePlain: 'Construido para el Ecosistema.',
+        headlineGreen: '100% Código Abierto.',
+        body: 'El onboarding no debe ser un foso competitivo acaparado por plataformas SaaS propietarias. Debe ser una base compartida que impulse a cada builder del ecosistema.',
+        githubCTA: 'Estrella en GitHub — Licencia MIT',
+        features: [
+          { icon: '📦', title: '@walletnow/core', desc: 'TypeScript puro. Sin dependencias de framework. Funciona en todas partes.' },
+          { icon: '⚛️', title: '@walletnow/react', desc: 'Hooks y componentes listos. <WalletNowConnect /> y useWallet() para producción.' },
+          { icon: '🏗️', title: 'Templates Open Source', desc: 'Proyectos iniciales para Next.js y Vite con WalletNow preconfigurado.' },
+          { icon: '🛍️', title: 'Demo Marketplace', desc: 'App de e-commerce completa en Stellar con pagos sin gas.' },
+          { icon: '🎮', title: 'Demo Gaming', desc: 'Microtransacciones en juego sin UX cripto.' },
+          { icon: '🏠', title: 'Demo RWA', desc: 'Tokenización de Activos del Mundo Real usando Stellar y WalletNow.' },
+        ],
+      },
+      abstraction: {
+        label: 'La Capa de Abstracción',
+        headlinePlain: 'Todo lo que necesitas.',
+        headlineGreen: 'Nada que no necesites.',
+        body: 'Cuatro pilares. Totalmente abstraídos. Profundamente optimizados para la arquitectura de Stellar.',
+        features: [
+          { icon: '🔑', title: 'Autenticación Passkey', desc: 'Login biométrico nativo. Face ID, huella o PIN. Sin contraseñas. Sin frases semilla.', tag: 'Core' },
+          { icon: '⛽', title: 'Infraestructura Gasless', desc: 'Basado en las transacciones Fee Bump nativas de Stellar. Tus usuarios nunca ven una gas fee.', tag: 'Único en Stellar' },
+          { icon: '⚡', title: 'Abstracción de Transacciones', desc: 'Envía pagos, llama contratos inteligentes y gestiona activos con una API unificada.', tag: 'DX' },
+          { icon: '🧩', title: 'Componentes UI Embebidos', desc: 'Componentes React listos que manejan el flujo de onboarding dentro de tu app.', tag: 'React' },
+        ],
+      },
+      comparison: {
+        label: 'Nuestra Filosofía',
+        headline: 'Construido específicamente para Stellar.',
+        body: 'Las herramientas genéricas existen, pero tratan a Stellar como algo secundario y te atan a contratos de vendor costosos.',
+        colFeature: 'Característica',
+        colSaas: 'Herramientas SaaS Genéricas',
+        colWn: 'WalletNow',
+        rows: [
+          { feature: 'Foco',        saas: 'Multi-chain / Genérico',          wn: 'Nativo Stellar' },
+          { feature: 'Modelo',      saas: 'SaaS primero (precio mensual)',    wn: 'Bienes Públicos (código abierto)' },
+          { feature: 'Integración', saas: 'Onboarding genérico',             wn: 'Optimizado para Stellar (Soroban)' },
+          { feature: 'Alcance',     saas: 'Solo creación de billetera',       wn: 'Abstracción completa de onboarding' },
+          { feature: 'Ecosistema',  saas: 'Dependencia de vendor',           wn: 'Enfoque de ecosistema abierto' },
+          { feature: 'Gas',         saas: 'Usuario paga o tokens envueltos',  wn: 'Transacciones Fee Bump nativas' },
+        ],
+      },
+      flywheel: {
+        label: 'Volante del Ecosistema',
+        headlinePlain: 'Crecemos cuando',
+        headlineGreen: 'Stellar crece.',
+        body: 'WalletNow no está construyendo un negocio aislado. Estamos fortaleciendo todo el ecosistema Stellar.',
+        repeats: '↺ Se Repite',
+        nodes: [
+          { id: 'builders',      label: 'Builders',             sub: 'integran infraestructura WalletNow',  icon: '👨‍💻', accent: false },
+          { id: 'products',      label: 'Mejores Productos',    sub: 'lanzan más rápido con UX sin fricción', icon: '🚀', accent: false },
+          { id: 'users',         label: 'Más Usuarios Stellar', sub: 'onboarding sin fricción Web3',         icon: '🌍', accent: true },
+          { id: 'apps',          label: 'Más Aplicaciones',     sub: 'ecosistema crece y se diversifica',    icon: '📱', accent: false },
+          { id: 'more-builders', label: 'Más Builders',         sub: 'atraídos por ecosistema vibrante',     icon: '🏗️', accent: false },
+        ],
+      },
+      bottomCta: {
+        badge: 'Disponible ahora en Stellar Testnet',
+        headlinePlain: '¿Listo para dejar de construir',
+        headlineGreen: 'infraestructura?',
+        body: 'Comienza con la documentación. Ten una billetera funcionando en minutos. Sin registro.',
+        ctaDocs: 'Leer Documentación',
+        ctaGitHub: 'Ver en GitHub',
+        footerLinks: [
+          { label: 'Documentación', href: '/docs' },
+          { label: 'GitHub', href: 'https://github.com/nsdBRoficial/walletnow_app' },
+          { label: 'Stellar.org', href: 'https://stellar.org' },
+          { label: 'Comunidad', href: '#' },
+        ],
+        copy: 'WalletNow — Licencia MIT · Infraestructura de Bienes Públicos para Stellar',
+      },
+    },
   },
 } as const;
 

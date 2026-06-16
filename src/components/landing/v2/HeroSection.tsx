@@ -1,5 +1,6 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ArrowRight, Github, Copy, Check } from 'lucide-react';
+import { useLanding } from '../../../contexts/LandingContext';
 
 const CODE_LINES = [
   { tokens: [
@@ -107,7 +108,6 @@ function AnimatedCode() {
             ))}
           </div>
         ))}
-        {/* Blinking cursor */}
         {visibleLines < CODE_LINES.length && (
           <span style={{
             display: 'inline-block', width: 2, height: 16, background: '#00FF99',
@@ -116,7 +116,6 @@ function AnimatedCode() {
         )}
       </div>
 
-      {/* Subtle glow */}
       <div style={{
         position: 'absolute', bottom: -40, left: '50%', transform: 'translateX(-50%)',
         width: 200, height: 80, background: 'rgba(0,255,153,0.06)',
@@ -127,6 +126,9 @@ function AnimatedCode() {
 }
 
 export default function HeroSection() {
+  const { t } = useLanding();
+  const h = t.hero;
+
   return (
     <section style={{
       minHeight: '100vh',
@@ -150,12 +152,12 @@ export default function HeroSection() {
           to   { opacity: 1; transform: translateY(0); }
         }
         .hero-cta-primary:hover {
-          background: rgba(0,255,153,0.15) !important;
-          border-color: rgba(0,255,153,0.5) !important;
+          background: rgba(0,168,107,0.15) !important;
+          border-color: rgba(0,168,107,0.5) !important;
           transform: translateY(-1px);
         }
         .hero-cta-secondary:hover {
-          background: rgba(255,255,255,0.05) !important;
+          background: rgba(0,0,0,0.04) !important;
           transform: translateY(-1px);
         }
         @media (max-width: 768px) {
@@ -168,7 +170,7 @@ export default function HeroSection() {
       {/* Background orbs */}
       <div style={{
         position: 'absolute', top: '20%', left: '10%', width: 400, height: 400,
-        background: 'radial-gradient(circle, rgba(0,255,153,0.05) 0%, transparent 70%)',
+        background: 'radial-gradient(circle, var(--glow-primary) 0%, transparent 70%)',
         borderRadius: '50%', filter: 'blur(60px)', pointerEvents: 'none',
         animation: 'float-orb 12s ease-in-out infinite',
       }} />
@@ -183,18 +185,18 @@ export default function HeroSection() {
       <div style={{
         display: 'inline-flex', alignItems: 'center', gap: 8,
         padding: '5px 14px', borderRadius: 999,
-        background: 'rgba(0,255,153,0.06)',
-        border: '1px solid rgba(0,255,153,0.18)',
+        background: 'rgba(0,168,107,0.07)',
+        border: '1px solid rgba(0,168,107,0.2)',
         marginBottom: 28,
         animation: 'heroFadeUp 0.6s ease forwards',
       }}>
-        <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#00FF99', boxShadow: '0 0 6px #00FF99' }} />
-        <span style={{ fontSize: 12, fontWeight: 600, color: '#00FF99', letterSpacing: '0.04em' }}>
-          Public Goods Infrastructure for Stellar
+        <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--color-wn-green)', boxShadow: '0 0 6px var(--color-wn-green)' }} />
+        <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-wn-green)', letterSpacing: '0.04em' }}>
+          {h.badge}
         </span>
       </div>
 
-      {/* Main grid: text + code */}
+      {/* Main grid */}
       <div className="hero-grid" style={{
         display: 'flex', alignItems: 'center', gap: 56,
         maxWidth: 1080, width: '100%',
@@ -213,14 +215,14 @@ export default function HeroSection() {
             color: 'var(--text-primary)',
             margin: 0,
           }}>
-            Stop building{' '}
+            {h.headlinePlain1}{' '}
             <span style={{
-              background: 'linear-gradient(135deg, #00FF99 0%, #00C46A 100%)',
+              background: 'linear-gradient(135deg, var(--color-wn-green) 0%, #00C46A 100%)',
               WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
             }}>
-              Web3 infrastructure.
+              {h.headlineGreen}
             </span>{' '}
-            Start building products.
+            {h.headlinePlain2}
           </h1>
 
           <p style={{
@@ -229,23 +231,20 @@ export default function HeroSection() {
             lineHeight: 1.7, margin: 0,
             maxWidth: 460,
           }}>
-            The open-source abstraction layer that makes Stellar applications feel like modern apps.
-            Passkeys, gasless transactions, wallet provisioning — all handled.
+            {h.description}
           </p>
 
-          <div className="hero-ctas" style={{
-            display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 8,
-          }}>
+          <div className="hero-ctas" style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 8 }}>
             <a href="/docs" className="hero-cta-primary" style={{
               display: 'inline-flex', alignItems: 'center', gap: 8,
               padding: '12px 24px', borderRadius: 10,
-              background: 'rgba(0,255,153,0.08)',
-              border: '1px solid rgba(0,255,153,0.3)',
-              color: '#00FF99', fontWeight: 600, fontSize: 14,
+              background: 'rgba(0,168,107,0.08)',
+              border: '1px solid rgba(0,168,107,0.3)',
+              color: 'var(--color-wn-green)', fontWeight: 600, fontSize: 14,
               textDecoration: 'none', cursor: 'pointer',
               transition: 'all 0.2s',
             }}>
-              Read the Docs
+              {h.ctaDocs}
               <ArrowRight size={16} />
             </a>
             <a href="https://github.com/nsdBRoficial/walletnow_app" target="_blank" rel="noopener noreferrer"
@@ -253,24 +252,22 @@ export default function HeroSection() {
                 display: 'inline-flex', alignItems: 'center', gap: 8,
                 padding: '12px 24px', borderRadius: 10,
                 background: 'transparent',
-                border: '1px solid rgba(255,255,255,0.1)',
+                border: '1px solid var(--border-subtle)',
                 color: 'var(--text-secondary)', fontWeight: 600, fontSize: 14,
                 textDecoration: 'none', cursor: 'pointer',
                 transition: 'all 0.2s',
               }}>
               <Github size={15} />
-              View on GitHub
+              {h.ctaGitHub}
             </a>
           </div>
 
           {/* Stats row */}
-          <div style={{
-            display: 'flex', gap: 28, marginTop: 16, flexWrap: 'wrap',
-          }}>
+          <div style={{ display: 'flex', gap: 28, marginTop: 16, flexWrap: 'wrap' }}>
             {[
-              { label: 'Stellar Native', value: '100%' },
-              { label: 'Open Source', value: 'MIT' },
-              { label: 'Setup Time', value: '< 5min' },
+              { label: h.statStellar, value: '100%' },
+              { label: h.statOpenSource, value: 'MIT' },
+              { label: h.statSetup, value: '< 5min' },
             ].map(stat => (
               <div key={stat.label} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <span style={{ fontSize: 20, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>{stat.value}</span>

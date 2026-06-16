@@ -1,6 +1,10 @@
 import React from 'react';
+import { useLanding } from '../../../contexts/LandingContext';
 
 export default function WhyWeExistSection() {
+  const { t } = useLanding();
+  const w = t.v2.why;
+
   return (
     <section style={{
       padding: '100px 24px',
@@ -13,7 +17,7 @@ export default function WhyWeExistSection() {
           to { opacity: 1; transform: translateY(0); }
         }
         .why-card:hover {
-          border-color: rgba(0,255,153,0.25) !important;
+          border-color: rgba(0,168,107,0.28) !important;
           transform: translateY(-2px);
         }
       `}</style>
@@ -24,9 +28,9 @@ export default function WhyWeExistSection() {
         <div style={{ textAlign: 'center', marginBottom: 56 }}>
           <span style={{
             fontSize: 11, fontWeight: 700, letterSpacing: '0.12em',
-            textTransform: 'uppercase', color: '#00FF99',
+            textTransform: 'uppercase', color: 'var(--color-wn-green)',
           }}>
-            Why We Exist
+            {w.label}
           </span>
         </div>
 
@@ -47,7 +51,7 @@ export default function WhyWeExistSection() {
           <div style={{
             position: 'absolute', top: -60, left: '50%', transform: 'translateX(-50%)',
             width: 300, height: 120,
-            background: 'radial-gradient(ellipse, rgba(0,255,153,0.08) 0%, transparent 70%)',
+            background: 'radial-gradient(ellipse, var(--glow-primary) 0%, transparent 70%)',
             pointerEvents: 'none',
           }} />
 
@@ -59,14 +63,14 @@ export default function WhyWeExistSection() {
             color: 'var(--text-primary)',
             marginBottom: 24,
           }}>
-            Most Stellar builders are forced to solve{' '}
+            {w.headlinePlain1}{' '}
             <span style={{
-              background: 'linear-gradient(135deg, #00FF99 0%, #00C46A 100%)',
+              background: 'linear-gradient(135deg, var(--color-wn-green) 0%, #00C46A 100%)',
               WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
             }}>
-              the same problem
+              {w.headlineGreen}
             </span>{' '}
-            repeatedly.
+            {w.headlinePlain2}
           </h2>
 
           <p style={{
@@ -76,14 +80,12 @@ export default function WhyWeExistSection() {
             maxWidth: 620,
             margin: '0 auto 40px',
           }}>
-            Seed phrases, wallet configurations, gas fee abstractions, and recovery flows 
-            take months to build and are not your competitive advantage. 
-            They are infrastructure problems.
+            {w.body1}
           </p>
 
           <div style={{
             width: 48, height: 2,
-            background: 'linear-gradient(90deg, transparent, rgba(0,255,153,0.5), transparent)',
+            background: 'linear-gradient(90deg, transparent, rgba(0,168,107,0.5), transparent)',
             margin: '0 auto 40px',
           }} />
 
@@ -95,13 +97,13 @@ export default function WhyWeExistSection() {
             margin: '0 auto',
             fontWeight: 500,
           }}>
-            WalletNow exists so builders can focus entirely on their core products.{' '}
+            {w.body2Plain1}{' '}
             <span style={{ color: 'var(--text-secondary)' }}>
-              We believe seamless onboarding and wallet abstraction should be a{' '}
+              {w.body2Gray}{' '}
             </span>
-            <strong style={{ color: '#00FF99', fontWeight: 700 }}>Public Good</strong>
+            <strong style={{ color: 'var(--color-wn-green)', fontWeight: 700 }}>{w.body2Green}</strong>
             <span style={{ color: 'var(--text-secondary)' }}>
-              {' '}for the entire Stellar ecosystem.
+              {' '}{w.body2Gray2}
             </span>
           </p>
         </div>
@@ -111,12 +113,7 @@ export default function WhyWeExistSection() {
           display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
           gap: 12, marginTop: 24,
         }}>
-          {[
-            { emoji: '🔑', title: 'Seed Phrases', desc: 'Users abandon immediately' },
-            { emoji: '⛽', title: 'Gas Fees', desc: 'Confusing and unexpected' },
-            { emoji: '🛠️', title: 'Wallet Setup', desc: 'Hours of friction' },
-            { emoji: '🔄', title: 'Recovery Flows', desc: 'Complex and error-prone' },
-          ].map(item => (
+          {w.painCards.map(item => (
             <div key={item.title} className="why-card" style={{
               background: 'var(--bg-surface)',
               border: '1px solid var(--border-subtle)',
