@@ -19,6 +19,7 @@ import PublicGoodsSection from '../components/landing/v2/PublicGoodsSection';
 import AbstractionFeaturesSection from '../components/landing/v2/AbstractionFeaturesSection';
 import EducationalComparisonSection from '../components/landing/v2/EducationalComparisonSection';
 import EcosystemFlywheelSection from '../components/landing/v2/EcosystemFlywheelSection';
+import BusinessModelSection from '../components/landing/v2/BusinessModelSection';
 import BottomCTASection from '../components/landing/v2/BottomCTASection';
 
 // ─── CSS Variables por tema ───────────────────────────────────────────────────
@@ -315,8 +316,10 @@ function LandingInner() {
           <EducationalComparisonSection />
 
           <div id="ecosystem">
-            <EcosystemFlywheelSection />
+            <BusinessModelSection />
           </div>
+
+          <EcosystemFlywheelSection />
 
           <BottomCTASection />
         </main>

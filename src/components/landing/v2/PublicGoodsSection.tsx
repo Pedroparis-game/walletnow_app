@@ -67,10 +67,9 @@ export default function PublicGoodsSection() {
           </p>
         </div>
 
-        {/* Features grid */}
         <div className="pg-grid" style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(3, 1fr)',
+          gridTemplateColumns: 'repeat(2, 1fr)',
           gap: 16, marginBottom: 48,
         }}>
           {pg.features.map(item => (
