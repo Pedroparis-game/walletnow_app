@@ -1,0 +1,109 @@
+/**
+ * WalletNow Protocol — Capability Interfaces
+ *
+ * Contratos de todas as capabilities built-in do protocolo.
+ * ADR-000: INVARIANT-012 — CQRS: query e command separados (singular).
+ * ADR-000: INVARIANT-011 — Wallet é Identity Object (não executa transações).
+ */
+
+import type { WalletAccount, WalletConnectResult, WalletImportParams } from '../types/wallet.types.js';
+import type { StellarAccount, AccountState } from '../types/account.types.js';
+import type { Transaction, TransactionParams, TransactionResult } from '../types/transaction.types.js';
+import type { AssetBalance, AccountBalances, StellarAsset } from '../types/asset.types.js';
+import type { FeeEstimate } from '../types/gas.types.js';
+import type { SignParams, SignatureResult } from '../types/signer.types.js';
+
+// ─── Wallet Capability ─────────────────────────────────────────────────────
+/**
+ * Identity Object — representa a identidade do usuário.
+ * ADR-000: INVARIANT-011 — não executa transações ou queries de negócio.
+ */
+export interface IWalletCapability {
+  /** Public key da conta ativa, ou null se não conectado */
+  readonly publicKey: string | null;
+
+  /** Conecta via auth provider configurado */
+  connect(): Promise<WalletConnectResult>;
+
+  /** Encerra sessão e limpa RAM de dados sensíveis */
+  disconnect(): Promise<void>;
+
+  /**
+   * Assina bytes arbitrários.
+   * Para assinar transações, use wn.transactions.command.sign()
+   */
+  sign(params: SignParams): Promise<SignatureResult>;
+}
+
+// ─── Accounts Capability (CQRS) ────────────────────────────────────────────
+export interface IAccountsQuery {
+  /** Retorna a conta ativa no protocolo */
+  getActive(): Promise<WalletAccount | null>;
+  /** Retorna todas as contas importadas */
+  getAll(): Promise<WalletAccount[]>;
+  /** Retorna estado on-chain de uma conta */
+  getOnChainState(publicKey: string): Promise<AccountState>;
+  /** Verifica se uma conta existe no ledger */
+  existsOnChain(publicKey: string): Promise<boolean>;
+}
+
+export interface IAccountsCommand {
+  /** Importa uma conta via secret key ou mnemonic */
+  import(params: WalletImportParams): Promise<WalletAccount>;
+  /** Define a conta ativa */
+  setActive(accountId: string): Promise<WalletAccount>;
+  /** Remove uma conta importada (não afeta o ledger) */
+  remove(accountId: string): Promise<void>;
+}
+
+export interface IAccountsCapability {
+  readonly query: IAccountsQuery;
+  readonly command: IAccountsCommand;
+}
+
+// ─── Transactions Capability (CQRS) ────────────────────────────────────────
+export interface ITransactionsQuery {
+  /** Busca histórico de transações de uma conta */
+  getHistory(publicKey: string, limit?: number): Promise<Transaction[]>;
+  /** Busca uma transação pelo hash */
+  getByHash(hash: string): Promise<Transaction | null>;
+}
+
+export interface ITransactionsCommand {
+  /**
+   * Executa o pipeline completo: Build → Validate → Sign → Sponsor → Submit → Confirm.
+   * Este é o método principal para enviar valor.
+   */
+  send(params: TransactionParams): Promise<TransactionResult>;
+
+  /** Apenas constrói a transação (sem submeter) */
+  build(params: TransactionParams): Promise<Transaction>;
+
+  /** Apenas assina um XDR (sem submeter) */
+  sign(xdr: string): Promise<Transaction>;
+}
+
+export interface ITransactionsCapability {
+  readonly query: ITransactionsQuery;
+  readonly command: ITransactionsCommand;
+}
+
+// ─── Assets Capability (CQRS) ──────────────────────────────────────────────
+export interface IAssetsQuery {
+  /** Retorna todos os saldos de uma conta */
+  getBalances(publicKey: string): Promise<AccountBalances>;
+  /** Retorna a lista de ativos suportados pela rede */
+  getSupportedAssets(): Promise<StellarAsset[]>;
+  /** Verifica se uma trustline existe */
+  hasTrustline(publicKey: string, assetCode: string, issuer: string): Promise<boolean>;
+}
+
+export interface IAssetsCapability {
+  readonly query: IAssetsQuery;
+}
+
+// ─── Gas Capability ────────────────────────────────────────────────────────
+export interface IGasCapability {
+  /** Estima o custo de uma transação */
+  estimate(tx: Transaction): Promise<FeeEstimate>;
+}

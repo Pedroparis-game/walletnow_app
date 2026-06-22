@@ -3,6 +3,11 @@
   "private": true,
   "version": "0.9.1",
   "type": "module",
+  "workspaces": [
+    "packages/*",
+    "packages/plugins/*",
+    "apps/*"
+  ],
   "scripts": {
     "dev": "vite --port=3000 --host=0.0.0.0",
     "test": "vitest run",
