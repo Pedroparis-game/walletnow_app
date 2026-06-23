@@ -273,7 +273,7 @@ function ProtocolHealth() {
         {manifests.map(m => (
           <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px', background: 'var(--bg-elevated)', borderRadius: 999, border: '1px solid var(--border-subtle)' }}>
             <span style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 500 }}>{m.name}</span>
-            <HealthBadge manifestId={m.id} />
+            <HealthBadge pluginId={m.id} />
           </div>
         ))}
       </div>

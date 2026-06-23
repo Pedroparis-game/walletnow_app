@@ -14,7 +14,7 @@ type TxFilter = 'all' | 'payment' | 'create_account' | 'deposit' | 'send';
 
 // ─── Transaction Row ──────────────────────────────────────────────────────────
 
-function TransactionRow({ tx, publicKey }: { tx: any; publicKey: string }) {
+function TransactionRow({ tx, publicKey }: { key?: React.Key; tx: any; publicKey: string }) {
   const isDeposit = tx.type === 'deposit' || (tx.to === publicKey);
   const asset = tx.assetCode ?? tx.asset_code ?? 'XLM';
   const amount = tx.rawAmount ?? tx.amount ?? 0;

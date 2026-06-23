@@ -130,6 +130,7 @@ export const landingTranslations = {
       launch: 'Launch WalletNow',
       github: 'View GitHub',
     },
+    footer: 'Hackathon Edition',
       // ── v2 section-specific strings ──
     v2: {
       // WhyWeExistSection — reformulado: foco em velocidade de produto

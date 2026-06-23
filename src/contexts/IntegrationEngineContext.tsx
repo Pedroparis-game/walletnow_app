@@ -95,6 +95,8 @@ export interface IntegrationEngineContextValue {
   isLoading: boolean;
   /** Erro de inicialização (raro) */
   error: string | null;
+  /** Busca uma capability mockada do provider. Para hackathon MVP. */
+  getCapability: <T>(capabilityId: string, manifestId?: string) => { manifest: ProtocolManifest; provider: T } | null;
   /** Re-executa o health check de todos os protocolos */
   refreshHealth: () => Promise<void>;
 }
@@ -131,6 +133,25 @@ export function IntegrationEngineProvider({ children }: IntegrationEngineProvide
       })
     );
     setHealthStatuses(newHealth);
+  };
+
+  const getCapability = <T,>(capabilityId: string, manifestId?: string) => {
+    // MOCK para Hackathon: Em um cenário real, isso instanciaria o plugin correto
+    const manifest = engine['discoveryService'].getDiscoveredManifests().find(m => 
+      m.capabilities.some(c => c.id === capabilityId) && (!manifestId || m.id === manifestId)
+    );
+    if (!manifest) return null;
+
+    // Retorna um provider com métodos mockados seguros para a UI não quebrar
+    const provider = {
+      getVaults: async () => [],
+      listVaults: async () => [],
+      getAvailableAssets: async () => [],
+      getAssets: async () => [],
+      getRates: async () => [],
+    } as unknown as T;
+
+    return { manifest, provider };
   };
 
   useEffect(() => {
@@ -175,7 +196,7 @@ export function IntegrationEngineProvider({ children }: IntegrationEngineProvide
   }, [engine]);
 
   const value = useMemo<IntegrationEngineContextValue>(
-    () => ({ engine, manifests, healthStatuses, isLoading, error, refreshHealth }),
+    () => ({ engine, manifests, healthStatuses, isLoading, error, refreshHealth, getCapability }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [engine, manifests, healthStatuses, isLoading, error]
   );

@@ -25,7 +25,7 @@ interface AssetItem {
   color: string;
 }
 
-function AssetRow({ asset }: { asset: AssetItem }) {
+function AssetRow({ asset }: { key?: React.Key; asset: AssetItem }) {
   const catLabel = {
     native:  { label: 'Nativo', color: 'var(--accent)' },
     stable:  { label: 'Stablecoin', color: 'var(--color-swap)' },

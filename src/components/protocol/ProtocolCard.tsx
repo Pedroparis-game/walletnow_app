@@ -74,6 +74,7 @@ function ProtocolIcon({ manifest }: { manifest: ProtocolManifest }) {
 // ─── Protocol Card ────────────────────────────────────────────────────────────
 
 interface ProtocolCardProps {
+  key?: React.Key;
   manifest: ProtocolManifest;
   /** Variante compacta (para listas) */
   compact?: boolean;

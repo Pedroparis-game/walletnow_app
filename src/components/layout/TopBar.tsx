@@ -65,7 +65,7 @@ function AddressDisplay({ address }: { address: string }) {
 
 function NetworkBadge() {
   const { currentNetwork } = useNetwork();
-  const isMainnet = currentNetwork === 'MAINNET';
+  const isMainnet = currentNetwork === 'mainnet';
 
   return (
     <div style={{

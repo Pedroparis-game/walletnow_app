@@ -27,7 +27,7 @@ import type { IRWACapability, RwaAsset } from '@walletnow/core';
 
 // ─── RWA Asset Card ───────────────────────────────────────────────────────────
 
-function RWAAssetCard({ asset }: { asset: RwaAsset }) {
+function RWAAssetCard({ asset }: { key?: React.Key; asset: RwaAsset }) {
   const [expanded, setExpanded] = useState(false);
 
   return (
@@ -70,7 +70,7 @@ function RWAAssetCard({ asset }: { asset: RwaAsset }) {
             color: 'var(--color-rwa)',
             letterSpacing: '-0.02em',
           }}>
-            {asset.apy?.toFixed(2) ?? '—'}% APY
+            {asset.apy ? Number(asset.apy).toFixed(2) : '—'}% APY
           </div>
           <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 2 }}>
             Rendimento anual
@@ -101,7 +101,7 @@ function RWAAssetCard({ asset }: { asset: RwaAsset }) {
             TVL
           </div>
           <div style={{ fontSize: 13, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--text-primary)' }}>
-            {asset.tvl ? `$${(asset.tvl / 1000000).toFixed(1)}M` : '—'}
+            {asset.tvl ? `$${(Number(asset.tvl) / 1000000).toFixed(1)}M` : '—'}
           </div>
         </div>
         <div>
@@ -180,7 +180,7 @@ function RWAAssetCard({ asset }: { asset: RwaAsset }) {
 // ─── RWA Asset List ───────────────────────────────────────────────────────────
 
 function RWAAssetList({ manifest }: { manifest: ProtocolManifest }) {
-  const { engine } = useIntegrationEngine();
+  const { getCapability } = useIntegrationEngine();
   const [assets, setAssets] = useState<RwaAsset[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -190,9 +190,9 @@ function RWAAssetList({ manifest }: { manifest: ProtocolManifest }) {
       try {
         setIsLoading(true);
         setError(null);
-        const capability = await engine.findByCapability<IRWACapability>('rwa', manifest.id);
-        if (capability) {
-          const assetList = await capability.getAssets();
+        const capability = getCapability<any>('rwa', manifest.id);
+        if (capability && capability.provider) {
+          const assetList = await capability.provider.getAvailableAssets();
           setAssets(assetList);
         }
       } catch (err) {
@@ -203,7 +203,7 @@ function RWAAssetList({ manifest }: { manifest: ProtocolManifest }) {
       }
     };
     load();
-  }, [manifest.id, engine]);
+  }, [manifest.id, getCapability]);
 
   if (isLoading) {
     return (

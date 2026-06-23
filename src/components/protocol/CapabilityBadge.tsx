@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 
 interface CapabilityBadgeProps {
+  key?: React.Key;
   capabilityId: string;
   size?: 'sm' | 'md';
 }

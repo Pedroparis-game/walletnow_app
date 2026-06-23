@@ -29,7 +29,7 @@ import type { IntegrationCategory } from '@walletnow/core';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
-interface NavItem {
+interface NavItemData {
   label: string;
   to: string;
   icon: React.ReactNode;
@@ -128,7 +128,8 @@ function NavItem({
   collapsed,
   active,
 }: {
-  item: NavItem;
+  key?: React.Key;
+  item: NavItemData;
   collapsed: boolean;
   active: boolean;
 }) {
@@ -225,7 +226,7 @@ export default function Sidebar() {
   const { byCategory } = useManifests();
 
   // Itens fixos
-  const coreItems: NavItem[] = [
+  const coreItems: NavItemData[] = [
     {
       label: 'Dashboard',
       to: '/home',
@@ -239,7 +240,7 @@ export default function Sidebar() {
   ];
 
   // Itens dinâmicos gerados pelos manifestos
-  const dynamicItems: NavItem[] = Object.entries(CATEGORY_CONFIG)
+  const dynamicItems: NavItemData[] = Object.entries(CATEGORY_CONFIG)
     .filter(([cat]) => byCategory[cat] && byCategory[cat].length > 0)
     .map(([, config]) => ({
       label: config.label,
@@ -249,7 +250,7 @@ export default function Sidebar() {
     }));
 
   // Itens de sistema
-  const systemItems: NavItem[] = [
+  const systemItems: NavItemData[] = [
     {
       label: 'Atividade',
       to: '/activity',
@@ -263,7 +264,7 @@ export default function Sidebar() {
   ];
 
   // Item Coming Soon
-  const comingSoonItem: NavItem = {
+  const comingSoonItem: NavItemData = {
     label: 'Wallet AI',
     to: '/ai',
     icon: <Sparkles size={16} />,

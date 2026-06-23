@@ -70,7 +70,7 @@ export default function OpportunityEngine() {
         const realOpps: Opportunity[] = [];
         
         // 1. Yield
-        const yieldCap = engine?.getCapability('yield-vaults');
+        const yieldCap = engine?.getCapability<any>('yield-vaults');
         if (yieldCap && yieldCap.provider) {
           try {
             const vaults = await yieldCap.provider.getVaults();
@@ -95,7 +95,7 @@ export default function OpportunityEngine() {
         }
 
         // 2. RWA
-        const rwaCap = engine?.getCapability('rwa');
+        const rwaCap = engine?.getCapability<any>('rwa');
         if (rwaCap && rwaCap.provider) {
           try {
             const assets = await rwaCap.provider.getAvailableAssets();
@@ -119,7 +119,7 @@ export default function OpportunityEngine() {
         }
 
         // 3. Swap (como não temos getRates estático fácil, manteremos o fallback visual ou usaremos dummy logic para simular a IA)
-        const swapCap = engine?.getCapability('swap');
+        const swapCap = engine?.getCapability<any>('swap');
         if (swapCap) {
           realOpps.push({
             id: 'swap-real',

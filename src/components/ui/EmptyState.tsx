@@ -48,6 +48,7 @@ export default function EmptyState({ icon, title, description, action }: EmptySt
 // ─── Skeleton Card ────────────────────────────────────────────────────────────
 
 interface SkeletonCardProps {
+  key?: React.Key;
   lines?: number;
   height?: number;
 }

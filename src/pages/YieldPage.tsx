@@ -17,7 +17,7 @@ import type { IYieldCapability, YieldVault } from '@walletnow/core';
 
 // ─── Vault Card ───────────────────────────────────────────────────────────────
 
-function VaultCard({ vault }: { vault: YieldVault }) {
+function VaultCard({ vault }: { key?: React.Key; vault: YieldVault }) {
   const riskColor = vault.riskLevel === 'low'
     ? 'var(--status-online)'
     : vault.riskLevel === 'medium'
@@ -82,13 +82,13 @@ function VaultCard({ vault }: { vault: YieldVault }) {
             fontFamily: 'var(--font-mono)',
             color: 'var(--text-primary)',
           }}>
-            {vault.tvl ? `$${(vault.tvl / 1000).toFixed(1)}k` : '—'}
+            {vault.tvlUsd ? `$${vault.tvlUsd}` : '-'}
           </div>
         </div>
         <div>
           <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginBottom: 4 }}>Token</div>
           <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>
-            {vault.asset ?? 'Multi'}
+            {vault.depositToken ?? 'Multi'}
           </div>
         </div>
       </div>
@@ -117,7 +117,7 @@ function VaultCard({ vault }: { vault: YieldVault }) {
 // ─── Vault List ───────────────────────────────────────────────────────────────
 
 function VaultList({ manifest }: { manifest: ProtocolManifest }) {
-  const { engine } = useIntegrationEngine();
+  const { getCapability } = useIntegrationEngine();
   const [vaults, setVaults] = useState<YieldVault[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -127,10 +127,10 @@ function VaultList({ manifest }: { manifest: ProtocolManifest }) {
       try {
         setIsLoading(true);
         setError(null);
-        const capability = await engine.findByCapability<IYieldCapability>('yield', manifest.id);
-        if (capability) {
-          const vaultList = await capability.listVaults();
-          setVaults(vaultList);
+        const cap = getCapability<any>('yield-vaults', manifest.id);
+        if (cap && cap.provider) {
+          const vaults = await cap.provider.getVaults();
+          setVaults(vaults);
         }
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Falha ao carregar vaults';
@@ -140,7 +140,7 @@ function VaultList({ manifest }: { manifest: ProtocolManifest }) {
       }
     };
     load();
-  }, [manifest.id, engine]);
+  }, [manifest.id, getCapability]);
 
   if (isLoading) {
     return (
