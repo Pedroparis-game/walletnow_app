@@ -29,3 +29,8 @@ export {
   TestnetChainProvider,
   MainnetChainProvider,
 } from './ChainProvider.js';
+
+export * from './stellar/StellarChainProvider.js';
+export * from './stellar/StellarRPCProvider.js';
+export * from './stellar/StellarSignerProvider.js';
+export * from './stellar/FreighterSignerProvider.js';

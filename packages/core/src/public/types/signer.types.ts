@@ -22,14 +22,20 @@ export interface SignatureResult {
   readonly signerType: SignerType;
   /** Timestamp da assinatura */
   readonly signedAt: number;
+  /** Payload XDR assinado, se for uma transação Stellar */
+  readonly signedPayloadXdr?: string;
 }
 
 /** Parâmetros para uma operação de assinatura */
 export interface SignParams {
-  /** Payload a ser assinado (bytes arbitrários ou XDR de transação) */
+  /** Payload a ser assinado (bytes arbitrários) */
   readonly payload: Uint8Array;
   /** Public key a usar para assinar (deve estar no vault) */
   readonly publicKey: string;
   /** Contexto legível para exibir ao usuário em UIs de biometria */
   readonly displayMessage?: string;
+  /** Payload em formato XDR, se for uma transação Stellar */
+  readonly payloadXdr?: string;
+  /** Passphrase da rede, necessário para validação do XDR */
+  readonly networkPassphrase?: string;
 }

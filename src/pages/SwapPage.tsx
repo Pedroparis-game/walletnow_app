@@ -1,0 +1,382 @@
+/**
+ * SwapPage — Página de Swap via ISwapCapability.
+ *
+ * Renderiza os protocolos de swap disponíveis (descobertos via manifesto).
+ * INVARIANTE: Nunca importa SoroswapPlugin diretamente.
+ */
+
+import React, { useState } from 'react';
+import { ArrowLeftRight, Settings, ChevronDown, RefreshCw, Zap, Info } from 'lucide-react';
+import { useManifests } from '../hooks/useManifests';
+import ProtocolCard from '../components/protocol/ProtocolCard';
+import EmptyState, { SkeletonCard, ErrorState } from '../components/ui/EmptyState';
+
+// ─── Token Selector ───────────────────────────────────────────────────────────
+
+const TOKENS = [
+  { code: 'XLM',    name: 'Stellar Lumens',   icon: '⭐' },
+  { code: 'USDC',   name: 'USD Coin',          icon: '💵' },
+  { code: 'TESOURO',name: 'Tesouro Tokenizado',icon: '🏦' },
+  { code: 'BRW',    name: 'BRW Token',         icon: '🇧🇷' },
+  { code: 'EURC',   name: 'Euro Coin',         icon: '💶' },
+];
+
+function TokenSelector({
+  selected,
+  onSelect,
+  label,
+}: {
+  selected: string;
+  onSelect: (code: string) => void;
+  label: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const token = TOKENS.find(t => t.code === selected) ?? TOKENS[0];
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <label style={{
+        display: 'block',
+        fontSize: 12,
+        fontWeight: 500,
+        color: 'var(--text-tertiary)',
+        marginBottom: 6,
+        letterSpacing: '0.02em',
+      }}>
+        {label}
+      </label>
+      <button
+        onClick={() => setOpen(!open)}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          padding: '10px 14px',
+          background: 'var(--bg-elevated)',
+          border: '1px solid var(--border-subtle)',
+          borderRadius: 'var(--radius-md)',
+          color: 'var(--text-primary)',
+          cursor: 'pointer',
+          width: 160,
+          transition: 'var(--transition-fast)',
+        }}
+        onMouseEnter={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)')}
+        onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border-subtle)')}
+      >
+        <span style={{ fontSize: 16 }}>{token.icon}</span>
+        <div style={{ flex: 1, textAlign: 'left' }}>
+          <div style={{ fontSize: 14, fontWeight: 600 }}>{token.code}</div>
+          <div style={{ fontSize: 10, color: 'var(--text-tertiary)', marginTop: 1 }}>{token.name}</div>
+        </div>
+        <ChevronDown size={13} color="var(--text-tertiary)" style={{ transform: open ? 'rotate(180deg)' : undefined, transition: 'transform 0.2s' }} />
+      </button>
+
+      {open && (
+        <>
+          <div style={{ position: 'fixed', inset: 0, zIndex: 90 }} onClick={() => setOpen(false)} />
+          <div style={{
+            position: 'absolute',
+            top: 'calc(100% + 4px)',
+            left: 0,
+            width: 220,
+            background: 'var(--bg-elevated)',
+            border: '1px solid var(--border-subtle)',
+            borderRadius: 'var(--radius-lg)',
+            boxShadow: 'var(--shadow-lg)',
+            zIndex: 100,
+            overflow: 'hidden',
+            animation: 'fade-in-up 0.15s ease both',
+          }}>
+            {TOKENS.map(t => (
+              <button
+                key={t.code}
+                onClick={() => { onSelect(t.code); setOpen(false); }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  width: '100%',
+                  padding: '10px 14px',
+                  background: t.code === selected ? 'var(--accent-dim)' : 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: t.code === selected ? 'var(--accent)' : 'var(--text-primary)',
+                  fontSize: 13,
+                  fontWeight: t.code === selected ? 600 : 400,
+                  textAlign: 'left',
+                  transition: 'var(--transition-fast)',
+                }}
+                onMouseEnter={e => { if (t.code !== selected) (e.currentTarget.style.background = 'var(--bg-hover)'); }}
+                onMouseLeave={e => { if (t.code !== selected) (e.currentTarget.style.background = 'transparent'); }}
+              >
+                <span style={{ fontSize: 18 }}>{t.icon}</span>
+                <div>
+                  <div style={{ fontWeight: 600 }}>{t.code}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>{t.name}</div>
+                </div>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ─── Swap Widget ──────────────────────────────────────────────────────────────
+
+function SwapWidget() {
+  const [fromToken, setFromToken] = useState('XLM');
+  const [toToken, setToToken] = useState('USDC');
+  const [amount, setAmount] = useState('');
+  const [slippage, setSlippage] = useState('0.5');
+  const [showSettings, setShowSettings] = useState(false);
+
+  const handleFlip = () => {
+    setFromToken(toToken);
+    setToToken(fromToken);
+  };
+
+  const estimatedOut = amount ? (parseFloat(amount) * 0.096).toFixed(4) : '—';
+
+  return (
+    <div
+      className="glass-card"
+      style={{
+        padding: 'var(--space-6)',
+        maxWidth: 420,
+        width: '100%',
+      }}
+    >
+      {/* Widget header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-5)' }}>
+        <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>Swap</h2>
+        <button
+          className="btn btn-ghost btn-icon-sm"
+          onClick={() => setShowSettings(!showSettings)}
+          title="Configurações de swap"
+        >
+          <Settings size={14} />
+        </button>
+      </div>
+
+      {/* Slippage settings */}
+      {showSettings && (
+        <div style={{
+          background: 'var(--bg-elevated)',
+          border: '1px solid var(--border-subtle)',
+          borderRadius: 'var(--radius-md)',
+          padding: 'var(--space-4)',
+          marginBottom: 'var(--space-4)',
+        }}>
+          <label style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 8, display: 'block' }}>
+            Slippage máximo
+          </label>
+          <div style={{ display: 'flex', gap: 6 }}>
+            {['0.1', '0.5', '1.0'].map(s => (
+              <button
+                key={s}
+                onClick={() => setSlippage(s)}
+                className={`btn btn-sm ${slippage === s ? 'btn-accent-ghost' : 'btn-ghost'}`}
+              >
+                {s}%
+              </button>
+            ))}
+            <input
+              className="input"
+              type="number"
+              value={slippage}
+              onChange={e => setSlippage(e.target.value)}
+              style={{ width: 70, padding: '5px 10px', fontSize: 13 }}
+              placeholder="Custom"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* From */}
+      <div style={{
+        background: 'var(--bg-elevated)',
+        border: '1px solid var(--border-subtle)',
+        borderRadius: 'var(--radius-md)',
+        padding: 'var(--space-4)',
+        marginBottom: 4,
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
+          <TokenSelector selected={fromToken} onSelect={setFromToken} label="De" />
+          <div style={{ flex: 1 }} />
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <input
+            className="input input-mono"
+            type="number"
+            value={amount}
+            onChange={e => setAmount(e.target.value)}
+            placeholder="0.00"
+            style={{ background: 'transparent', border: 'none', boxShadow: 'none', fontSize: 24, fontWeight: 700, padding: '4px 0', flex: 1 }}
+          />
+          <button
+            className="btn btn-ghost btn-sm"
+            style={{ fontSize: 11, color: 'var(--accent)' }}
+          >
+            MAX
+          </button>
+        </div>
+      </div>
+
+      {/* Flip button */}
+      <div style={{ display: 'flex', justifyContent: 'center', margin: '4px 0' }}>
+        <button
+          onClick={handleFlip}
+          className="btn btn-secondary btn-icon"
+          style={{ borderRadius: '50%', width: 36, height: 36 }}
+          title="Inverter tokens"
+        >
+          <ArrowLeftRight size={14} />
+        </button>
+      </div>
+
+      {/* To */}
+      <div style={{
+        background: 'var(--bg-elevated)',
+        border: '1px solid var(--border-subtle)',
+        borderRadius: 'var(--radius-md)',
+        padding: 'var(--space-4)',
+        marginTop: 4,
+        marginBottom: 'var(--space-4)',
+      }}>
+        <TokenSelector selected={toToken} onSelect={setToToken} label="Para" />
+        <div style={{ marginTop: 12, fontSize: 24, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)' }}>
+          {estimatedOut}
+        </div>
+      </div>
+
+      {/* Info row */}
+      {amount && parseFloat(amount) > 0 && (
+        <div style={{
+          background: 'rgba(0,255,153,0.04)',
+          border: '1px solid rgba(0,255,153,0.1)',
+          borderRadius: 'var(--radius-md)',
+          padding: '10px 14px',
+          marginBottom: 'var(--space-4)',
+          fontSize: 12,
+          color: 'var(--text-secondary)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 6,
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <span>Taxa estimada</span>
+            <span style={{ color: 'var(--text-primary)' }}>~0.00001 XLM</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <span>Slippage máximo</span>
+            <span style={{ color: 'var(--text-primary)' }}>{slippage}%</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <span>Rota</span>
+            <span style={{ color: 'var(--accent)', fontSize: 11 }}>Via Soroswap AMM</span>
+          </div>
+        </div>
+      )}
+
+      {/* CTA */}
+      <button
+        className="btn btn-primary"
+        style={{ width: '100%', padding: '13px', fontSize: 14 }}
+        disabled={!amount || parseFloat(amount) <= 0}
+      >
+        <ArrowLeftRight size={15} />
+        {!amount || parseFloat(amount) <= 0 ? 'Insira o valor' : `Swap ${fromToken} → ${toToken}`}
+      </button>
+
+      {/* Disclaimer */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 6,
+        marginTop: 'var(--space-3)',
+        fontSize: 11,
+        color: 'var(--text-tertiary)',
+      }}>
+        <Info size={11} />
+        <span>Transações Stellar são irreversíveis. Revise antes de confirmar.</span>
+      </div>
+    </div>
+  );
+}
+
+// ─── SwapPage ─────────────────────────────────────────────────────────────────
+
+export default function SwapPage() {
+  const { manifests, isLoading, error } = useManifests({ category: 'swap' });
+
+  return (
+    <div className="animate-fade-in">
+      {/* Header */}
+      <div className="page-header">
+        <div className="page-header-left">
+          <h1 style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.03em', margin: 0, color: 'var(--text-primary)' }}>
+            Swap
+          </h1>
+          <p className="section-subtitle">
+            Troque ativos nativamente na Stellar com a melhor rota disponível
+          </p>
+        </div>
+      </div>
+
+      {/* Main layout */}
+      <div style={{ display: 'flex', gap: 'var(--space-6)', flexWrap: 'wrap', alignItems: 'flex-start' }}>
+        {/* Widget */}
+        <SwapWidget />
+
+        {/* Protocols sidebar */}
+        <div style={{ flex: 1, minWidth: 280 }}>
+          <h2 className="section-title" style={{ fontSize: 15, marginBottom: 'var(--space-4)' }}>
+            Protocolos de Swap
+          </h2>
+
+          {error ? (
+            <ErrorState description={error} />
+          ) : isLoading ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+              {[0, 1].map(i => <SkeletonCard key={i} height={120} />)}
+            </div>
+          ) : manifests.length === 0 ? (
+            <EmptyState
+              icon={<ArrowLeftRight size={20} />}
+              title="Nenhum protocolo de swap disponível"
+              description="Os protocolos de swap serão exibidos aqui quando disponíveis na rede."
+            />
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+              {manifests.map(m => (
+                <ProtocolCard key={m.id} manifest={m} compact />
+              ))}
+            </div>
+          )}
+
+          {/* Network info */}
+          <div style={{
+            marginTop: 'var(--space-4)',
+            padding: 'var(--space-4)',
+            background: 'var(--bg-surface)',
+            border: '1px solid var(--border-subtle)',
+            borderRadius: 'var(--radius-md)',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+              <Zap size={12} color="var(--accent)" />
+              <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)' }}>
+                Stellar DEX
+              </span>
+            </div>
+            <p style={{ margin: 0, fontSize: 12, color: 'var(--text-tertiary)', lineHeight: 1.6 }}>
+              Swaps são executados on-chain na Stellar via AMMs e order books nativos. 
+              Confirmação em ~5 segundos. Taxas mínimas (~0.00001 XLM).
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

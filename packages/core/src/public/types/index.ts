@@ -5,15 +5,20 @@
  * INVARIANT-001: zero dependências de runtime neste barrel.
  */
 
-export type * from './wallet.types.js';
-export type * from './account.types.js';
-export type * from './transaction.types.js';
-export type * from './asset.types.js';
-export type * from './network.types.js';
-export type * from './gas.types.js';
-export type * from './vault.types.js';
-export type * from './signer.types.js';
-export type * from './recovery.types.js';
-export type * from './event.types.js';
-export type * from './plugin.types.js';
-export type * from './config.types.js';
+export * from './account.types.js';
+export * from './asset.types.js';
+export * from './config.types.js';
+export * from './event.types.js';
+export * from './gas.types.js';
+export * from './network.types.js';
+export * from './plugin.types.js';
+export * from './recovery.types.js';
+export * from './signer.types.js';
+export * from './transaction.types.js';
+export * from './vault.types.js';
+export * from './wallet.types.js';
+export * from './integration.types.js';
+export * from './portfolio.types.js';
+export * from './swap.types.js';
+export * from './yield.types.js';
+export * from './rwa.types.js';

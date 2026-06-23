@@ -58,6 +58,8 @@ export class CapabilityRegistry {
   }
 }
 
+import type { IntegrationEngine } from '../os/IntegrationEngine.js';
+
 /**
  * Struct compartilhado com todos os subsistemas e plugins.
  * Imutável após boot(). Congelado via Object.freeze().
@@ -73,6 +75,7 @@ export interface WalletNowContext {
   readonly signer: ISignerProvider;
   readonly events: EventEmitter;
   readonly capabilities: CapabilityRegistry;
+  readonly integrations: IntegrationEngine;
   /** Fábrica de contextos de execução por operação — ADR-000: 2.0.1 */
   readonly executionFactory: ExecutionContextFactory;
 }

@@ -3,76 +3,94 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import { useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import RootLayout from './components/layout/RootLayout';
+import AppShell from './components/layout/AppShell';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
-import Dashboard from './pages/Dashboard';
 import Settings from './pages/Settings';
+import Home from './pages/Home';
+import SwapPage from './pages/SwapPage';
+import YieldPage from './pages/YieldPage';
+import RWAPage from './pages/RWAPage';
+import PortfolioPage from './pages/PortfolioPage';
+import ActivityPage from './pages/ActivityPage';
 import { AuthProvider } from './contexts/AuthContext';
 import { WalletProvider } from './contexts/WalletContext';
 import { NetworkProvider } from './contexts/NetworkContext';
+import { IntegrationEngineProvider } from './contexts/IntegrationEngineContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import QADebugPanel from './components/QADebugPanel';
 import { AppErrorBoundary } from './components/system/AppErrorBoundary';
 
 /**
- * Componente Principal da Aplicação (App)
- * 
- * Este arquivo é o coração da navegação do nosso DApp (Decentralized Application).
- * Ele utiliza o `react-router-dom` para gerenciar as rotas (URLs) e renderizar
- * as telas corretas sem recarregar a página (Single Page Application - SPA).
+ * WalletNow — Sprint H
+ * Aplicação completa com AppShell, rotas dinâmicas e IntegrationEngine.
+ *
+ * Hierarquia de providers:
+ * AppErrorBoundary
+ *   → NetworkProvider
+ *     → AuthProvider
+ *       → WalletProvider
+ *         → IntegrationEngineProvider (depende dos outros para bootstrapar)
+ *           → BrowserRouter
  */
 export default function App() {
-  useEffect(() => {
-    // Treasury Bootstrap removido (XLM é nativo)
-  }, []);
-
   return (
-
     <AppErrorBoundary>
-      {/* NetworkProvider: Contexto global de rede Stellar (TESTNET/MAINNET) */}
       <NetworkProvider>
-      {/* Envolve a aplicação com o estado global de Autenticação (Supabase) */}
       <AuthProvider>
-      {/* Envolve com o estado global de Múltiplas Contas de Carteira */}
       <WalletProvider>
-      {/* BrowserRouter: Habilita o roteamento baseado na URL com Base Dinâmica (Vite/Vercel/Hostinger) */}
+      {/* IntegrationEngineProvider: bootstrapa o kernel de integrações */}
+      <IntegrationEngineProvider>
       <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, '')}>
-        {/* Routes: Container que agrupa todas as rotas possíveis da aplicação */}
         <Routes>
-
-          {/* 
-            O RootLayout atua como "Wrapper" apenas para as páginas do App (Dashboard/Settings)
-            A Landing Page é injetada FORA do RootLayout para ter tela cheia sem paddings/navbars.
-          */}
-          
+          {/* ─── Páginas públicas ────────────────────────────────────────── */}
           <Route path="/" element={<Landing />} />
 
+          {/* ─── Login (sem AppShell) ────────────────────────────────────── */}
           <Route element={<RootLayout />}>
-            {/* Rota de Login/Onboarding */}
             <Route path="/login" element={<Login />} />
+          </Route>
 
-            {/* 🚀 Grupo de Rotas Protegidas (Exige Login para acessar) */}
+          {/* ─── App autenticado com AppShell ────────────────────────────── */}
+          <Route element={<AppShell />}>
             <Route element={<ProtectedRoute />}>
-              {/* Rota do Dashboard Principal (Saldo, Histórico, Botões de Ação) */}
-              <Route path="/dashboard" element={<Dashboard />} />
+              {/* Redireciona /dashboard legado para /home */}
+              <Route path="/dashboard" element={<Navigate to="/home" replace />} />
 
-              {/* Rota de Configurações e KYC (Identidade, Endereço Stellar) */}
+              {/* Home dinâmica (novo Dashboard) */}
+              <Route path="/home" element={<Home />} />
+
+              {/* Swap */}
+              <Route path="/swap" element={<SwapPage />} />
+
+              {/* Yield & DeFi */}
+              <Route path="/yield" element={<YieldPage />} />
+
+              {/* Real World Assets */}
+              <Route path="/rwa" element={<RWAPage />} />
+
+              {/* Portfolio */}
+              <Route path="/portfolio" element={<PortfolioPage />} />
+
+              {/* Activity */}
+              <Route path="/activity" element={<ActivityPage />} />
+
+              {/* Settings */}
               <Route path="/settings" element={<Settings />} />
             </Route>
-
           </Route>
-          
-          {/* Catch-all route to redirect to home if no route matches (prevents white screen) */}
+
+          {/* ─── Catch-all ───────────────────────────────────────────────── */}
           <Route path="*" element={<Landing />} />
         </Routes>
         <QADebugPanel />
       </BrowserRouter>
+      </IntegrationEngineProvider>
       </WalletProvider>
-    </AuthProvider>
-    </NetworkProvider>
+      </AuthProvider>
+      </NetworkProvider>
     </AppErrorBoundary>
   );
 }

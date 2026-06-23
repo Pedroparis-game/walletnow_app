@@ -17,7 +17,7 @@ export { WalletNow } from './WalletNow.js';
 export type { KernelState } from './WalletNow.js';
 
 // ─── Types ────────────────────────────────────────────────────────────────
-export type * from './types/index.js';
+export * from './types/index.js';
 
 // ─── Errors ───────────────────────────────────────────────────────────────
 export {
@@ -57,7 +57,46 @@ export type {
   IAssetsCapability,
   IAssetsQuery,
   IGasCapability,
+  IPortfolioCapability,
+  ISwapCapability,
+  IYieldCapability,
+  IRWACapability,
+  // New Sprint-G capabilities
+  IPortfolioContributor,
+  IPaymentCapability,
+  IAnalyticsCapability,
+  OnRampParams,
+  OnRampResult,
+  OnRampStatus,
+  ProtocolMetrics,
+  // Swap types
+  SwapToken,
+  SwapProtocol,
+  SwapTradeType,
+  SwapQuoteParams,
+  SwapQuoteResult,
+  SwapFeeEstimate,
+  SwapRoute,
+  SwapExecuteParams,
+  SwapExecuteResult,
+  SwapHealthStatus,
+  // Yield types
+  YieldTransactionResult,
 } from './capabilities/index.js';
+
+export type {
+  // Yield domain types
+  YieldVault,
+  YieldVaultAsset,
+  YieldStrategy,
+  YieldUserPosition,
+  YieldDepositParams,
+  YieldWithdrawParams,
+  YieldEstimate,
+  YieldHealthStatus,
+  YieldRiskLevel,
+} from './types/yield.types.js';
+
 
 // ─── Events ───────────────────────────────────────────────────────────────
 export { EventEmitter } from './events/EventEmitter.js';
@@ -78,3 +117,6 @@ export type {
   ExecutionContext,
   ExecutionContextFactory,
 } from './context/index.js';
+
+// ─── OS ───────────────────────────────────────────────────────────────────
+export * from './os/index.js';

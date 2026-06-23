@@ -61,6 +61,15 @@ export interface WalletNowEvents {
   'recovery.completed':      WalletAccount;
   'recovery.failed':         WalletNowError;
 
+  // Swap
+  'swap.quote.requested':    { assetIn: string; assetOut: string; amount: string };
+  'swap.quote.received':     { amountOut: string; priceImpact: number; protocol: string };
+  'swap.started':            { assetIn: string; assetOut: string; amount: string; publicKey: string };
+  'swap.signed':             { xdr: string };
+  'swap.submitted':          { txHash: string };
+  'swap.confirmed':          { txHash: string; amountOut: string };
+  'swap.failed':             { error: string; code: string };
+
   // Errors
   'error':                   WalletNowError;
 }
