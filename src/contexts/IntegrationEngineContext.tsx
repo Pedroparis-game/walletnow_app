@@ -197,7 +197,7 @@ export function IntegrationEngineProvider({ children }: IntegrationEngineProvide
 
   const value = useMemo<IntegrationEngineContextValue>(
     () => ({ engine, manifests, healthStatuses, isLoading, error, refreshHealth, getCapability }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    
     [engine, manifests, healthStatuses, isLoading, error]
   );
 

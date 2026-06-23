@@ -9,7 +9,7 @@ describe('IntegrationEngine', () => {
   let discoveryService: DiscoveryService;
   let healthMonitor: HealthMonitor;
 
-  const mockManifest: ProtocolManifest = {
+  const mockManifest = {
     id: 'test-plugin',
     name: 'Test Plugin',
     version: '1.0.0',
@@ -17,8 +17,8 @@ describe('IntegrationEngine', () => {
     author: 'WalletNow',
     website: 'https://walletnow.app',
     capabilities: [{ id: 'test-capability', version: '1.0' }],
-    display: { icon: 'test' },
-  };
+    icon: 'test',
+  } as unknown as ProtocolManifest;
 
   beforeEach(() => {
     discoveryService = new DiscoveryService();
@@ -30,8 +30,8 @@ describe('IntegrationEngine', () => {
     vi.spyOn(discoveryService, 'discoverAll').mockResolvedValue([mockManifest]);
     const checkHealthSpy = vi.spyOn(healthMonitor, 'checkHealth').mockResolvedValue({
       status: HealthStatus.ONLINE,
-      latencyMs: 10,
-      lastChecked: Date.now(),
+      
+      lastCheckedAt: new Date(),
     });
 
     await engine.initialize();
@@ -44,8 +44,8 @@ describe('IntegrationEngine', () => {
     const registerSpy = vi.spyOn(discoveryService, 'registerLocalManifest');
     const checkHealthSpy = vi.spyOn(healthMonitor, 'checkHealth').mockResolvedValue({
       status: HealthStatus.ONLINE,
-      latencyMs: 10,
-      lastChecked: Date.now(),
+      
+      lastCheckedAt: new Date(),
     });
 
     await engine.register(mockManifest);
@@ -58,9 +58,8 @@ describe('IntegrationEngine', () => {
     vi.spyOn(discoveryService, 'getDiscoveredManifests').mockReturnValue([mockManifest]);
     vi.spyOn(healthMonitor, 'getStatus').mockReturnValue({
       status: HealthStatus.ONLINE,
-      latencyMs: 10,
-      lastChecked: Date.now(),
-    });
+      lastCheckedAt: new Date(),
+    } as any);
 
     const results = engine.findByCapability('test-capability');
     expect(results).toHaveLength(1);
@@ -71,8 +70,8 @@ describe('IntegrationEngine', () => {
     vi.spyOn(discoveryService, 'getDiscoveredManifests').mockReturnValue([mockManifest]);
     vi.spyOn(healthMonitor, 'getStatus').mockReturnValue({
       status: HealthStatus.OFFLINE,
-      latencyMs: 10,
-      lastChecked: Date.now(),
+      
+      lastCheckedAt: new Date(),
     });
 
     const results = engine.findByCapability('test-capability');
@@ -83,8 +82,8 @@ describe('IntegrationEngine', () => {
     vi.spyOn(discoveryService, 'getDiscoveredManifests').mockReturnValue([mockManifest]);
     vi.spyOn(healthMonitor, 'getStatus').mockReturnValue({
       status: HealthStatus.OFFLINE,
-      latencyMs: 10,
-      lastChecked: Date.now(),
+      
+      lastCheckedAt: new Date(),
     });
 
     const results = engine.findByCapability('test-capability', false);

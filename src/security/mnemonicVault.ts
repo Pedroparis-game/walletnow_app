@@ -81,7 +81,7 @@ export const MnemonicVault = {
       // Intencionalmente sem log de sucesso para não vazar timing info
     } catch (err) {
       logger.error('[MnemonicVault]', 'Falha ao salvar mnemonic criptografada', err);
-      throw new Error('Falha ao salvar frase de recuperação. Tente novamente.');
+      throw new Error('Falha ao salvar frase de recuperação. Tente novamente.', { cause: err });
     }
   },
 

@@ -583,7 +583,7 @@ export default function DepositModal({ isOpen, onClose, onSuccess }: DepositModa
     }
 
     return () => clearInterval(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    
   }, [isOpen, phase, efCustomerId, activeAccount?.stellar_public_key]);
 
   // Se o modal não estiver aberto (isOpen === false), não renderiza nada na tela.

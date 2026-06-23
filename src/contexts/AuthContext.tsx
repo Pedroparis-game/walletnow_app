@@ -72,11 +72,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             // O Supabase associa cada método de login (Google vs Magic Link) a um UUID (id) independente 
             // a não ser que a opção "Link Identities" esteja ativada no Painel Auth do Supabase!
             // Por isso, se você logar no Google com um email que já logou via Link, ele pode vir limpo (novo UUID).
-            let { data, error } = await supabase
+            const { data: initialData, error } = await supabase
                 .from('profiles')
                 .select('*')
                 .eq('id', userId)
                 .maybeSingle(); // Usa maybeSingle para não lançar erro vermelho se a linha for recém-nascida
+            let data = initialData;
 
             // [AUTO-LINKING OAUTH FIX PRO]
             // O trigger de banco de dados (handle_new_user) cria uma linha vazia assim que o usuário loga, 

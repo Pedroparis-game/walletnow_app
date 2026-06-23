@@ -120,7 +120,7 @@ export const DeviceVault = {
       return dec.decode(decryptedBuffer);
     } catch (e) {
       logger.error('[WalletNow][DeviceVault]', 'Falha ao descriptografar secret', e);
-      throw new Error('Falha de decriptografia.');
+      throw new Error('Falha de decriptografia.', { cause: e });
     }
   },
 

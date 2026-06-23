@@ -44,8 +44,6 @@ serve(async (req) => {
   const requestOrigin = req.headers.get('origin');
   const corsHeaders = getCorsHeaders(requestOrigin);
 
-    return new Response('ok', { headers: corsHeaders });
-  }
 
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });

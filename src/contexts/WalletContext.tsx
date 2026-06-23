@@ -96,7 +96,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             const storedActiveId = localStorage.getItem(`@walletnow:active_account:${user.id}`);
             console.log('[WalletContext] refreshAccounts: storedActiveId from localStorage:', storedActiveId);
             
-            let currentActive = fetchedAccounts.find(a => a.id === storedActiveId) 
+            const currentActive = fetchedAccounts.find(a => a.id === storedActiveId) 
                              || fetchedAccounts.find(a => a.is_active) 
                              || fetchedAccounts[0] 
                              || null;

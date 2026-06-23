@@ -134,7 +134,7 @@ export const IdentityService = {
                 if (err.response?.status === 404) {
                     isNewAccount = true;
                 } else {
-                    throw new Error(`Falha Horizon Crítica ao consultar Destino: ${err.message}`);
+                    throw new Error(`Falha Horizon Crítica ao consultar Destino: ${err.message}`, { cause: err });
                 }
             }
 
@@ -212,7 +212,7 @@ export const IdentityService = {
             } else if (err.message) {
                 detailError = err.message;
             }
-            throw new Error(`Falha Horizon: ${detailError}`);
+            throw new Error(`Falha Horizon: ${detailError}`, { cause: err });
         }
     }
 };

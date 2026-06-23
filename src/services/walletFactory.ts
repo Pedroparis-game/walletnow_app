@@ -414,8 +414,8 @@ export const WalletFactory = {
             const account = await server.loadAccount(publicKey);
 
             // Inicia valores vazios para todos os ativos suportados
-            let balances = { brz: '0.00', brw: '0.00', xlm: '0.00', usdc: '0.00', eurc: '0.00', btc: '0.00', tesouro: '0.00', cetes: '0.00', ustb: '0.00' };
-            let foundRWAs: string[] = [];
+            const balances = { brz: '0.00', brw: '0.00', xlm: '0.00', usdc: '0.00', eurc: '0.00', btc: '0.00', tesouro: '0.00', cetes: '0.00', ustb: '0.00' };
+            const foundRWAs: string[] = [];
 
             account.balances.forEach((balance: any) => {
                 const code = balance.asset_code;

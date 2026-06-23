@@ -1,22 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { IdentityService } from './identityService';
-import { Keypair, Account } from '@stellar/stellar-sdk';
+import { Keypair, Account, TransactionBuilder } from '@stellar/stellar-sdk';
 import { supabase } from '../lib/supabase';
 
-// 1. Mock do Gemini AI Multi-Modal para os 3 cenários rigorosos
-const { mockGenerateContent } = vi.hoisted(() => {
-    return { mockGenerateContent: vi.fn() };
-});
-vi.mock('@google/genai', () => {
-    return {
-        GoogleGenAI: vi.fn().mockImplementation(function () {
-            return {
-                models: {
-                    generateContent: mockGenerateContent
-                }
-            };
-        })
-    };
+// 1. Mock do Supabase Edge Functions
+const { mockInvoke } = vi.hoisted(() => {
+    return { mockInvoke: vi.fn() };
 });
 
 // 2. Mock do Motor Stellar Horizon para evitar chamadas de Rede Reais
@@ -52,7 +41,10 @@ vi.mock('../lib/supabase', () => ({
                 data: { id: 'mocked-id', stellar_address: 'GA_EXISTING_ADDRESS', kyc_verified: true, email: 'user@test.com' },
                 error: null
             })
-        }))
+        })),
+        functions: {
+            invoke: mockInvoke
+        }
     }
 }));
 
@@ -70,15 +62,16 @@ describe('IdentityService & Core Integrity Tests (Sprint 8)', () => {
     describe('1. Mocks de IA Multimodal (Gemini API)', () => {
 
         it('Mock_Faker: Deve retornar falha por Face Mismatch', async () => {
-            mockGenerateContent.mockResolvedValueOnce({
-                text: JSON.stringify({
-                    tipo_documento: "RG",
-                    nome: "João Teste",
-                    cpf: "12345678900",
-                    data_nascimento: "01/01/1990",
-                    facial_match: false, // FLAG de Liveness Falhou
-                    is_valid_document: true
-                })
+            mockInvoke.mockResolvedValueOnce({
+                data: {
+                    success: true,
+                    result: {
+                        isApproved: false,
+                        errorDetails: ["Biometria Facial Falhou"],
+                        provider: 'gemini'
+                    }
+                },
+                error: null
             });
 
             const result = await IdentityService.validateDocumentWithAI('img_base64', 'selfie_base64', '12345678900', 'João', '01011990');
@@ -88,15 +81,16 @@ describe('IdentityService & Core Integrity Tests (Sprint 8)', () => {
         });
 
         it('Mock_Fraude: Deve retornar falha por Data Mismatch (CPF Divergente do OCR)', async () => {
-            mockGenerateContent.mockResolvedValueOnce({
-                text: JSON.stringify({
-                    tipo_documento: "RG",
-                    nome: "João Teste",
-                    cpf: "99999999999", // CPF Retornado da Leitura é Diferente do Digitado
-                    data_nascimento: "01/01/1990",
-                    facial_match: true,
-                    is_valid_document: true
-                })
+            mockInvoke.mockResolvedValueOnce({
+                data: {
+                    success: true,
+                    result: {
+                        isApproved: false,
+                        errorDetails: ["CPF: Divergente"],
+                        provider: 'gemini'
+                    }
+                },
+                error: null
             });
 
             const result = await IdentityService.validateDocumentWithAI('img_base64', 'selfie_base64', '12345678900', 'João', '01011990');
@@ -106,15 +100,16 @@ describe('IdentityService & Core Integrity Tests (Sprint 8)', () => {
         });
 
         it('Mock_Aprovado: Deve retornar status aprovado e vazio errorDetails ao ter match total', async () => {
-            mockGenerateContent.mockResolvedValueOnce({
-                text: JSON.stringify({
-                    tipo_documento: "RG",
-                    nome: "João Teste",
-                    cpf: "12345678900",
-                    data_nascimento: "01/01/1990",
-                    facial_match: true,
-                    is_valid_document: true
-                })
+            mockInvoke.mockResolvedValueOnce({
+                data: {
+                    success: true,
+                    result: {
+                        isApproved: true,
+                        errorDetails: [],
+                        provider: 'gemini'
+                    }
+                },
+                error: null
             });
 
             const result = await IdentityService.validateDocumentWithAI('img_base64', 'selfie_base64', '12345678900', 'João', '01011990');
@@ -149,6 +144,11 @@ describe('IdentityService & Core Integrity Tests (Sprint 8)', () => {
             const fakeReceipt = 'tx_hash_success_receipt_123';
             mockSubmitTransaction.mockResolvedValueOnce({ hash: fakeReceipt });
 
+            mockInvoke.mockResolvedValueOnce({
+                data: { success: true, txHash: fakeReceipt },
+                error: null
+            });
+
             const userKp = Keypair.random();
             const fakeZkHash = '4ed8190eb1b7153f31053802612884434b3ef4643b91213f96c3bd1aa4bf583a';
 
@@ -156,7 +156,11 @@ describe('IdentityService & Core Integrity Tests (Sprint 8)', () => {
             expect(resultHash).toBe(fakeReceipt);
 
             // Inspecionar o que foi assinado e transacionado e se foi patrocinado e salvo o Hash perfeitamente
-            const submittedTx = mockSubmitTransaction.mock.calls[0][0];
+            const invokeArgs = mockInvoke.mock.calls[0][1];
+            expect(invokeArgs.body.action).toBe('mint_reputation_zk');
+            
+            const partialXdr = invokeArgs.body.partialXdr;
+            const submittedTx = TransactionBuilder.fromXDR(partialXdr, 'Test SDF Network ; September 2015') as any;
 
             // 1. ZK-STARK Hash Memo Verification
             expect(submittedTx.memo.type).toBe('hash');

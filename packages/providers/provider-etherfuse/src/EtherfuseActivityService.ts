@@ -73,7 +73,7 @@ export const EtherfuseActivityService = {
           .call();
 
         for (const record of page.records) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+           
           const r = record as any;
           const asset_code: string | null = r.asset_code ?? r.source_asset_code ?? null;
           const asset_issuer: string | null = r.asset_issuer ?? r.source_asset_issuer ?? null;

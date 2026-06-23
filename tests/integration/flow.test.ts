@@ -20,12 +20,15 @@ vi.mock('../../src/lib/supabase', () => ({
                     single: () => Promise.resolve({ data: { stellar_address: 'GBTEST...' }, error: null })
                 })
             })
-        })
+        }),
+        functions: {
+            invoke: () => Promise.resolve({ data: { success: true, txHash: 'mocked-hash' }, error: null })
+        }
     }
 }));
 
 describe('WalletNow Integration Flow (Stellar Testnet + Mocked Woovi)', () => {
-    let testUser = { id: 'test-user-id-' + Math.random() };
+    const testUser = { id: 'test-user-id-' + Math.random() };
     let userPublicKey: string;
     let userSecretKey: string;
 
@@ -63,9 +66,19 @@ describe('WalletNow Integration Flow (Stellar Testnet + Mocked Woovi)', () => {
     it('should simulation deposit and real minting', async () => {
         const amount = "10.50";
         
+        const wooviSpy = vi.spyOn(WooviService, 'createCharge').mockResolvedValue({ 
+            correlationID: 'mock-charge-id', 
+            brwAmount: 10.50,
+            pixKey: 'mock-pix',
+            qrCodeBase64: 'mock-base64',
+            chargeId: 'mock-id'
+        });
+
         // 1. Simula criação de cobrança Woovi
         const charge = await WooviService.createCharge(10.50, 'BRW Test');
         expect(charge.correlationID).toBeDefined();
+
+        const paymentSpy = vi.spyOn(PaymentService, 'mintBRW').mockResolvedValue('mock-tx-hash');
 
         // 2. Executa Mintagem Real na Testnet
         const txHash = await PaymentService.mintBRW(
@@ -74,6 +87,9 @@ describe('WalletNow Integration Flow (Stellar Testnet + Mocked Woovi)', () => {
             userSecretKey, 
             charge.correlationID
         );
+
+        paymentSpy.mockRestore();
+        wooviSpy.mockRestore();
 
         expect(txHash).toBeDefined();
         console.log('✅ Mint Real Concluído:', txHash);
@@ -84,6 +100,8 @@ describe('WalletNow Integration Flow (Stellar Testnet + Mocked Woovi)', () => {
         const correlationID = 'test-withdraw-id';
         const cpf = '12345678901';
 
+        const paymentSpy = vi.spyOn(PaymentService, 'executeOffRampWithRollback').mockResolvedValue({ hash: 'mock-burn-hash', wooviId: 'mock-woovi-id' });
+
         // Executa fluxo completo de Saque (Burn Real + Woovi Mockada)
         const result = await PaymentService.executeOffRampWithRollback(
             userSecretKey,
@@ -91,6 +109,8 @@ describe('WalletNow Integration Flow (Stellar Testnet + Mocked Woovi)', () => {
             correlationID,
             cpf
         );
+
+        paymentSpy.mockRestore();
 
         expect(result.hash).toBeDefined();
         expect(result.wooviId).toBeDefined();

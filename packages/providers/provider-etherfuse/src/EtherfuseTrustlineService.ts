@@ -35,7 +35,7 @@ export const EtherfuseTrustlineService = {
       const server = new Horizon.Server(ETHERFUSE_HORIZON_URL);
       const account = await server.loadAccount(publicKey);
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const hasTrustline = account.balances.some((b: any) =>
         b.asset_type !== 'native' &&
         b.asset_code === ETHERFUSE_ASSET_CONFIG.assetCode &&
@@ -104,7 +104,7 @@ export const EtherfuseTrustlineService = {
 
       return { success: true, transactionHash: hash, explorerUrl };
     } catch (error: unknown) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const e = error as any;
       const message =
         e?.response?.data?.extras?.result_codes?.operations?.[0] ??
