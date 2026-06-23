@@ -10,6 +10,7 @@ import { ArrowLeftRight, Settings, ChevronDown, RefreshCw, Zap, Info } from 'luc
 import { useManifests } from '../hooks/useManifests';
 import ProtocolCard from '../components/protocol/ProtocolCard';
 import EmptyState, { SkeletonCard, ErrorState } from '../components/ui/EmptyState';
+import SwapModal from '../components/modals/SwapModal';
 
 // ─── Token Selector ───────────────────────────────────────────────────────────
 
@@ -125,7 +126,7 @@ function TokenSelector({
 
 // ─── Swap Widget ──────────────────────────────────────────────────────────────
 
-function SwapWidget() {
+function SwapWidget({ onOpenSwapModal }: { onOpenSwapModal?: () => void }) {
   const [fromToken, setFromToken] = useState('XLM');
   const [toToken, setToToken] = useState('USDC');
   const [amount, setAmount] = useState('');
@@ -285,6 +286,7 @@ function SwapWidget() {
         className="btn btn-primary"
         style={{ width: '100%', padding: '13px', fontSize: 14 }}
         disabled={!amount || parseFloat(amount) <= 0}
+        onClick={() => onOpenSwapModal?.()}
       >
         <ArrowLeftRight size={15} />
         {!amount || parseFloat(amount) <= 0 ? 'Insira o valor' : `Swap ${fromToken} → ${toToken}`}
@@ -310,6 +312,7 @@ function SwapWidget() {
 
 export default function SwapPage() {
   const { manifests, isLoading, error } = useManifests({ category: 'swap' });
+  const [isSwapModalOpen, setIsSwapModalOpen] = useState(false);
 
   return (
     <div className="animate-fade-in">
@@ -328,7 +331,7 @@ export default function SwapPage() {
       {/* Main layout */}
       <div style={{ display: 'flex', gap: 'var(--space-6)', flexWrap: 'wrap', alignItems: 'flex-start' }}>
         {/* Widget */}
-        <SwapWidget />
+        <SwapWidget onOpenSwapModal={() => setIsSwapModalOpen(true)} />
 
         {/* Protocols sidebar */}
         <div style={{ flex: 1, minWidth: 280 }}>
@@ -377,6 +380,12 @@ export default function SwapPage() {
           </div>
         </div>
       </div>
+
+      {/* SwapModal — executa o swap real via PaymentService.swapAssets() */}
+      <SwapModal
+        isOpen={isSwapModalOpen}
+        onClose={() => setIsSwapModalOpen(false)}
+      />
     </div>
   );
 }

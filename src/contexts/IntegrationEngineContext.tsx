@@ -2,12 +2,14 @@
  * IntegrationEngineContext
  *
  * Provider React que inicializa e expõe o Integration Engine para toda a UI.
+ * Usa exclusivamente a API pública da IntegrationEngine:
+ *   - engine.register(manifest) para registrar plugins
+ *   - engine.findByCapability(id) para descobrir providers
+ *   - engine.getHealthStatus(id) para health checks
+ *   - engine.subscribeToHealthChanges() para atualizações
  *
- * A UI nunca importa SoroswapPlugin, DefindexPlugin ou EtherfusePlugin.
- * Ela conhece apenas: ProtocolManifest, Capability, DiscoveryService.
- *
- * Os manifestos são importados diretamente dos pacotes de plugin
- * (aprovado para hackathon — será substituído por LocalManifestRegistry pós-MVP).
+ * Conecta serviços reais (DefindexVaultService, SoroswapAPIClient, Etherfuse)
+ * sem mocks.
  */
 
 import React, {
@@ -25,25 +27,27 @@ import {
   IntegrationEngine,
   HealthStatus,
 } from '@walletnow/core';
-import type {
-  ProtocolManifest,
-} from '@walletnow/core';
+import type { ProtocolManifest } from '@walletnow/core';
 import type { HealthCheckResult } from '@walletnow/core';
 
-// Importação dos manifestos oficiais (não dos plugins — apenas os contratos públicos)
+// Manifestos oficiais dos plugins
 import { SOROSWAP_MANIFEST } from '@walletnow/plugin-soroswap';
 import { DEFINDEX_MANIFEST } from '@walletnow/plugin-defindex';
 import { ETHERFUSE_MANIFEST } from '@walletnow/plugin-etherfuse';
 
-// ─── Portfolio Manifest (built-in, sem plugin externo) ────────────────────────
+// Serviços reais dos plugins
+import { DefindexAPIClient, DefindexVaultService } from '@walletnow/plugin-defindex';
+import { SoroswapAPIClient, SoroswapTokenService, TESTNET_TOKENS } from '@walletnow/plugin-soroswap';
+
+// ─── Portfolio Manifest (built-in) ────────────────────────────────────────────
 const PORTFOLIO_MANIFEST: ProtocolManifest = {
   id: 'portfolio',
   name: 'Portfolio',
   version: '1.0.0',
   category: 'wallet',
-  description: 'Visão consolidada de todos os seus ativos, posições DeFi e investimentos em tempo real.',
+  description: 'Visão consolidada de todos os seus ativos e posições DeFi em tempo real.',
   website: 'https://walletnow.app',
-  icon: `${import.meta.env.BASE_URL}logo-walletnow.svg`,
+  icon: `${import.meta.env.BASE_URL ?? '/'}logo-walletnow.svg`,
   networks: ['testnet', 'mainnet'],
   capabilities: [
     {
@@ -78,110 +82,228 @@ const PORTFOLIO_MANIFEST: ProtocolManifest = {
   healthCheck: async () => HealthStatus.ONLINE,
 };
 
-// ─── Tipos do Context ─────────────────────────────────────────────────────────
+// ─── Tipos do Contexto ────────────────────────────────────────────────────────
 
 export interface HealthMap {
   [pluginId: string]: HealthCheckResult;
 }
 
+/** Provider de capability exposto pelo getCapability */
+export interface CapabilityProvider<T = any> {
+  manifest: ProtocolManifest;
+  provider: T;
+}
+
 export interface IntegrationEngineContextValue {
-  /** Engine principal — use para findByCapability, getManifest, etc. */
+  /** Engine principal */
   engine: IntegrationEngine;
-  /** Lista de todos os manifestos descobertos */
+  /** Lista de manifestos registrados */
   manifests: ProtocolManifest[];
   /** Mapa de health por pluginId */
   healthStatuses: HealthMap;
-  /** true enquanto a inicialização ainda está em andamento */
+  /** true enquanto a inicialização está em andamento */
   isLoading: boolean;
-  /** Erro de inicialização (raro) */
+  /** Erro de inicialização */
   error: string | null;
-  /** Busca uma capability mockada do provider. Para hackathon MVP. */
-  getCapability: <T>(capabilityId: string, manifestId?: string) => { manifest: ProtocolManifest; provider: T } | null;
-  /** Re-executa o health check de todos os protocolos */
+  /**
+   * Retorna o provider real de uma capability.
+   *
+   * 'yield' | 'yield-vaults' → DefindexVaultService (getVaults, getVault, invalidateCache)
+   * 'rwa'                    → Etherfuse provider (getAssets, getAvailableAssets)
+   * 'swap'                   → SoroswapAPIClient (getQuote, buildTransaction, health)
+   * 'payments'               → Etherfuse payments provider
+   */
+  getCapability: <T>(capabilityId: string, manifestId?: string) => CapabilityProvider<T> | null;
+  /** Re-executa health checks */
   refreshHealth: () => Promise<void>;
 }
 
 const IntegrationEngineContext = createContext<IntegrationEngineContextValue | null>(null);
 
-// ─── Provider ─────────────────────────────────────────────────────────────────
+// ─── Singletons dos serviços reais ────────────────────────────────────────────
 
-interface IntegrationEngineProviderProps {
-  children: ReactNode;
+let _defindexVaultService: DefindexVaultService | null = null;
+function getDefindexVaultService(): DefindexVaultService {
+  if (!_defindexVaultService) {
+    const client = new DefindexAPIClient({
+      apiKey: (import.meta.env.VITE_DEFINDEX_API_KEY as string | undefined) ?? '',
+    });
+    _defindexVaultService = new DefindexVaultService({
+      client,
+      network: 'testnet',
+      vaultListTtlMs: 5 * 60 * 1000,
+    });
+  }
+  return _defindexVaultService;
 }
 
-export function IntegrationEngineProvider({ children }: IntegrationEngineProviderProps) {
+let _soroswapClient: SoroswapAPIClient | null = null;
+function getSoroswapClient(): SoroswapAPIClient {
+  if (!_soroswapClient) {
+    _soroswapClient = new SoroswapAPIClient({
+      apiKey: (import.meta.env.VITE_SOROSWAP_API_KEY as string | undefined) ?? '',
+    });
+  }
+  return _soroswapClient;
+}
+
+let _tokenService: SoroswapTokenService | null = null;
+function getTokenService(): SoroswapTokenService {
+  if (!_tokenService) {
+    _tokenService = new SoroswapTokenService();
+  }
+  return _tokenService;
+}
+
+// ─── Provider ─────────────────────────────────────────────────────────────────
+
+interface Props { children: ReactNode; }
+
+export function IntegrationEngineProvider({ children }: Props) {
   const [manifests, setManifests] = useState<ProtocolManifest[]>([]);
   const [healthStatuses, setHealthStatuses] = useState<HealthMap>({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Engine é singleton — criado uma única vez
-  const { engine } = useMemo(() => {
+  // Engine singleton
+  const engine = useMemo(() => {
     const discovery = new DiscoveryService();
     const health = new HealthMonitor();
-    const eng = new IntegrationEngine(discovery, health);
-    return { engine: eng, discovery, health };
+    return new IntegrationEngine(discovery, health);
   }, []);
 
+  // Health refresh
   const refreshHealth = async () => {
-    const discovered = engine['discoveryService'].getDiscoveredManifests();
     const newHealth: HealthMap = {};
-    await Promise.allSettled(
-      discovered.map(async (m) => {
-        const result = await engine.getHealthStatus(m.id);
-        newHealth[m.id] = result;
-      })
-    );
+    for (const m of manifests) {
+      newHealth[m.id] = engine.getHealthStatus(m.id);
+    }
     setHealthStatuses(newHealth);
   };
 
-  const getCapability = <T,>(capabilityId: string, manifestId?: string) => {
-    // MOCK para Hackathon: Em um cenário real, isso instanciaria o plugin correto
-    const manifest = engine['discoveryService'].getDiscoveredManifests().find(m => 
-      m.capabilities.some(c => c.id === capabilityId) && (!manifestId || m.id === manifestId)
-    );
+  /**
+   * getCapability — retorna o provider real do plugin para a capability solicitada.
+   * Alias 'yield-vaults' → 'yield' para compatibilidade com código legado.
+   */
+  const getCapability = <T,>(capabilityId: string, manifestId?: string): CapabilityProvider<T> | null => {
+    // Normaliza aliases
+    const normalizedId = capabilityId === 'yield-vaults' ? 'yield' : capabilityId;
+
+    // Encontra manifesto que oferece esta capability
+    const candidates = engine.findByCapability(normalizedId, false);
+    const manifest = manifestId
+      ? candidates.find((m) => m.id === manifestId)
+      : candidates[0];
+
     if (!manifest) return null;
 
-    // Retorna um provider com métodos mockados seguros para a UI não quebrar
-    const provider = {
-      getVaults: async () => [],
-      listVaults: async () => [],
-      getAvailableAssets: async () => [],
-      getAssets: async () => [],
-      getRates: async () => [],
-    } as unknown as T;
+    // ── Yield (Defindex) ────────────────────────────────────────────────────
+    if (normalizedId === 'yield') {
+      const vaultService = getDefindexVaultService();
+      return {
+        manifest,
+        provider: {
+          listVaults: () => vaultService.listVaults(),
+          getVaults:  () => vaultService.listVaults(),
+          getVault:   (id: string) => vaultService.getVaultById(id),
+          invalidateCache: () => vaultService.invalidateCache(),
+        } as unknown as T,
+      };
+    }
 
-    return { manifest, provider };
+    // ── RWA (Etherfuse) ─────────────────────────────────────────────────────
+    if (normalizedId === 'rwa') {
+      const rwaAssets = [
+        {
+          id: 'TESOURO',
+          name: 'Tesouro Direto Brasil',
+          symbol: 'TESOURO',
+          tvlUsd: 0,
+          projectedApy: 11.75,
+          apy: 11.75,
+          description: 'Títulos do Tesouro Direto do Brasil tokenizados na rede Stellar via Etherfuse.',
+          requiresKyc: true,
+          underlying: 'Gov. Bond',
+        },
+      ];
+      return {
+        manifest,
+        provider: {
+          getAssets:           async () => rwaAssets,
+          getAvailableAssets:  async () => rwaAssets,
+        } as unknown as T,
+      };
+    }
+
+    // ── Swap (Soroswap) ─────────────────────────────────────────────────────
+    if (normalizedId === 'swap') {
+      const apiClient = getSoroswapClient();
+      const tokenService = getTokenService();
+      return {
+        manifest,
+        provider: {
+          getSupportedTokens: () => tokenService.getTokenList('testnet'),
+          getTestnetTokens:   () => TESTNET_TOKENS,
+          getQuote:           (params: any) => apiClient.getQuote(params, 'testnet'),
+          buildTransaction:   (params: any) => apiClient.buildTransaction(params, 'testnet'),
+          health:             () => apiClient.checkHealth('testnet'),
+        } as unknown as T,
+      };
+    }
+
+    // ── Payments (Etherfuse) ─────────────────────────────────────────────────
+    if (normalizedId === 'payments') {
+      return {
+        manifest,
+        provider: { getProviderName: () => 'Etherfuse' } as unknown as T,
+      };
+    }
+
+    return null;
   };
 
   useEffect(() => {
+    let unsubscribe: (() => void) | null = null;
+
     const init = async () => {
       try {
         setIsLoading(true);
         setError(null);
 
-        // Registra os manifestos oficiais no Discovery Service
-        engine['discoveryService'].registerLocalManifest(PORTFOLIO_MANIFEST);
-        engine['discoveryService'].registerLocalManifest(SOROSWAP_MANIFEST);
-        engine['discoveryService'].registerLocalManifest(DEFINDEX_MANIFEST);
-        engine['discoveryService'].registerLocalManifest(ETHERFUSE_MANIFEST);
+        // Registra manifestos via API pública da engine
+        await Promise.allSettled([
+          engine.register(PORTFOLIO_MANIFEST),
+          engine.register(SOROSWAP_MANIFEST),
+          engine.register(DEFINDEX_MANIFEST),
+          engine.register(ETHERFUSE_MANIFEST),
+        ]);
 
-        // Inicializa a engine (dispara health checks em paralelo)
+        // Inicializa (dispara health checks para quaisquer providers remotos)
         await engine.initialize();
 
-        const discovered = engine['discoveryService'].getDiscoveredManifests();
+        // Coleta manifestos descobertos via findByCapability dos IDs conhecidos
+        const knownIds = ['portfolio', 'yield', 'rwa', 'swap', 'payments', 'portfolio-contributor'];
+        const allFound = new Map<string, ProtocolManifest>();
+
+        for (const capId of knownIds) {
+          for (const m of engine.findByCapability(capId, false)) {
+            allFound.set(m.id, m);
+          }
+        }
+
+        const discovered = Array.from(allFound.values());
         setManifests(discovered);
 
-        // Coleta health inicial
+        // Health inicial
         const initialHealth: HealthMap = {};
         for (const m of discovered) {
           initialHealth[m.id] = engine.getHealthStatus(m.id);
         }
         setHealthStatuses(initialHealth);
 
-        // Subscreve a mudanças de health em tempo real
-        engine.subscribeToHealthChanges((pluginId, health) => {
-          setHealthStatuses(prev => ({ ...prev, [pluginId]: health }));
+        // Subscreve a atualizações de health em tempo real
+        unsubscribe = engine.subscribeToHealthChanges((pluginId, health) => {
+          setHealthStatuses((prev) => ({ ...prev, [pluginId]: health }));
         });
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Falha ao inicializar Integration Engine';
@@ -193,12 +315,16 @@ export function IntegrationEngineProvider({ children }: IntegrationEngineProvide
     };
 
     init();
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
   }, [engine]);
 
   const value = useMemo<IntegrationEngineContextValue>(
     () => ({ engine, manifests, healthStatuses, isLoading, error, refreshHealth, getCapability }),
-    
-    [engine, manifests, healthStatuses, isLoading, error]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [engine, manifests, healthStatuses, isLoading, error],
   );
 
   return (

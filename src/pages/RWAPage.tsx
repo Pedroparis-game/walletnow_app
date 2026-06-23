@@ -22,12 +22,13 @@ import { useWallet } from '../contexts/WalletContext';
 import ProtocolCard from '../components/protocol/ProtocolCard';
 import EmptyState, { SkeletonCard, ErrorState, LoadingState } from '../components/ui/EmptyState';
 import StatCard from '../components/ui/StatCard';
+import DepositModal from '../components/modals/DepositModal';
 import type { ProtocolManifest } from '@walletnow/core';
 import type { IRWACapability, RwaAsset } from '@walletnow/core';
 
 // ─── RWA Asset Card ───────────────────────────────────────────────────────────
 
-function RWAAssetCard({ asset }: { key?: React.Key; asset: RwaAsset }) {
+function RWAAssetCard({ asset, onInvest }: { key?: React.Key; asset: RwaAsset; onInvest?: () => void }) {
   const [expanded, setExpanded] = useState(false);
 
   return (
@@ -155,7 +156,7 @@ function RWAAssetCard({ asset }: { key?: React.Key; asset: RwaAsset }) {
             color: 'var(--color-rwa)',
             border: '1px solid rgba(245,158,11,0.2)',
           }}
-          onClick={e => { e.stopPropagation(); }}
+          onClick={e => { e.stopPropagation(); onInvest?.(); }}
         >
           <Wallet size={13} />
           Investir via PIX
@@ -179,7 +180,7 @@ function RWAAssetCard({ asset }: { key?: React.Key; asset: RwaAsset }) {
 
 // ─── RWA Asset List ───────────────────────────────────────────────────────────
 
-function RWAAssetList({ manifest }: { manifest: ProtocolManifest }) {
+function RWAAssetList({ manifest, onInvest }: { manifest: ProtocolManifest; onInvest?: () => void }) {
   const { getCapability } = useIntegrationEngine();
   const [assets, setAssets] = useState<RwaAsset[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -230,7 +231,7 @@ function RWAAssetList({ manifest }: { manifest: ProtocolManifest }) {
   return (
     <div className="cards-grid-2">
       {assets.map(asset => (
-        <RWAAssetCard key={asset.id} asset={asset} />
+        <RWAAssetCard key={asset.id} asset={asset} onInvest={onInvest} />
       ))}
     </div>
   );
@@ -292,6 +293,7 @@ function PixOnrampBanner() {
 export default function RWAPage() {
   const { manifests, isLoading, error } = useManifests({ category: 'rwa' });
   const { activeAccount } = useWallet();
+  const [isDepositOpen, setIsDepositOpen] = useState(false);
 
   return (
     <div className="animate-fade-in">
@@ -376,7 +378,7 @@ export default function RWAPage() {
               <p className="section-subtitle">{manifest.description}</p>
             </div>
 
-            <RWAAssetList manifest={manifest} />
+            <RWAAssetList manifest={manifest} onInvest={() => setIsDepositOpen(true)} />
           </section>
         ))
       )}
@@ -398,6 +400,12 @@ export default function RWAPage() {
           O WalletNow não presta consultoria de investimentos.
         </p>
       </div>
+
+      {/* Modal de Depósito (abre ao clicar em Investir via PIX em qualquer ativo RWA) */}
+      <DepositModal
+        isOpen={isDepositOpen}
+        onClose={() => setIsDepositOpen(false)}
+      />
     </div>
   );
 }

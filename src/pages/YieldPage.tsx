@@ -12,12 +12,13 @@ import { useIntegrationEngine } from '../contexts/IntegrationEngineContext';
 import ProtocolCard from '../components/protocol/ProtocolCard';
 import EmptyState, { SkeletonCard, ErrorState, LoadingState } from '../components/ui/EmptyState';
 import StatCard from '../components/ui/StatCard';
+import DepositModal from '../components/modals/DepositModal';
 import type { ProtocolManifest } from '@walletnow/core';
 import type { IYieldCapability, YieldVault } from '@walletnow/core';
 
 // ─── Vault Card ───────────────────────────────────────────────────────────────
 
-function VaultCard({ vault }: { key?: React.Key; vault: YieldVault }) {
+function VaultCard({ vault, onDeposit }: { key?: React.Key; vault: YieldVault; onDeposit?: () => void }) {
   const riskColor = vault.riskLevel === 'low'
     ? 'var(--status-online)'
     : vault.riskLevel === 'medium'
@@ -103,12 +104,25 @@ function VaultCard({ vault }: { key?: React.Key; vault: YieldVault }) {
             color: 'var(--color-yield)',
             border: '1px solid rgba(168,85,247,0.2)',
           }}
+          onClick={() => onDeposit?.()}
         >
           Depositar
         </button>
-        <button className="btn btn-ghost btn-icon-sm" title="Ver no explorer">
-          <ExternalLink size={12} />
-        </button>
+        {vault.id ? (
+          <a
+            href={`https://stellar.expert/explorer/testnet/contract/${vault.id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn btn-ghost btn-icon-sm"
+            title="Ver contrato no explorer"
+          >
+            <ExternalLink size={12} />
+          </a>
+        ) : (
+          <button className="btn btn-ghost btn-icon-sm" title="Explorer indisponível" disabled>
+            <ExternalLink size={12} />
+          </button>
+        )}
       </div>
     </div>
   );
@@ -116,7 +130,7 @@ function VaultCard({ vault }: { key?: React.Key; vault: YieldVault }) {
 
 // ─── Vault List ───────────────────────────────────────────────────────────────
 
-function VaultList({ manifest }: { manifest: ProtocolManifest }) {
+function VaultList({ manifest, onDeposit }: { manifest: ProtocolManifest; onDeposit?: () => void }) {
   const { getCapability } = useIntegrationEngine();
   const [vaults, setVaults] = useState<YieldVault[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -171,7 +185,7 @@ function VaultList({ manifest }: { manifest: ProtocolManifest }) {
   return (
     <div className="cards-grid-2" style={{ marginTop: 'var(--space-4)' }}>
       {vaults.map(vault => (
-        <VaultCard key={vault.id} vault={vault} />
+        <VaultCard key={vault.id} vault={vault} onDeposit={onDeposit} />
       ))}
     </div>
   );
@@ -181,6 +195,7 @@ function VaultList({ manifest }: { manifest: ProtocolManifest }) {
 
 export default function YieldPage() {
   const { manifests, isLoading, error } = useManifests({ capability: 'yield' });
+  const [isDepositOpen, setIsDepositOpen] = useState(false);
 
   return (
     <div className="animate-fade-in">
@@ -261,7 +276,7 @@ export default function YieldPage() {
             </div>
 
             {/* Vault list */}
-            <VaultList manifest={manifest} />
+            <VaultList manifest={manifest} onDeposit={() => setIsDepositOpen(true)} />
           </section>
         ))
       )}
@@ -288,6 +303,12 @@ export default function YieldPage() {
           </p>
         </div>
       </div>
+
+      {/* Modal de Depósito (abre ao clicar Depositar em qualquer vault) */}
+      <DepositModal
+        isOpen={isDepositOpen}
+        onClose={() => setIsDepositOpen(false)}
+      />
     </div>
   );
 }

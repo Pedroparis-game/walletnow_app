@@ -492,7 +492,10 @@ export default function Dashboard() {
       <div className="flex-1 px-6 pt-6 pb-24 bg-[#0A0A0A]">
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-lg font-semibold text-white">Histórico Recente</h3>
-          <button className="text-sm text-[#00E676] hover:text-[#00E676]/80 font-medium flex items-center gap-1">
+          <button
+            onClick={() => navigate('/activity')}
+            className="text-sm text-[#00E676] hover:text-[#00E676]/80 font-medium flex items-center gap-1"
+          >
             <History className="w-4 h-4" />
             Ver tudo
           </button>

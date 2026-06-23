@@ -22,6 +22,8 @@ import { WalletFactory } from '../services/walletFactory';
 import PortfolioHero from '../components/dashboard/PortfolioHero';
 import OpportunityEngine from '../components/dashboard/OpportunityEngine';
 import HealthBadge from '../components/protocol/HealthBadge';
+import DepositModal from '../components/modals/DepositModal';
+import SwapModal from '../components/modals/SwapModal';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -38,48 +40,76 @@ interface BalanceData {
 
 function QuickActions() {
   const navigate = useNavigate();
+  const [isDepositOpen, setIsDepositOpen] = useState(false);
+  const [isSwapOpen, setIsSwapOpen] = useState(false);
 
   const actions = [
-    { label: 'Investir', icon: <TrendingUp size={16} />, route: '/yield', color: 'var(--color-yield)' },
-    { label: 'Swap', icon: <ArrowLeftRight size={16} />, route: '/swap', color: 'var(--color-swap)' },
-    { label: 'Receber', icon: <Zap size={16} />, route: '/activity', color: 'var(--accent)' },
-    { label: 'Comprar RWA', icon: <Building2 size={16} />, route: '/rwa', color: 'var(--color-rwa)' },
+    {
+      label: 'Investir',
+      icon: <TrendingUp size={16} />,
+      color: 'var(--color-yield)',
+      onClick: () => navigate('/yield'),
+    },
+    {
+      label: 'Swap',
+      icon: <ArrowLeftRight size={16} />,
+      color: 'var(--color-swap)',
+      onClick: () => setIsSwapOpen(true),
+    },
+    {
+      label: 'Receber',
+      icon: <Zap size={16} />,
+      color: 'var(--accent)',
+      onClick: () => setIsDepositOpen(true),
+    },
+    {
+      label: 'Comprar RWA',
+      icon: <Building2 size={16} />,
+      color: 'var(--color-rwa)',
+      onClick: () => navigate('/rwa'),
+    },
   ];
 
   return (
-    <div className="cards-grid-4 animate-fade-in-up delay-200" style={{ marginBottom: 'var(--space-8)' }}>
-      {actions.map((act) => (
-        <button
-          key={act.label}
-          onClick={() => navigate(act.route)}
-          className="glass-card glass-card-hover"
-          style={{
-            padding: 'var(--space-4)',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 12,
-            border: 'none',
-            background: `linear-gradient(to bottom, var(--bg-surface), ${act.color}08)`,
-            color: 'var(--text-primary)',
-            boxShadow: 'var(--shadow-sm)',
-            cursor: 'pointer'
-          }}
-        >
-          <div style={{
-            width: 40, height: 40,
-            borderRadius: '50%',
-            background: `${act.color}15`,
-            color: act.color,
-            display: 'flex', alignItems: 'center', justifyContent: 'center'
-          }}>
-            {act.icon}
-          </div>
-          <span style={{ fontSize: 13, fontWeight: 600 }}>{act.label}</span>
-        </button>
-      ))}
-    </div>
+    <>
+      <div className="cards-grid-4 animate-fade-in-up delay-200" style={{ marginBottom: 'var(--space-8)' }}>
+        {actions.map((act) => (
+          <button
+            key={act.label}
+            onClick={act.onClick}
+            className="glass-card glass-card-hover"
+            style={{
+              padding: 'var(--space-4)',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 12,
+              border: 'none',
+              background: `linear-gradient(to bottom, var(--bg-surface), ${act.color}08)`,
+              color: 'var(--text-primary)',
+              boxShadow: 'var(--shadow-sm)',
+              cursor: 'pointer',
+            }}
+          >
+            <div style={{
+              width: 40, height: 40,
+              borderRadius: '50%',
+              background: `${act.color}15`,
+              color: act.color,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              {act.icon}
+            </div>
+            <span style={{ fontSize: 13, fontWeight: 600 }}>{act.label}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* Modais das Quick Actions */}
+      <DepositModal isOpen={isDepositOpen} onClose={() => setIsDepositOpen(false)} />
+      <SwapModal isOpen={isSwapOpen} onClose={() => setIsSwapOpen(false)} />
+    </>
   );
 }
 

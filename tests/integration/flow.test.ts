@@ -68,10 +68,9 @@ describe('WalletNow Integration Flow (Stellar Testnet + Mocked Woovi)', () => {
         
         const wooviSpy = vi.spyOn(WooviService, 'createCharge').mockResolvedValue({ 
             correlationID: 'mock-charge-id', 
-            brwAmount: 10.50,
-            pixKey: 'mock-pix',
-            qrCodeBase64: 'mock-base64',
-            chargeId: 'mock-id'
+            brCode: '00020126580014br.gov.bcb.pix0136MOCK-PIX-DATA-6304',
+            amount: 10.50,
+            status: 'ACTIVE'
         });
 
         // 1. Simula criação de cobrança Woovi
