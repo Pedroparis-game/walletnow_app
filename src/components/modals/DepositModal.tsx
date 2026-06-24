@@ -26,9 +26,10 @@ interface DepositModalProps {
   onSuccess?: () => void;
 }
 
-export default function DepositModal({ isOpen, onClose, onSuccess }: DepositModalProps) {
+export default function DepositModal({ isOpen, onClose, onSuccess, initialProvider }: DepositModalProps) {
   const { profile } = useAuth();
-  const { activeAccount } = useWallet();
+  const { activeAccount, refreshAccounts } = useWallet();
+  const engine = useIntegrationEngine();
 
   // Phases do experimento KYC-First (fluxo hospedado Etherfuse)
   const [phase, setPhase] = useState<
@@ -55,6 +56,11 @@ export default function DepositModal({ isOpen, onClose, onSuccess }: DepositModa
     | 'ef2_settling'
     | 'ef2_done'
     | 'ef2_error'
+    // ── Defindex ─────────────────────────────────────────────────────────────
+    | 'defindex_vault_selection'
+    | 'defindex_input'
+    | 'defindex_submitting'
+    | 'defindex_done'
     // ── Woovi / BRW ───────────────────────────────────────────────────────────
     | 'input'
     | 'generating'
@@ -73,6 +79,11 @@ export default function DepositModal({ isOpen, onClose, onSuccess }: DepositModa
   const [efCustomerId, setEfCustomerId] = useState('');
   const [efBankAccountId, setEfBankAccountId] = useState('');
   const [efKycUrl, setEfKycUrl] = useState('');
+  
+  // Defindex states
+  const [defindexAmount, setDefindexAmount] = useState('100');
+  const [defindexVaultId, setDefindexVaultId] = useState('0'); // TODO: Real vault IDs
+  
   // ── Estados do Etherfuse V2 (fluxo programático) ───────────────────────────
   const [ef2Amount, setEf2Amount] = useState('50');
   const [ef2StatusLabel, setEf2StatusLabel] = useState('');
@@ -397,8 +408,8 @@ export default function DepositModal({ isOpen, onClose, onSuccess }: DepositModa
           setEf2StatusLabel('Submetendo documentos KYC (mock)...');
           await EtherfuseV2ApiService.submitKycDocuments(activeCustomerId, activeAccount.stellar_public_key);
 
-          setEf2StatusLabel('Aceitando acordos Etherfuse...');
-          await EtherfuseV2ApiService.acceptAgreements(customer.presignedUrl);
+          setEf2StatusLabel('Aceitando Acordos V2...');
+          await EtherfuseV2ApiService.acceptAgreements(customer.presignedUrl, customer.id);
 
           // PASSO 4: Polling KYC
           setPhase('ef2_kyc_polling');
@@ -500,6 +511,7 @@ export default function DepositModal({ isOpen, onClose, onSuccess }: DepositModa
       });
 
       if (onSuccess) setTimeout(onSuccess, 1500);
+      refreshAccounts().catch(e => logger.error(LOG_TAG, 'Erro ao fazer refresh:', e));
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       logger.error(LOG_TAG, '❌ Erro no fluxo V2', {
@@ -848,6 +860,8 @@ export default function DepositModal({ isOpen, onClose, onSuccess }: DepositModa
                         setPhase('etherfuse_preview');
                       } else if (provider.id === 'etherfuse_v2') {
                         setPhase('ef2_preview');
+                      } else if (provider.id === 'defindex') {
+                        setPhase('defindex_vault_selection');
                       } else {
                         setPhase('input');
                       }
@@ -1587,6 +1601,132 @@ export default function DepositModal({ isOpen, onClose, onSuccess }: DepositModa
               className="w-full text-xs text-gray-600 hover:text-white transition-colors"
             >
               Voltar à seleção
+            </button>
+          </div>
+        )}
+
+        {/* ── Defindex Vault Selection ──────────────────────────────────────── */}
+        {phase === 'defindex_vault_selection' && (
+          <div className="flex flex-col space-y-4">
+            <div className="text-center mb-4">
+              <h3 className="text-lg font-bold text-white">Selecione o Vault</h3>
+              <p className="text-sm text-gray-400">Escolha onde deseja investir</p>
+            </div>
+            <button
+              onClick={() => setPhase('defindex_input')}
+              className="w-full bg-slate-800 hover:bg-slate-700 text-white py-4 px-6 rounded-2xl font-bold transition-colors border border-slate-700"
+            >
+              Vault: USDC Auto-Compounding
+            </button>
+            <button
+              onClick={() => setPhase('provider_selection')}
+              className="w-full text-xs text-gray-600 hover:text-white transition-colors mt-4"
+            >
+              Voltar
+            </button>
+          </div>
+        )}
+
+        {/* ── Defindex Input ──────────────────────────────────────── */}
+        {phase === 'defindex_input' && (
+          <div className="flex flex-col space-y-4">
+            <div className="text-center mb-4">
+              <h3 className="text-lg font-bold text-white">Valor do Depósito</h3>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-slate-500 text-sm font-semibold">$</span>
+              <input
+                type="number"
+                value={defindexAmount}
+                onChange={(e) => setDefindexAmount(e.target.value)}
+                placeholder="100.00"
+                className="flex-1 bg-slate-900/60 border border-slate-700 rounded-xl px-3 py-2 text-white text-lg font-bold outline-none focus:border-blue-500 transition-colors"
+              />
+              <span className="text-slate-500 text-sm">USDC</span>
+            </div>
+            <button
+              onClick={async () => {
+                setPhase('defindex_submitting');
+                try {
+                  const { WalletFactory } = await import('../../services/walletFactory');
+                  const { Keypair, TransactionBuilder, Horizon } = await import('@stellar/stellar-sdk');
+                  const { DefindexAPIClient, DefindexYieldService } = await import('@walletnow/plugin-defindex');
+                  
+                  if (!profile?.id) throw new Error("Perfil não encontrado");
+                  const secretStr = WalletFactory.getSecretKey(profile.id);
+                  if (!secretStr) throw new Error("Chave secreta não encontrada");
+                  const keypair = Keypair.fromSecret(secretStr);
+                  
+                  logger.info('[WalletNow][Defindex]', 'Iniciando depósito');
+                  const apiClient = new DefindexAPIClient({ apiKey: import.meta.env.VITE_DEFINDEX_API_KEY });
+                  const yieldService = new DefindexYieldService({ client: apiClient, network: 'testnet', events: { emit: () => {} } as any });
+                  
+                  const depositTx = await yieldService.deposit(
+                    { vaultId: '1', amount: defindexAmount, sourceAddress: keypair.publicKey() },
+                    async (xdr) => {
+                      const tx = TransactionBuilder.fromXDR(xdr, 'Test SDF Network ; September 2015');
+                      tx.sign(keypair);
+                      return tx.toXDR();
+                    },
+                    async (signedXdr) => {
+                      const server = new Horizon.Server('https://horizon-testnet.stellar.org');
+                      const tx = TransactionBuilder.fromXDR(signedXdr, 'Test SDF Network ; September 2015');
+                      const res = await server.submitTransaction(tx as any);
+                      return { hash: res.hash };
+                    }
+                  );
+                  logger.info('[WalletNow][Defindex]', 'Depósito confirmado:', depositTx.hash);
+                  setPhase('defindex_done');
+                } catch (e: any) {
+                  logger.error('[WalletNow][Defindex]', 'Erro no depósito:', e);
+                  alert("Erro no Defindex: " + (e.message || String(e)));
+                  setPhase('defindex_input');
+                }
+              }}
+              className="w-full bg-blue-600 hover:bg-blue-500 text-white py-4 px-6 rounded-2xl font-bold transition-colors mt-4"
+            >
+              Confirmar Depósito
+            </button>
+            <button
+              onClick={() => setPhase('defindex_vault_selection')}
+              className="w-full text-xs text-gray-600 hover:text-white transition-colors mt-2"
+            >
+              Voltar
+            </button>
+          </div>
+        )}
+
+        {/* ── Defindex Submitting ──────────────────────────────────────── */}
+        {phase === 'defindex_submitting' && (
+          <div className="flex flex-col items-center justify-center py-14 gap-5 animate-in fade-in">
+            <div className="relative">
+              <div className="w-16 h-16 rounded-full border-2 border-blue-500/30 flex items-center justify-center">
+                <Loader2 className="w-8 h-8 text-blue-400 animate-spin" />
+              </div>
+            </div>
+            <div className="text-center">
+              <p className="text-white font-bold text-base">Enviando para o Defindex...</p>
+              <p className="text-xs text-slate-400 mt-1">Assinando e executando XDR</p>
+            </div>
+          </div>
+        )}
+
+        {/* ── Defindex Done ──────────────────────────────────────── */}
+        {phase === 'defindex_done' && (
+          <div className="flex flex-col items-center justify-center py-10 gap-4 animate-in zoom-in">
+            <div className="w-20 h-20 bg-blue-900/20 rounded-full flex items-center justify-center border border-blue-500/30">
+              <CheckCircle2 className="w-10 h-10 text-blue-400" />
+            </div>
+            <div className="text-center">
+              <h3 className="text-xl font-bold text-white">Depósito Concluído!</h3>
+              <p className="text-sm text-slate-400 mt-1">Seu saldo no vault foi atualizado.</p>
+            </div>
+            <button onClick={async () => {
+              if (onSuccess) onSuccess();
+              await refreshAccounts(); // Refresh global sem F5
+              onClose();
+            }} className="w-full bg-blue-600 hover:bg-blue-500 text-white py-3 rounded-2xl font-bold transition-all">
+              Fechar e Atualizar
             </button>
           </div>
         )}

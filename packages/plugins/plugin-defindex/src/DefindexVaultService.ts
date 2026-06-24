@@ -163,16 +163,18 @@ export class DefindexVaultService {
     // 1. Descobre endereços
     const discovery = await this.client.discoverVaults(this.network);
 
-    // 2. Enriquece cada vault com VaultInfo completo (paralelo, ignora falhas individuais)
-    const vaultResults = await Promise.allSettled(
-      discovery.vaults.map(async (entry) => {
-        return this.getVaultById(entry.address);
-      }),
-    );
-
-    const vaults: YieldVault[] = vaultResults
-      .filter((r): r is PromiseFulfilledResult<YieldVault> => r.status === 'fulfilled')
-      .map((r) => r.value);
+    // 2. Enriquece cada vault com VaultInfo completo (sequencial para evitar HTTP 429)
+    const vaults: YieldVault[] = [];
+    for (const entry of discovery.vaults) {
+      try {
+        const vault = await this.getVaultById(entry.address);
+        vaults.push(vault);
+        // Delay curto para evitar rate limit da API
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      } catch (err) {
+        console.warn(`[Defindex] Falha ao carregar vault ${entry.address}`, err);
+      }
+    }
 
     this.vaultListCache = {
       data: vaults,

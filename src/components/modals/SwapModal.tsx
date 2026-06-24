@@ -1,9 +1,11 @@
 import { X, ArrowDownUp, Info, CheckCircle2, Loader2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useWallet } from '../../contexts/WalletContext';
 import { WalletFactory } from '../../services/walletFactory';
-import { PaymentService } from '../../services/paymentService';
 import { OracleService } from '../../services/oracleService';
+import { useIntegrationEngine } from '../../contexts/IntegrationEngineContext';
+import { TransactionBuilder, Horizon, Keypair } from '@stellar/stellar-sdk';
 import { logger } from '../../utils/logger';
 
 interface SwapModalProps {
@@ -21,6 +23,7 @@ const ASSETS = [
 
 export default function SwapModal({ isOpen, onClose, onSuccess }: SwapModalProps) {
     const { profile } = useAuth();
+    const { refreshAccounts } = useWallet();
     const [payAmount, setPayAmount] = useState('');
     const [payAsset, setPayAsset] = useState(ASSETS[0]);
     const [receiveAsset, setReceiveAsset] = useState(ASSETS[1]);
@@ -71,25 +74,60 @@ export default function SwapModal({ isOpen, onClose, onSuccess }: SwapModalProps
         setReceiveAsset(temp);
     };
 
+    const engine = useIntegrationEngine();
+
     const handleConfirmSwap = async () => {
         if (!payAmount || !profile?.id) return;
         setStatus('swapping');
 
         try {
-            logger.info('[WalletNow][Payment]', `Iniciando swap de ${payAmount} ${payAsset.code} para ${receiveAsset.code}`);
-            const secretKey = WalletFactory.getSecretKey(profile.id);
-            if (!secretKey) throw new Error("Credencial secreta indisponível. Cadastre Passkey.");
+            logger.info('[WalletNow][Soroswap]', `Iniciando swap de ${payAmount} ${payAsset.code} para ${receiveAsset.code}`);
+            
+            const secretKeyStr = WalletFactory.getSecretKey(profile.id);
+            if (!secretKeyStr) throw new Error("Credencial secreta indisponível. Cadastre Passkey.");
+            const keypair = Keypair.fromSecret(secretKeyStr);
+            const publicKey = keypair.publicKey();
 
-            await PaymentService.swapAssets(
-                secretKey,
-                payAsset.code,
-                receiveAsset.code,
-                payAmount,
-                estimatedReceive // Valor real com Spread calculado
-            );
+            const swapCap = engine.getCapability('swap');
+            if (!swapCap?.provider) throw new Error("Serviço de Swap (Soroswap) indisponível");
 
-            logger.info('[WalletNow][Payment]', 'Swap success');
+            logger.info('[WalletNow][Soroswap]', 'Obtendo Quote da Soroswap API');
+            
+            // Mapper de assets para o Soroswap (exemplo simplificado usando código ou token nativo)
+            const mapAsset = (code: string) => code === 'XLM' ? 'native' : code;
+            
+            const quoteParams = {
+                assetIn: mapAsset(payAsset.code),
+                assetOut: mapAsset(receiveAsset.code),
+                amount: payAmount,
+                tradeType: 'EXACT_IN'
+            };
+
+            const quote = await swapCap.provider.getQuote(quoteParams);
+            logger.info('[WalletNow][Soroswap]', 'Quote obtido com sucesso', quote);
+
+            logger.info('[WalletNow][Soroswap]', 'Construindo Transação XDR');
+            const buildPayload = {
+                quote,
+                source: publicKey,
+                slippage: 0.01 // 1%
+            };
+            const buildResponse = await swapCap.provider.buildTransaction(buildPayload);
+            logger.info('[WalletNow][Soroswap]', 'Transação XDR construída');
+
+            logger.info('[WalletNow][Soroswap]', 'Assinando transação');
+            const tx = TransactionBuilder.fromXDR(buildResponse.xdr, 'Test SDF Network ; September 2015');
+            tx.sign(keypair);
+            const signedXdr = tx.toXDR();
+            logger.info('[WalletNow][Soroswap]', 'Transação assinada com sucesso');
+
+            logger.info('[WalletNow][Soroswap]', 'Submetendo transação para o Ledger');
+            const server = new Horizon.Server('https://horizon-testnet.stellar.org');
+            const result = await server.submitTransaction(tx as any);
+            logger.info('[WalletNow][Soroswap]', 'Transação confirmada no Ledger', result.hash);
+
             setStatus('success');
+            await refreshAccounts(); // Refresh global sem F5
             if (onSuccess) onSuccess();
 
             setTimeout(() => {
@@ -98,8 +136,8 @@ export default function SwapModal({ isOpen, onClose, onSuccess }: SwapModalProps
                 onClose();
             }, 3000);
         } catch (error: any) {
-            logger.error('[WalletNow][Payment]', 'Erro Swap', error);
-            alert("Falha no Câmbio Web3: " + error.message);
+            logger.error('[WalletNow][Soroswap]', 'Erro Swap', error);
+            alert("Falha no Swap via Soroswap: " + (error.message || String(error)));
             setStatus('idle');
         }
     };

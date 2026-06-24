@@ -10,6 +10,7 @@ import { etherfuseProvider } from './etherfuseProvider';
 import { etherfuseV2Provider } from './etherfuseV2Provider';
 import { stripeProvider } from './stripeProvider';
 import { stellarTestAnchorProvider } from './stellarTestAnchor/stellarTestAnchorProvider';
+import { defindexProvider } from './defindexProvider';
 import { IDepositProvider } from './depositProvider';
 
 /**
@@ -26,6 +27,7 @@ export const availableProviders: IDepositProvider[] = [
   wooviProvider,
   stellarTestAnchorProvider,
   etherfuseV2Provider,   // V2: fluxo programático validado (active)
+  defindexProvider,
   stripeProvider,
   etherfuseProvider,     // V1: KYC hospedado (coming_soon — mantido para histórico)
 ];

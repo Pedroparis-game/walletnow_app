@@ -15,7 +15,7 @@ interface WithdrawModalProps {
 
 export default function WithdrawModal({ isOpen, onClose, onSuccess }: WithdrawModalProps) {
   const { profile } = useAuth();
-  const { activeAccount } = useWallet();
+  const { activeAccount, refreshAccounts } = useWallet();
   
   const [phase, setPhase] = useState<'input' | 'generating' | 'interactive' | 'transferring' | 'success'>('input');
   const [amount, setAmount] = useState('');
@@ -155,6 +155,7 @@ export default function WithdrawModal({ isOpen, onClose, onSuccess }: WithdrawMo
       logger.info('[WalletNow][OffRamp]', `Transferência completa! Hash: ${result.hash}`);
       
       setPhase('success');
+      await refreshAccounts(); // Atualização global sem F5
       if (onSuccess) onSuccess();
 
     } catch (e: any) {

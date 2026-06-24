@@ -91,7 +91,7 @@ export class SoroswapSwapService {
           assetOut: params.assetOut,
           amount: params.amount,
           tradeType: params.tradeType ?? 'EXACT_IN',
-          protocols: params.protocols as any,
+          protocols: (params.protocols && params.protocols.length > 0) ? (params.protocols as any) : ['soroswap'],
         },
         this.network,
       );

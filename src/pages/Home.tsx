@@ -4,7 +4,7 @@
  * Visão executiva focada nos objetivos do usuário e evolução de portfólio.
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Wallet,
@@ -24,6 +24,7 @@ import OpportunityEngine from '../components/dashboard/OpportunityEngine';
 import HealthBadge from '../components/protocol/HealthBadge';
 import DepositModal from '../components/modals/DepositModal';
 import SwapModal from '../components/modals/SwapModal';
+import ReceiveCryptoModal from '../components/modals/ReceiveCryptoModal';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -38,17 +39,22 @@ interface BalanceData {
 
 // ─── Quick Actions ────────────────────────────────────────────────────────────
 
-function QuickActions() {
+function QuickActions({ onRefresh }: { onRefresh?: () => void }) {
   const navigate = useNavigate();
   const [isDepositOpen, setIsDepositOpen] = useState(false);
+  const [depositInitialProvider, setDepositInitialProvider] = useState<string | undefined>(undefined);
   const [isSwapOpen, setIsSwapOpen] = useState(false);
+  const [isReceiveOpen, setIsReceiveOpen] = useState(false);
 
   const actions = [
     {
       label: 'Investir',
       icon: <TrendingUp size={16} />,
       color: 'var(--color-yield)',
-      onClick: () => navigate('/yield'),
+      onClick: () => {
+        setDepositInitialProvider('defindex');
+        setIsDepositOpen(true);
+      },
     },
     {
       label: 'Swap',
@@ -60,7 +66,7 @@ function QuickActions() {
       label: 'Receber',
       icon: <Zap size={16} />,
       color: 'var(--accent)',
-      onClick: () => setIsDepositOpen(true),
+      onClick: () => setIsReceiveOpen(true),
     },
     {
       label: 'Comprar RWA',
@@ -107,8 +113,17 @@ function QuickActions() {
       </div>
 
       {/* Modais das Quick Actions */}
-      <DepositModal isOpen={isDepositOpen} onClose={() => setIsDepositOpen(false)} />
-      <SwapModal isOpen={isSwapOpen} onClose={() => setIsSwapOpen(false)} />
+      <DepositModal 
+        isOpen={isDepositOpen} 
+        onClose={() => {
+          setIsDepositOpen(false);
+          setDepositInitialProvider(undefined);
+        }} 
+        onSuccess={onRefresh} 
+        initialProvider={depositInitialProvider}
+      />
+      <SwapModal isOpen={isSwapOpen} onClose={() => setIsSwapOpen(false)} onSuccess={onRefresh} />
+      <ReceiveCryptoModal isOpen={isReceiveOpen} onClose={() => setIsReceiveOpen(false)} />
     </>
   );
 }
@@ -319,37 +334,38 @@ export default function Home() {
     xlm: '0', usdc: '0', tesouro: '0', totalUsd: 0, totalBrl: 0, isLoading: true,
   });
 
-  useEffect(() => {
-    const load = async () => {
-      if (!activeAccount?.stellar_public_key) {
-        setBalance(prev => ({ ...prev, isLoading: false }));
-        return;
-      }
-      try {
-        const balances = await WalletFactory.getBalances(activeAccount.stellar_public_key);
-        if (balances) {
-          const xlm = balances.xlm ?? '0';
-          const usdc = balances.usdc ?? '0';
-          const tesouro = balances.tesouro ?? balances.brw ?? '0';
-          const xlmUsd = parseFloat(xlm) * 0.10;
-          const usdcUsd = parseFloat(usdc);
-          const totalUsd = xlmUsd + usdcUsd;
-          const totalBrl = totalUsd * 5.5; // approx rate
-          setBalance({ xlm, usdc, tesouro, totalUsd, totalBrl, isLoading: false });
-        } else {
-          setBalance(prev => ({ ...prev, isLoading: false }));
-        }
-      } catch {
+  const load = useCallback(async () => {
+    if (!activeAccount?.stellar_public_key) {
+      setBalance(prev => ({ ...prev, isLoading: false }));
+      return;
+    }
+    try {
+      const balances = await WalletFactory.getBalances(activeAccount.stellar_public_key);
+      if (balances) {
+        const xlm = balances.xlm ?? '0';
+        const usdc = balances.usdc ?? '0';
+        const tesouro = balances.tesouro ?? balances.brw ?? '0';
+        const xlmUsd = parseFloat(xlm) * 0.10;
+        const usdcUsd = parseFloat(usdc);
+        const totalUsd = xlmUsd + usdcUsd;
+        const totalBrl = totalUsd * 5.5; // approx rate
+        setBalance({ xlm, usdc, tesouro, totalUsd, totalBrl, isLoading: false });
+      } else {
         setBalance(prev => ({ ...prev, isLoading: false }));
       }
-    };
-    load();
+    } catch {
+      setBalance(prev => ({ ...prev, isLoading: false }));
+    }
   }, [activeAccount?.stellar_public_key]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
 
   return (
     <div className="animate-blur-in">
       <PortfolioHero totalUsd={balance.totalUsd} totalBrl={balance.totalBrl} isLoading={balance.isLoading} />
-      <QuickActions />
+      <QuickActions onRefresh={load} />
       <OpportunityEngine />
       <PortfolioPreview balance={balance} />
       <ActivityFeed />
