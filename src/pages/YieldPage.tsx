@@ -9,6 +9,7 @@ import React, { useState, useEffect } from 'react';
 import { TrendingUp, Info, ChevronRight, Shield, Zap, ExternalLink } from 'lucide-react';
 import { useManifests } from '../hooks/useManifests';
 import { useIntegrationEngine } from '../contexts/IntegrationEngineContext';
+import { useWallet } from '../contexts/WalletContext';
 import ProtocolCard from '../components/protocol/ProtocolCard';
 import EmptyState, { SkeletonCard, ErrorState, LoadingState } from '../components/ui/EmptyState';
 import StatCard from '../components/ui/StatCard';
@@ -18,7 +19,7 @@ import type { IYieldCapability, YieldVault } from '@walletnow/core';
 
 // ─── Vault Card ───────────────────────────────────────────────────────────────
 
-function VaultCard({ vault, onDeposit }: { key?: React.Key; vault: YieldVault; onDeposit?: () => void }) {
+function VaultCard({ vault, userPosition, onDeposit }: { key?: React.Key; vault: YieldVault; userPosition?: any; onDeposit?: () => void }) {
   const riskColor = vault.riskLevel === 'low'
     ? 'var(--status-online)'
     : vault.riskLevel === 'medium'
@@ -46,18 +47,49 @@ function VaultCard({ vault, onDeposit }: { key?: React.Key; vault: YieldVault; o
           </div>
         </div>
 
-        <div style={{
-          padding: '4px 10px',
-          borderRadius: 999,
-          background: `${riskColor}12`,
-          border: `1px solid ${riskColor}25`,
-          color: riskColor,
-          fontSize: 10,
-          fontWeight: 700,
-          letterSpacing: '0.04em',
-          textTransform: 'uppercase',
-        }}>
-          {riskLabel}
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          {(vault.depositToken === 'XLM' || vault.depositToken === 'native') ? (
+            <div style={{
+              padding: '4px 10px',
+              borderRadius: 999,
+              background: `rgba(34,197,94,0.15)`,
+              border: `1px solid rgba(34,197,94,0.3)`,
+              color: '#22c55e',
+              fontSize: 10,
+              fontWeight: 700,
+              letterSpacing: '0.04em',
+              textTransform: 'uppercase',
+            }}>
+              LIVE
+            </div>
+          ) : (
+            <div style={{
+              padding: '4px 10px',
+              borderRadius: 999,
+              background: `rgba(148,163,184,0.1)`,
+              border: `1px solid rgba(148,163,184,0.2)`,
+              color: 'var(--text-tertiary)',
+              fontSize: 10,
+              fontWeight: 700,
+              letterSpacing: '0.04em',
+              textTransform: 'uppercase',
+            }}>
+              EM BREVE
+            </div>
+          )}
+          <div style={{
+            padding: '4px 10px',
+            borderRadius: 999,
+            background: `${riskColor}12`,
+            border: `1px solid ${riskColor}25`,
+            color: riskColor,
+            fontSize: 10,
+            fontWeight: 700,
+            letterSpacing: '0.04em',
+            textTransform: 'uppercase',
+          }}>
+            {riskLabel}
+          </div>
         </div>
       </div>
 
@@ -93,6 +125,33 @@ function VaultCard({ vault, onDeposit }: { key?: React.Key; vault: YieldVault; o
           </div>
         </div>
       </div>
+
+      {/* User Position */}
+      {userPosition && (
+        <div style={{
+          padding: 'var(--space-3)',
+          background: 'rgba(34,197,94,0.05)',
+          border: '1px solid rgba(34,197,94,0.2)',
+          borderRadius: 'var(--radius-md)',
+          marginBottom: 'var(--space-4)',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center'
+        }}>
+          <div>
+            <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginBottom: 2 }}>Minha Posição</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: '#22c55e' }}>
+              {userPosition.shares} <span style={{fontSize: 12}}>{vault.depositToken}</span>
+            </div>
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginBottom: 2 }}>Valor Estimado</div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>
+              ${userPosition.valueUsd?.toFixed(2)}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* CTA */}
       <div style={{ display: 'flex', gap: 8 }}>
@@ -132,7 +191,9 @@ function VaultCard({ vault, onDeposit }: { key?: React.Key; vault: YieldVault; o
 
 function VaultList({ manifest, onDeposit }: { manifest: ProtocolManifest; onDeposit?: () => void }) {
   const { getCapability } = useIntegrationEngine();
+  const { activeAccount } = useWallet();
   const [vaults, setVaults] = useState<YieldVault[]>([]);
+  const [userPositions, setUserPositions] = useState<Record<string, any>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -144,7 +205,26 @@ function VaultList({ manifest, onDeposit }: { manifest: ProtocolManifest; onDepo
         const cap = getCapability<any>('yield-vaults', manifest.id);
         if (cap && cap.provider) {
           const vaults = await cap.provider.getVaults();
-          setVaults(vaults);
+          // Coloca os vaults de XLM primeiro
+          const sortedVaults = vaults.sort((a: any, b: any) => {
+            const isAXlm = a.depositToken === 'XLM' || a.depositToken === 'native';
+            const isBXlm = b.depositToken === 'XLM' || b.depositToken === 'native';
+            if (isAXlm && !isBXlm) return -1;
+            if (!isAXlm && isBXlm) return 1;
+            return 0;
+          });
+          setVaults(sortedVaults);
+
+          if (activeAccount?.stellar_public_key && cap.provider.getUserPositions) {
+            try {
+              const posArray = await cap.provider.getUserPositions(activeAccount.stellar_public_key);
+              const posMap: Record<string, any> = {};
+              posArray.forEach((p: any) => posMap[p.vaultId] = p);
+              setUserPositions(posMap);
+            } catch (e) {
+              console.warn('Erro ao puxar posições individuais no VaultList:', e);
+            }
+          }
         }
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Falha ao carregar vaults';
@@ -183,9 +263,9 @@ function VaultList({ manifest, onDeposit }: { manifest: ProtocolManifest; onDepo
   }
 
   return (
-    <div className="cards-grid-2" style={{ marginTop: 'var(--space-4)' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)', marginTop: 'var(--space-4)' }}>
       {vaults.map(vault => (
-        <VaultCard key={vault.id} vault={vault} onDeposit={onDeposit} />
+        <VaultCard key={vault.id} vault={vault} userPosition={userPositions[vault.id]} onDeposit={onDeposit} />
       ))}
     </div>
   );
@@ -195,7 +275,59 @@ function VaultList({ manifest, onDeposit }: { manifest: ProtocolManifest; onDepo
 
 export default function YieldPage() {
   const { manifests, isLoading, error } = useManifests({ capability: 'yield' });
+  const { getCapability } = useIntegrationEngine();
+  const { activeAccount } = useWallet();
+  
   const [isDepositOpen, setIsDepositOpen] = useState(false);
+  const [bestApy, setBestApy] = useState<number | null>(null);
+  const [totalPosition, setTotalPosition] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (manifests.length === 0) return;
+
+    let mounted = true;
+    const fetchGlobalStats = async () => {
+      let maxApy = 0;
+      let totalUsd = 0;
+      let hasPosition = false;
+
+      for (const manifest of manifests) {
+        const cap = getCapability<any>('yield-vaults', manifest.id);
+        if (cap && cap.provider) {
+          try {
+            // 1. Coleta APY dos vaults
+            const vaults = await cap.provider.getVaults();
+            vaults.forEach((v: any) => {
+              if (v.apy && v.apy > maxApy) maxApy = v.apy;
+            });
+
+            // 2. Coleta posição do usuário se logado
+            if (activeAccount?.stellar_public_key && cap.provider.getUserPositions) {
+              const positions = await cap.provider.getUserPositions(activeAccount.stellar_public_key);
+              positions.forEach((p: any) => {
+                if (p.valueUsd) {
+                  totalUsd += p.valueUsd;
+                  hasPosition = true;
+                }
+              });
+            }
+          } catch (e) {
+            console.warn('Erro ao buscar stats globais para', manifest.id, e);
+          }
+        }
+      }
+
+      if (mounted) {
+        setBestApy(maxApy > 0 ? maxApy : null);
+        if (hasPosition || totalUsd > 0) {
+          setTotalPosition(totalUsd);
+        }
+      }
+    };
+
+    fetchGlobalStats();
+    return () => { mounted = false; };
+  }, [manifests, getCapability, activeAccount]);
 
   return (
     <div className="animate-fade-in">
@@ -224,15 +356,15 @@ export default function YieldPage() {
         />
         <StatCard
           label="Posição Total"
-          value="—"
-          subtitle="Conecte sua carteira"
+          value={totalPosition !== null ? `$${totalPosition.toFixed(2)}` : "—"}
+          subtitle={activeAccount?.stellar_public_key ? "Em todos os vaults" : "Conecte sua carteira"}
           icon={<TrendingUp size={14} />}
           accentColor="var(--color-yield)"
           loading={false}
         />
         <StatCard
           label="Melhor APY"
-          value="—"
+          value={bestApy !== null ? `${bestApy.toFixed(1)}%` : "—"}
           subtitle="Disponível agora"
           icon={<Shield size={14} />}
           accentColor="var(--color-yield)"

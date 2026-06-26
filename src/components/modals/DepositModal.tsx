@@ -29,8 +29,6 @@ interface DepositModalProps {
 export default function DepositModal({ isOpen, onClose, onSuccess, initialProvider }: DepositModalProps) {
   const { profile } = useAuth();
   const { activeAccount, refreshAccounts } = useWallet();
-  const engine = useIntegrationEngine();
-
   // Phases do experimento KYC-First (fluxo hospedado Etherfuse)
   const [phase, setPhase] = useState<
     | 'provider_selection'
@@ -81,9 +79,11 @@ export default function DepositModal({ isOpen, onClose, onSuccess, initialProvid
   const [efKycUrl, setEfKycUrl] = useState('');
   
   // Defindex states
-  const [defindexAmount, setDefindexAmount] = useState('100');
-  const [defindexVaultId, setDefindexVaultId] = useState('0'); // TODO: Real vault IDs
-  
+  const [defindexAmount, setDefindexAmount] = useState('10'); // Default to 10 XLM
+  const [defindexVaultId, setDefindexVaultId] = useState('CCLV4H7WTLJQ7ATLHBBQV2WW3OINF3FOY5XZ7VPHZO7NH3D2ZS4GFSF6'); // XLM Testnet Vault
+  const [defindexVaultAsset, setDefindexVaultAsset] = useState('XLM');
+  const [defindexTxHash, setDefindexTxHash] = useState<string | null>(null);
+
   // ── Estados do Etherfuse V2 (fluxo programático) ───────────────────────────
   const [ef2Amount, setEf2Amount] = useState('50');
   const [ef2StatusLabel, setEf2StatusLabel] = useState('');
@@ -425,8 +425,13 @@ export default function DepositModal({ isOpen, onClose, onSuccess, initialProvid
           // PASSO 5: Registrar Conta PIX
           setPhase('ef2_pix_registration');
           setEf2StatusLabel('Registrando chave PIX (CPF mock)...');
-          await EtherfuseV2ApiService.registerPixAccount(customer.presignedUrl);
-          logger.info(LOG_TAG, '✅ Conta PIX registrada.');
+          const registeredBankId = await EtherfuseV2ApiService.registerPixAccount(customer.presignedUrl);
+          if (registeredBankId) {
+            activeBankAccountId = registeredBankId;
+            logger.info(LOG_TAG, '✅ Conta PIX registrada com ID:', activeBankAccountId);
+          } else {
+            logger.info(LOG_TAG, '✅ Conta PIX registrada (sem ID explícito retornado).');
+          }
           
         } catch (error: any) {
           if (error instanceof EfV2HttpError && error.status === 409) {
@@ -457,7 +462,7 @@ export default function DepositModal({ isOpen, onClose, onSuccess, initialProvid
       setEf2StatusLabel('Criando ordem de compra...');
       const order = await EtherfuseV2ApiService.createOnRampOrder(
         activeCustomerId,
-        activeBankAccountId, // ID real retornado em createCustomer ou cache
+        activeBankAccountId, // Agora usa o ID retornado pelo registerPixAccount se aplicável
         quote.quoteId,
         activeAccount.stellar_public_key,
       );
@@ -1613,10 +1618,28 @@ export default function DepositModal({ isOpen, onClose, onSuccess, initialProvid
               <p className="text-sm text-gray-400">Escolha onde deseja investir</p>
             </div>
             <button
-              onClick={() => setPhase('defindex_input')}
+              onClick={() => {
+                setDefindexVaultId('CCLV4H7WTLJQ7ATLHBBQV2WW3OINF3FOY5XZ7VPHZO7NH3D2ZS4GFSF6');
+                setDefindexVaultAsset('XLM');
+                setPhase('defindex_input');
+              }}
               className="w-full bg-slate-800 hover:bg-slate-700 text-white py-4 px-6 rounded-2xl font-bold transition-colors border border-slate-700"
             >
-              Vault: USDC Auto-Compounding
+              Vault: XLM Blend Strategy
+            </button>
+            <button
+              disabled
+              className="w-full bg-slate-800/40 text-slate-500 py-4 px-6 rounded-2xl font-bold border border-slate-800 mt-2 cursor-not-allowed flex justify-between items-center"
+            >
+              <span>Vault: USDC Blend Strategy</span>
+              <span className="text-[10px] bg-slate-700 text-slate-300 px-2 py-1 rounded-md">SOON</span>
+            </button>
+            <button
+              disabled
+              className="w-full bg-slate-800/40 text-slate-500 py-4 px-6 rounded-2xl font-bold border border-slate-800 mt-2 cursor-not-allowed flex justify-between items-center"
+            >
+              <span>Vault: CETES Blend Strategy</span>
+              <span className="text-[10px] bg-slate-700 text-slate-300 px-2 py-1 rounded-md">SOON</span>
             </button>
             <button
               onClick={() => setPhase('provider_selection')}
@@ -1634,19 +1657,20 @@ export default function DepositModal({ isOpen, onClose, onSuccess, initialProvid
               <h3 className="text-lg font-bold text-white">Valor do Depósito</h3>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-slate-500 text-sm font-semibold">$</span>
+              <span className="text-slate-500 text-sm font-semibold"></span>
               <input
                 type="number"
                 value={defindexAmount}
                 onChange={(e) => setDefindexAmount(e.target.value)}
-                placeholder="100.00"
+                placeholder="10.00"
                 className="flex-1 bg-slate-900/60 border border-slate-700 rounded-xl px-3 py-2 text-white text-lg font-bold outline-none focus:border-blue-500 transition-colors"
               />
-              <span className="text-slate-500 text-sm">USDC</span>
+              <span className="text-slate-500 text-sm">{defindexVaultAsset}</span>
             </div>
             <button
               onClick={async () => {
                 setPhase('defindex_submitting');
+                setDefindexTxHash(null);
                 try {
                   const { WalletFactory } = await import('../../services/walletFactory');
                   const { Keypair, TransactionBuilder, Horizon } = await import('@stellar/stellar-sdk');
@@ -1661,8 +1685,9 @@ export default function DepositModal({ isOpen, onClose, onSuccess, initialProvid
                   const apiClient = new DefindexAPIClient({ apiKey: import.meta.env.VITE_DEFINDEX_API_KEY });
                   const yieldService = new DefindexYieldService({ client: apiClient, network: 'testnet', events: { emit: () => {} } as any });
                   
+                  const stroopsAmount = Math.floor(parseFloat(defindexAmount) * 1e7);
                   const depositTx = await yieldService.deposit(
-                    { vaultId: '1', amount: defindexAmount, sourceAddress: keypair.publicKey() },
+                    { vaultId: defindexVaultId, amounts: [stroopsAmount], from: keypair.publicKey(), invest: false },
                     async (xdr) => {
                       const tx = TransactionBuilder.fromXDR(xdr, 'Test SDF Network ; September 2015');
                       tx.sign(keypair);
@@ -1672,14 +1697,28 @@ export default function DepositModal({ isOpen, onClose, onSuccess, initialProvid
                       const server = new Horizon.Server('https://horizon-testnet.stellar.org');
                       const tx = TransactionBuilder.fromXDR(signedXdr, 'Test SDF Network ; September 2015');
                       const res = await server.submitTransaction(tx as any);
-                      return { hash: res.hash };
+                      return { hash: res.hash, ledger: res.ledger };
                     }
                   );
-                  logger.info('[WalletNow][Defindex]', 'Depósito confirmado:', depositTx.hash);
+                  logger.info('[WalletNow][Defindex]', 'Depósito confirmado:', depositTx.txHash);
+                  // HACKATHON MOCK - Salva localmente para a interface atualizar rápido antes da indexação
+                  if (defindexVaultAsset === 'XLM') {
+                     const currentMock = parseFloat(localStorage.getItem(`@walletnow:mock_xlm_yield_${activeAccount.stellar_public_key}`) || '0');
+                     localStorage.setItem(`@walletnow:mock_xlm_yield_${activeAccount.stellar_public_key}`, (currentMock + parseFloat(defindexAmount)).toString());
+                  }
+
+                  setDefindexTxHash(depositTx.txHash);
                   setPhase('defindex_done');
                 } catch (e: any) {
-                  logger.error('[WalletNow][Defindex]', 'Erro no depósito:', e);
-                  alert("Erro no Defindex: " + (e.message || String(e)));
+                  const errorMsg = e.message || String(e);
+                  logger.error('[WalletNow][Defindex]', 'Erro no depósito', e);
+
+                  let finalError = errorMsg;
+                  if (errorMsg.includes('MissingTrustline') || errorMsg.includes('errorCode":13')) {
+                    finalError = `Falta Trustline na sua carteira para este ativo (${defindexVaultAsset}). A rede Stellar exige que você adicione (Trustline) o token antes de poder recebê-lo ou enviá-lo (XLM não precisa, por isso funciona). Adicione o ativo na sua carteira de testnet primeiro.`;
+                  }
+                  
+                  alert("Erro ao tentar depositar na Testnet: " + finalError);
                   setPhase('defindex_input');
                 }
               }}
@@ -1721,6 +1760,38 @@ export default function DepositModal({ isOpen, onClose, onSuccess, initialProvid
               <h3 className="text-xl font-bold text-white">Depósito Concluído!</h3>
               <p className="text-sm text-slate-400 mt-1">Seu saldo no vault foi atualizado.</p>
             </div>
+            {defindexTxHash && (
+              <div className="w-full mt-2 mb-4 bg-slate-900/50 rounded-xl p-3 border border-slate-700/50 flex flex-col items-center justify-center gap-2">
+                <span className="text-[10px] text-slate-500 uppercase tracking-wider font-bold">Transaction Hash</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-mono text-blue-400 break-all select-all text-center">
+                    {defindexTxHash.slice(0, 12)}...{defindexTxHash.slice(-12)}
+                  </span>
+                  <div className="flex">
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(defindexTxHash);
+                        setCopied(true);
+                        setTimeout(() => setCopied(false), 2000);
+                      }}
+                      className="p-1.5 hover:bg-slate-800 rounded-md transition-colors"
+                      title="Copiar Hash"
+                    >
+                      {copied ? <CheckCircle2 className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4 text-slate-400 hover:text-white" />}
+                    </button>
+                    <a
+                      href={`https://stellar.expert/explorer/testnet/tx/${defindexTxHash}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="p-1.5 hover:bg-slate-800 rounded-md transition-colors flex items-center gap-1"
+                      title="Ver no Stellar Expert"
+                    >
+                      <ExternalLink className="w-4 h-4 text-slate-400 hover:text-blue-400" />
+                    </a>
+                  </div>
+                </div>
+              </div>
+            )}
             <button onClick={async () => {
               if (onSuccess) onSuccess();
               await refreshAccounts(); // Refresh global sem F5

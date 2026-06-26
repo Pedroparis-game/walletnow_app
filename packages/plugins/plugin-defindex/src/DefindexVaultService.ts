@@ -16,6 +16,7 @@
 import type { YieldVault, YieldVaultAsset, YieldStrategy, YieldRiskLevel } from '@walletnow/core';
 import type { DefindexAPIClient } from './DefindexAPIClient';
 import type { DefindexNetwork, DefindexVaultInfoRaw } from './types/defindex.api.types';
+import { TESTNET_VAULT_CONTRACTS } from './config/testnetContracts';
 
 /** Entry de cache com TTL */
 interface CacheEntry<T> {
@@ -99,8 +100,8 @@ function normalizeVaultInfo(
 
   // Token primário = primeiro asset
   const primaryAsset = raw.assets[0];
-  const depositToken = primaryAsset?.address ?? '';
-  const withdrawToken = primaryAsset?.address ?? '';
+  const depositToken = primaryAsset?.symbol ?? 'XLM';
+  const withdrawToken = primaryAsset?.symbol ?? 'XLM';
 
   // TVL em USD: estimativa simplificada baseada no total_amount do primeiro ativo
   // (Em produção, precisaria de preço via oracle/API)
@@ -161,18 +162,28 @@ export class DefindexVaultService {
     }
 
     // 1. Descobre endereços
-    const discovery = await this.client.discoverVaults(this.network);
+    let addresses: string[] = [];
+    if (this.network === 'testnet') {
+      addresses = [...TESTNET_VAULT_CONTRACTS];
+    } else {
+      try {
+        const discovery = await this.client.discoverVaults(this.network);
+        addresses = discovery.vaults.map((v) => v.address);
+      } catch (e) {
+        console.warn('[Defindex] Falha no discoverVaults', e);
+      }
+    }
 
     // 2. Enriquece cada vault com VaultInfo completo (sequencial para evitar HTTP 429)
     const vaults: YieldVault[] = [];
-    for (const entry of discovery.vaults) {
+    for (const address of addresses) {
       try {
-        const vault = await this.getVaultById(entry.address);
+        const vault = await this.getVaultById(address);
         vaults.push(vault);
-        // Delay curto para evitar rate limit da API
-        await new Promise((resolve) => setTimeout(resolve, 50));
+        // Delay maior para evitar rate limit da API (de 300 para 800ms)
+        await new Promise((resolve) => setTimeout(resolve, 800));
       } catch (err) {
-        console.warn(`[Defindex] Falha ao carregar vault ${entry.address}`, err);
+        console.warn(`[Defindex] Falha ao carregar vault ${address}`, err);
       }
     }
 

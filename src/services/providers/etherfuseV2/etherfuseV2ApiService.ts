@@ -342,13 +342,13 @@ export const EtherfuseV2ApiService = {
   /**
    * POST /ramp/bank-account
    */
-  async registerPixAccount(presignedUrl: string, cpf: string = SANDBOX_PIX_CPF_MOCK): Promise<void> {
+  async registerPixAccount(presignedUrl: string, cpf: string = SANDBOX_PIX_CPF_MOCK): Promise<string | undefined> {
     logger.info(LOG_TAG, 'PASSO 4: Registrando conta PIX (CPF mock sandbox)...', {
       timestamp: new Date().toISOString(),
       pixKey: cpf,
     });
 
-    await proxyRequest<unknown>(
+    const result = await proxyRequest<any>(
       `/ramp/bank-account`,
       'POST',
       {
@@ -366,7 +366,10 @@ export const EtherfuseV2ApiService = {
 
     logger.info(LOG_TAG, '✅ Conta PIX registrada.', {
       pixKeyType: 'cpf',
+      bankAccountId: result?.bankAccountId || result?.id || 'não retornado',
     });
+    
+    return result?.bankAccountId || result?.id;
   },
 
   // ─── PASSO 5: Resolver Asset TESOURO ───────────────────────────────────────
