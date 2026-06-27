@@ -34,7 +34,7 @@ export const TESTNET_TOKENS: SwapToken[] = [
     code: 'USDC',
     name: 'USD Coin',
     // Endereço SAC USDC Testnet (Circle)
-    contract: 'CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA',
+    contract: 'CB3TLW74NBIOT3BUWOZ3TUM6RFDF6A4GVIRUQRQZABG5KPOUL4JJOV2F',
     icon: 'https://cryptologos.cc/logos/usd-coin-usdc-logo.svg',
     decimals: 7,
     org: 'Circle',

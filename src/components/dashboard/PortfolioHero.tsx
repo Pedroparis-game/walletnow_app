@@ -13,10 +13,8 @@ export default function PortfolioHero({ totalUsd, totalBrl, variationPercent = 8
   const { profile } = useAuth();
   const firstName = profile?.full_name?.split(' ')[0] ?? 'Usuário';
 
-  // Usa o valor BRL se > 0, senão USD
-  const mainValue = totalBrl > 0 ? totalBrl : totalUsd;
-  const isBrl = totalBrl > 0;
-  const prefix = isBrl ? 'R$ ' : '$ ';
+  const mainValue = totalBrl;
+  const prefix = 'R$ ';
 
   const animatedValue = useCountUp(mainValue, 1200, 100);
 

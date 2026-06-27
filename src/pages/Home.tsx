@@ -345,10 +345,15 @@ export default function Home() {
         const xlm = balances.xlm ?? '0';
         const usdc = balances.usdc ?? '0';
         const tesouro = balances.tesouro ?? balances.brw ?? '0';
-        const xlmUsd = parseFloat(xlm) * 0.10;
-        const usdcUsd = parseFloat(usdc);
-        const totalUsd = xlmUsd + usdcUsd;
-        const totalBrl = totalUsd * 5.5; // approx rate
+
+        let totalUsd = 0;
+        if (parseFloat(balances.xlm) > 0) totalUsd += parseFloat(balances.xlm) * 0.10;
+        if (parseFloat(balances.usdc) > 0) totalUsd += parseFloat(balances.usdc);
+        if (parseFloat(balances.tesouro) > 0) totalUsd += parseFloat(balances.tesouro) * 1.0;
+        if (parseFloat(balances.brw) > 0) totalUsd += parseFloat(balances.brw) * 0.18;
+        if (parseFloat(balances.eurc) > 0) totalUsd += parseFloat(balances.eurc) * 1.08;
+
+        const totalBrl = totalUsd * 5.5; // taxa aproximada igual ao Portfolio
         setBalance({ xlm, usdc, tesouro, totalUsd, totalBrl, isLoading: false });
       } else {
         setBalance(prev => ({ ...prev, isLoading: false }));

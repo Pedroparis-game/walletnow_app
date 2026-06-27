@@ -5,7 +5,7 @@
  * INVARIANTE: Nunca importa SoroswapPlugin diretamente.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ArrowLeftRight, Settings, ChevronDown, RefreshCw, Zap, Info } from 'lucide-react';
 import { useManifests } from '../hooks/useManifests';
 import ProtocolCard from '../components/protocol/ProtocolCard';
@@ -136,7 +136,7 @@ function TokenSelector({
 
 function SwapWidget() {
   const { profile } = useAuth();
-  const { refreshAccounts } = useWallet();
+  const { refreshAccounts, activeAccount } = useWallet();
   const engine = useIntegrationEngine();
 
   const [fromToken, setFromToken] = useState('XLM');
@@ -145,6 +145,15 @@ function SwapWidget() {
   const [slippage, setSlippage] = useState('0.5');
   const [showSettings, setShowSettings] = useState(false);
   const [status, setStatus] = useState<'idle' | 'swapping' | 'success'>('idle');
+  const [balances, setBalances] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (activeAccount?.stellar_public_key) {
+      WalletFactory.getBalances(activeAccount.stellar_public_key).then((b) => {
+        if (b) setBalances(b as unknown as Record<string, string>);
+      });
+    }
+  }, [activeAccount]);
 
   const handleFlip = () => {
     setFromToken(toToken);
@@ -154,7 +163,7 @@ function SwapWidget() {
   const mapAsset = (code: string) => {
     if (code === 'XLM') return 'CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC';
     if (code === 'USDC') return 'CB3TLW74NBIOT3BUWOZ3TUM6RFDF6A4GVIRUQRQZABG5KPOUL4JJOV2F';
-    if (code === 'XRP') return 'CDXZB5R64DDEOALXTYI3P3C5W4JAYK3T6XWTRQZIGF7CYSX3M6FPM3G4';
+    if (code === 'XRP') return 'CDDIA6HYANLPMDKBVQRIIXY3NA6S3TMHZFJUNPMBEJGZ5JSHN3E2TAUI';
     throw new Error(`O token ${code} ainda não possui um Contract ID (SAC) configurado para a Soroswap no ambiente Testnet.`);
   };
 
@@ -180,8 +189,10 @@ function SwapWidget() {
               assetOut: mapAsset(toToken),
               amount: Math.floor(parseFloat(amount) * 1e7).toString(),
               tradeType: 'EXACT_IN',
-              protocols: ['soroswap']
+              protocols: ['soroswap', 'phoenix', 'aqua', 'sdex']
           };
+
+          logger.info('[WalletNow][Soroswap]', 'Payload enviado:', JSON.stringify(quoteParams));
 
           const quote = await swapCap.provider.getQuote(quoteParams);
           logger.info('[WalletNow][Soroswap]', 'Quote obtido com sucesso', quote);
@@ -215,28 +226,9 @@ function SwapWidget() {
           
           let errorMsg = error.message || String(error);
           const isSoroswapError = errorMsg.includes('Soroswap') || errorMsg.includes('Path') || (error.details && error.details.title);
-          
+
           if (isSoroswapError) {
-              logger.warn('[WalletNow][Swap]', 'Soroswap falhou (API instável/Sem liquidez). Ativando Simulated Swap (Bypass de Testnet)');
-              try {
-                  const secretKeyStr = WalletFactory.getSecretKey(profile.id);
-                  if (secretKeyStr) {
-                      const keypair = Keypair.fromSecret(secretKeyStr);
-                      alert('Modo Sandbox: Rede da Soroswap instável/sem liquidez. Executando bypass on-chain para demonstração.');
-                      
-                      const hash = await PaymentService.sendAssetOnChain(secretKeyStr, keypair.publicKey(), 'XLM', '0.0000001');
-                      logger.info('[WalletNow][Swap]', 'Simulated Swap (Tx real de fallback) hash:', hash);
-                      
-                      setStatus('success');
-                      await refreshAccounts();
-                      alert(`Swap simulado com sucesso via Bypass Testnet!\nHash on-chain: ${hash}`);
-                      setAmount('');
-                      return;
-                  }
-              } catch (simError) {
-                  logger.error('[WalletNow][Swap]', 'Erro no bypass', simError);
-                  errorMsg = 'Falha ao executar o bypass de liquidez.';
-              }
+              logger.warn('[WalletNow][Swap]', 'Soroswap falhou durante o swap. Nenhuma simulação será feita. Transação original falhou.');
           }
 
           alert(`Falha no Swap (Soroswap): ` + errorMsg);
@@ -244,8 +236,48 @@ function SwapWidget() {
       }
   };
 
-  const estimatedOut = amount ? (parseFloat(amount) * 0.096).toFixed(4) : '—';
+  const [currentQuote, setCurrentQuote] = useState<any>(null);
+  const [isQuoting, setIsQuoting] = useState(false);
 
+  useEffect(() => {
+    let active = true;
+    const fetchQuote = async () => {
+      if (!amount || parseFloat(amount) <= 0) {
+        setCurrentQuote(null);
+        return;
+      }
+      setIsQuoting(true);
+      try {
+        const swapCap = engine.getCapability('swap');
+        if (swapCap?.provider) {
+          const quoteParams = {
+            assetIn: mapAsset(fromToken),
+            assetOut: mapAsset(toToken),
+            amount: Math.floor(parseFloat(amount) * 1e7).toString(),
+            tradeType: 'EXACT_IN',
+            protocols: ['soroswap', 'phoenix', 'aqua', 'sdex']
+          };
+          const quote = await swapCap.provider.getQuote(quoteParams);
+          if (active) setCurrentQuote(quote);
+        }
+      } catch (err) {
+        if (active) setCurrentQuote(null);
+        logger.warn('[WalletNow][Swap]', 'Erro ao buscar quote preview', err);
+      } finally {
+        if (active) setIsQuoting(false);
+      }
+    };
+
+    const timer = setTimeout(fetchQuote, 500);
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [amount, fromToken, toToken, engine]);
+
+  const estimatedOut = currentQuote?.amountOut
+    ? (parseFloat(currentQuote.amountOut) / 1e7).toFixed(4)
+    : (amount ? (isQuoting ? 'Buscando...' : 'Sem rota') : '—');
   return (
     <div
       className="glass-card"
@@ -311,7 +343,11 @@ function SwapWidget() {
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
           <TokenSelector selected={fromToken} onSelect={setFromToken} label="De" />
-          <div style={{ flex: 1 }} />
+          <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
+            <span style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>
+              Saldo: {balances[fromToken.toLowerCase()] || '0.00'}
+            </span>
+          </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <input
@@ -325,6 +361,7 @@ function SwapWidget() {
           <button
             className="btn btn-ghost btn-sm"
             style={{ fontSize: 11, color: 'var(--accent)' }}
+            onClick={() => setAmount(balances[fromToken.toLowerCase()] || '0')}
           >
             MAX
           </button>
@@ -373,16 +410,26 @@ function SwapWidget() {
           gap: 6,
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span>Taxa estimada</span>
-            <span style={{ color: 'var(--text-primary)' }}>~0.00001 XLM</span>
+            <span>Taxa estimada (Rede)</span>
+            <span style={{ color: 'var(--text-primary)' }}>
+              {currentQuote?.networkFee ? `~${(parseInt(currentQuote.networkFee)/1e7).toFixed(5)} XLM` : '—'}
+            </span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
             <span>Slippage máximo</span>
             <span style={{ color: 'var(--text-primary)' }}>{slippage}%</span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <span>Price Impact</span>
+            <span style={{ color: currentQuote?.priceImpact > 1 ? 'var(--warning)' : 'var(--text-primary)' }}>
+              {currentQuote?.priceImpact !== undefined ? `${(currentQuote.priceImpact * 100).toFixed(2)}%` : '—'}
+            </span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
             <span>Rota</span>
-            <span style={{ color: 'var(--accent)', fontSize: 11 }}>Via Soroswap AMM</span>
+            <span style={{ color: 'var(--accent)', fontSize: 11 }}>
+              {currentQuote?.protocol ? `Via ${currentQuote.protocol.toUpperCase()}` : '—'}
+            </span>
           </div>
         </div>
       )}

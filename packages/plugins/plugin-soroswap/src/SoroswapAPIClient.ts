@@ -89,16 +89,20 @@ export class SoroswapAPIClient {
       });
 
       if (!response.ok) {
-        let errorData: SoroswapApiError | undefined;
+        let errorData: any;
         try {
-          errorData = (await response.json()) as SoroswapApiError;
+          errorData = await response.json();
         } catch {
           // body não é JSON
         }
+        
+        const errCode = errorData?.code || (errorData?.title === 'No path found' ? 'NO_PATH_FOUND' : `HTTP_${response.status}`);
+        const errMsg = errorData?.message || errorData?.detail || errorData?.title || errorData?.error || `Soroswap API error: ${response.status} ${response.statusText}`;
+
         throw new SoroswapAPIError(
-          errorData?.code ?? `HTTP_${response.status}`,
-          errorData?.message ?? `Soroswap API error: ${response.status} ${response.statusText}`,
-          errorData?.details,
+          errCode,
+          errMsg,
+          errorData?.details || errorData?.extra,
         );
       }
 

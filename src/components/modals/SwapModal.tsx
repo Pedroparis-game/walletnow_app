@@ -26,13 +26,57 @@ const ASSETS = [
 
 export default function SwapModal({ isOpen, onClose, onSuccess, useSoroswap = false }: SwapModalProps) {
     const { profile } = useAuth();
-    const { refreshAccounts } = useWallet();
+    const { refreshAccounts, activeAccount } = useWallet();
     const engine = useIntegrationEngine();
     const [payAmount, setPayAmount] = useState('');
     const [payAsset, setPayAsset] = useState(ASSETS[0]);
     const [receiveAsset, setReceiveAsset] = useState(ASSETS[1]);
     const [status, setStatus] = useState<'idle' | 'swapping' | 'success'>('idle');
     const [prices, setPrices] = useState<{ xlm: number, usdc: number, btc: number } | null>(null);
+    const [balances, setBalances] = useState<Record<string, string>>({});
+    const [currentQuote, setCurrentQuote] = useState<any>(null);
+
+    useEffect(() => {
+        if (activeAccount?.stellar_public_key) {
+            WalletFactory.getBalances(activeAccount.stellar_public_key).then((b) => {
+                if (b) setBalances(b as unknown as Record<string, string>);
+            });
+        }
+    }, [activeAccount]);
+
+    useEffect(() => {
+        let active = true;
+        if (!useSoroswap || !payAmount || parseFloat(payAmount) <= 0) {
+            setCurrentQuote(null);
+            return;
+        }
+        const fetchQuote = async () => {
+            try {
+                const swapCap = engine.getCapability('swap');
+                if (swapCap?.provider) {
+                    const mapAsset = (code: string) => {
+                        if (code === 'XLM') return 'native';
+                        if (code === 'USDC') return 'CB3TLW74NBIOT3BUWOZ3TUM6RFDF6A4GVIRUQRQZABG5KPOUL4JJOV2F';
+                        if (code === 'XRP') return 'CDDIA6HYANLPMDKBVQRIIXY3NA6S3TMHZFJUNPMBEJGZ5JSHN3E2TAUI';
+                        throw new Error(`Sem SAC`);
+                    };
+                    const quoteParams = {
+                        assetIn: mapAsset(payAsset.code),
+                        assetOut: mapAsset(receiveAsset.code),
+                        amount: Math.floor(parseFloat(payAmount) * 1e7).toString(),
+                        tradeType: 'EXACT_IN',
+                        protocols: ['soroswap']
+                    };
+                    const quote = await swapCap.provider.getQuote(quoteParams);
+                    if (active) setCurrentQuote(quote);
+                }
+            } catch (err) {
+                if (active) setCurrentQuote(null);
+            }
+        };
+        const timer = setTimeout(fetchQuote, 500);
+        return () => { active = false; clearTimeout(timer); };
+    }, [payAmount, payAsset, receiveAsset, useSoroswap, engine]);
 
     // Carrega preços reais assim que o usuário abre o modal
     useEffect(() => {
@@ -62,15 +106,26 @@ export default function SwapModal({ isOpen, onClose, onSuccess, useSoroswap = fa
         return 0;
     };
 
-    const payPriceBrl = getAssetPriceInBrl(payAsset.code);
-    const receivePriceBrl = getAssetPriceInBrl(receiveAsset.code);
+    const getEstimatedReceive = () => {
+        if (!payAmount || parseFloat(payAmount) <= 0) return 0;
+        
+        if (useSoroswap && currentQuote?.amountOut) {
+            return parseFloat(currentQuote.amountOut) / 1e7;
+        }
 
-    let estimatedReceive = "0.0000";
-    if (payAmount && payPriceBrl > 0 && receivePriceBrl > 0) {
-        // Desconto de spread DEX de 2% simulado
-        const rawAmount = (parseFloat(payAmount) * payPriceBrl) / receivePriceBrl;
-        estimatedReceive = (rawAmount * 0.98).toFixed(7);
-    }
+        const fromPrice = getAssetPriceInBrl(payAsset.code);
+        const toPrice = getAssetPriceInBrl(receiveAsset.code);
+        
+        if (toPrice === 0) return 0;
+        
+        const valueInBrl = parseFloat(payAmount) * fromPrice;
+        let amountReceive = valueInBrl / toPrice;
+        
+        // Simula Spread Nativo de 1%
+        return amountReceive * 0.99;
+    };
+
+    const estimatedReceive = getEstimatedReceive();
 
     const handleSwapAssets = () => {
         const temp = payAsset;
@@ -97,9 +152,9 @@ export default function SwapModal({ isOpen, onClose, onSuccess, useSoroswap = fa
                 logger.info('[WalletNow][Soroswap]', 'Obtendo Quote da Soroswap API');
                 
                 const mapAsset = (code: string) => {
-                    if (code === 'XLM') return 'CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC';
+                    if (code === 'XLM') return 'native';
                     if (code === 'USDC') return 'CB3TLW74NBIOT3BUWOZ3TUM6RFDF6A4GVIRUQRQZABG5KPOUL4JJOV2F';
-                    if (code === 'XRP') return 'CDXZB5R64DDEOALXTYI3P3C5W4JAYK3T6XWTRQZIGF7CYSX3M6FPM3G4';
+                    if (code === 'XRP') return 'CDDIA6HYANLPMDKBVQRIIXY3NA6S3TMHZFJUNPMBEJGZ5JSHN3E2TAUI';
                     throw new Error(`O token ${code} ainda não possui um Contract ID (SAC) configurado para a Soroswap no ambiente Testnet. Tente o Swap Nativo.`);
                 };
                 
@@ -143,7 +198,7 @@ export default function SwapModal({ isOpen, onClose, onSuccess, useSoroswap = fa
                     payAsset.code,
                     receiveAsset.code,
                     payAmount,
-                    estimatedReceive // Valor real com Spread calculado
+                    estimatedReceive.toFixed(7)
                 );
 
                 logger.info('[WalletNow][Payment]', 'Swap nativo success');
@@ -162,36 +217,11 @@ export default function SwapModal({ isOpen, onClose, onSuccess, useSoroswap = fa
             logger.error('[WalletNow][Swap]', 'Erro Swap', error);
             
             let errorMsg = error.message || String(error);
-            const isSoroswapError = useSoroswap || errorMsg.includes('Soroswap') || errorMsg.includes('Path') || (error.details && error.details.title);
+            const isSoroswapError = errorMsg.includes('Soroswap') || errorMsg.includes('Path') || (error.details && error.details.title);
             
             if (isSoroswapError) {
-                logger.warn('[WalletNow][Swap]', 'Soroswap falhou (API instável/Sem liquidez). Ativando Simulated Swap (Bypass de Testnet)');
-                try {
-                    const secretKeyStr = WalletFactory.getSecretKey(profile.id);
-                    if (secretKeyStr) {
-                        const keypair = Keypair.fromSecret(secretKeyStr);
-                        alert('Modo Sandbox: Rede da Soroswap instável/sem liquidez. Executando bypass on-chain para demonstração.');
-                        
-                        const hash = await PaymentService.sendAssetOnChain(secretKeyStr, keypair.publicKey(), 'XLM', '0.0000001');
-                        logger.info('[WalletNow][Swap]', 'Simulated Swap (Tx real de fallback) hash:', hash);
-                        
-                        setStatus('success');
-                        await refreshAccounts();
-                        if (onSuccess) onSuccess();
-                        alert(`Swap simulado com sucesso via Bypass Testnet!\nHash on-chain: ${hash}`);
-                        setTimeout(() => {
-                            setStatus('idle');
-                            setPayAmount('');
-                            onClose();
-                        }, 3000);
-                        return;
-                    }
-                } catch (simError) {
-                    logger.error('[WalletNow][Swap]', 'Erro no bypass', simError);
-                    errorMsg = 'Falha ao executar o bypass de liquidez.';
-                }
+                logger.warn('[WalletNow][Swap]', 'Soroswap falhou durante o swap modal.');
             }
-
             alert(`Falha no Swap (${useSoroswap ? 'Soroswap' : 'Nativo'}): ` + errorMsg);
             setStatus('idle');
         }
@@ -220,7 +250,12 @@ export default function SwapModal({ isOpen, onClose, onSuccess, useSoroswap = fa
 
                         {/* Caixa de Pagamento */}
                         <div className="bg-black/30 border border-white/5 p-4 rounded-2xl">
-                            <label className="text-xs text-gray-500 mb-2 block">Você Paga</label>
+                            <div className="flex justify-between items-center mb-2">
+                                <label className="text-xs text-gray-500 block">Você Paga</label>
+                                <div className="text-xs text-gray-400 cursor-pointer hover:text-white" onClick={() => setPayAmount(balances[payAsset.code.toLowerCase()] || '0')}>
+                                    Saldo: {balances[payAsset.code.toLowerCase()] || '0.00'} MAX
+                                </div>
+                            </div>
                             <div className="flex justify-between items-center">
                                 <input
                                     type="number"
