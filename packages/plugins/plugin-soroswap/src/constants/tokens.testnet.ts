@@ -12,12 +12,12 @@ import type { SwapToken } from '@walletnow/core';
 
 /**
  * Token nativo XLM.
- * Na Soroswap API, XLM é representado pelo valor 'native' no campo contract.
+ * Na Soroswap API, usamos o endereço do contrato nativo na testnet
  */
 export const XLM_TESTNET: SwapToken = {
   code: 'XLM',
   name: 'Stellar Lumens',
-  contract: 'native',
+  contract: 'CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC',
   icon: 'https://stellar.org/images/assets/xlm-icon.svg',
   decimals: 7,
   org: 'Stellar Development Foundation',
@@ -33,8 +33,8 @@ export const TESTNET_TOKENS: SwapToken[] = [
   {
     code: 'USDC',
     name: 'USD Coin',
-    // Endereço SAC USDC Testnet (Circle)
-    contract: 'CB3TLW74NBIOT3BUWOZ3TUM6RFDF6A4GVIRUQRQZABG5KPOUL4JJOV2F',
+    // Endereço SAC USDC Testnet (da API Soroswap)
+    contract: 'CBBHRKEP5M3NUDRISGLJKGHDHX3DA2CN2AZBQY6WLVUJ7VNLGSKBDUCM',
     icon: 'https://cryptologos.cc/logos/usd-coin-usdc-logo.svg',
     decimals: 7,
     org: 'Circle',

@@ -144,7 +144,7 @@ export class SoroswapAPIClient {
     payload: SoroswapBuildPayload,
     network: SoroswapNetwork,
   ): Promise<SoroswapBuildApiResponse> {
-    return this.request<SoroswapBuildApiResponse>('POST', '/build', network, payload);
+    return this.request<SoroswapBuildApiResponse>('POST', '/quote/build', network, payload);
   }
 
   /**
@@ -154,11 +154,11 @@ export class SoroswapAPIClient {
   async checkHealth(network: SoroswapNetwork): Promise<SoroswapApiHealth> {
     const start = Date.now();
     try {
-      // Requisição leve para medir disponibilidade
+      // Requisição leve para medir disponibilidade (usando endereços válidos para não dar 400 por erro de validação)
       await this.getQuote(
         {
-          assetIn: 'native',
-          assetOut: 'native',
+          assetIn: 'CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC',
+          assetOut: 'CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC',
           amount: '1',
           tradeType: 'EXACT_IN',
         },
