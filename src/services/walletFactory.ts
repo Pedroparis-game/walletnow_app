@@ -369,12 +369,18 @@ export const WalletFactory = {
                 let title = 'Transação';
                 let type = record.type;
                 let isDeposit = false;
+                let providerInfo = '';
 
                 if (record.type === 'payment') {
                     amount = record.amount;
                     asset = record.asset_code || 'XLM';
                     isDeposit = record.to === publicKey;
                     title = isDeposit ? 'Depósito' : 'Envio';
+                } else if (record.type === 'path_payment_strict_receive' || record.type === 'path_payment_strict_send') {
+                    amount = record.amount || record.source_amount || record.dest_amount || '0';
+                    asset = record.asset_code || 'XLM';
+                    isDeposit = record.to === publicKey || record.source_account !== publicKey;
+                    title = 'Swap On-Chain';
                 } else if (record.type === 'create_account') {
                     amount = record.starting_balance;
                     isDeposit = record.account === publicKey;
@@ -384,21 +390,44 @@ export const WalletFactory = {
                     amount = '0';
                     asset = 'YIELD';
                     isDeposit = false;
-                    title = 'Interação Defindex (Smart Contract)';
+                    title = 'Interação Defindex';
                 }
 
                 const transaction = (record as any).transaction;
                 const memoValue = transaction?.memo_type === 'text' ? transaction.memo : null;
                 
-                const correlationID = (memoValue && memoValue.startsWith('X402:')) 
-                    ? memoValue.replace('X402:', '') 
-                    : null;
+                let correlationID = null;
+                if (memoValue) {
+                    if (memoValue.startsWith('X402:')) {
+                        correlationID = memoValue.replace('X402:', '');
+                        providerInfo = 'PIX API';
+                    } else {
+                        providerInfo = memoValue;
+                    }
+                }
 
-                // Para os tipos de payment, formata em R$ (fictício para mock visual) ou apenas mantém amount se não for PIX.
-                // Mas por compatibilidade da demo:
-                const amountFormatted = record.type === 'invoke_host_function' 
-                    ? 'Interação DeFi' 
-                    : (isDeposit ? `+ R$ ${parseFloat(amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : `- R$ ${parseFloat(amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`);
+                if (title === 'Interação Defindex') providerInfo = 'Defindex DeFi';
+                if (asset === 'TESOURO') providerInfo = 'Etherfuse RWA';
+
+                const parsedAmount = parseFloat(amount);
+                const safeAmount = isNaN(parsedAmount) ? 0 : parsedAmount;
+
+                let amountFormatted = '';
+                if (record.type === 'invoke_host_function') {
+                    amountFormatted = 'Smart Contract';
+                } else {
+                    const prefix = isDeposit ? '+' : '-';
+                    if (['BRZ', 'BRW'].includes(asset)) {
+                        amountFormatted = `${prefix} R$ ${safeAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+                    } else {
+                        amountFormatted = `${prefix} ${safeAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 5 })} ${asset}`;
+                    }
+                }
+
+                // Ajusta o title se tiver provider info extra
+                if (providerInfo) {
+                    title = `${title} (${providerInfo})`;
+                }
 
                 return {
                     id: record.id,
@@ -406,13 +435,13 @@ export const WalletFactory = {
                     type: isDeposit ? 'deposit' : type,
                     title,
                     amount: amountFormatted,
-                    rawAmount: parseFloat(amount),
+                    rawAmount: safeAmount,
                     assetCode: asset,
                     correlationID,
                     date: new Date(record.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }),
                     status: 'Concluído'
                 };
-            }).filter(tx => tx.type === 'invoke_host_function' || (tx.rawAmount > 0 && ['BRZ', 'BRW', 'XLM', 'TESOURO'].includes(tx.assetCode)));
+            }).filter(tx => tx.type === 'invoke_host_function' || tx.type === 'deposit' || tx.type === 'path_payment_strict_receive' || tx.type === 'path_payment_strict_send' || (tx.rawAmount > 0 && ['BRZ', 'BRW', 'XLM', 'TESOURO'].includes(tx.assetCode)));
 
             return history;
 
