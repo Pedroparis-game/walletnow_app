@@ -64,7 +64,7 @@ export default function LiquidityPage() {
   };
 
   const handleDeposit = async () => {
-    if (!profile?.id || !amountXLM || !amountUSDC) return;
+    if (!profile?.stellar_wallet || !amountXLM || !amountUSDC) return;
     setStatus('loading');
     try {
       const assetA = Asset.native();
@@ -90,7 +90,7 @@ export default function LiquidityPage() {
       }
 
       await WalletFactory.depositLiquidity(
-        profile.id,
+        profile.stellar_wallet,
         assetA,
         assetB,
         amountXLM,
@@ -110,12 +110,12 @@ export default function LiquidityPage() {
   };
 
   const handleWithdraw = async () => {
-    if (!profile?.id || !sharesToWithdraw) return;
+    if (!profile?.stellar_wallet || !sharesToWithdraw) return;
     setStatus('loading');
     try {
       const assetA = Asset.native();
       const assetB = new Asset('USDC', USDC_ISSUER);
-      await WalletFactory.withdrawLiquidity(profile.id, assetA, assetB, sharesToWithdraw);
+      await WalletFactory.withdrawLiquidity(profile.stellar_wallet, assetA, assetB, sharesToWithdraw);
       setStatus('success');
       setSharesToWithdraw('');
       await refreshAccounts();

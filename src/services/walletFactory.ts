@@ -503,7 +503,7 @@ export const WalletFactory = {
      * Também possui função "One-Click Swap" caso a carteira não tenha quantidade suficiente de um dos ativos.
      */
     async depositLiquidity(
-        publicKey: string, 
+        userId: string, 
         assetA: Asset, 
         assetB: Asset, 
         amountA: string, 
@@ -519,9 +519,10 @@ export const WalletFactory = {
         }
     ) {
         try {
-            const secretKeyStr = this.getSecretKey(publicKey);
+            const secretKeyStr = this.getSecretKey(userId);
             if (!secretKeyStr) throw new Error("Credencial secreta indisponível.");
             const keypair = Keypair.fromSecret(secretKeyStr);
+            const publicKey = keypair.publicKey();
             const server = StellarNetwork.createServer();
             const account = await server.loadAccount(publicKey);
             
@@ -577,15 +578,16 @@ export const WalletFactory = {
      * Remove liquidez da AMM Pool Clássica especificada.
      */
     async withdrawLiquidity(
-        publicKey: string, 
+        userId: string, 
         assetA: Asset, 
         assetB: Asset, 
         sharesAmount: string
     ) {
         try {
-            const secretKeyStr = this.getSecretKey(publicKey);
+            const secretKeyStr = this.getSecretKey(userId);
             if (!secretKeyStr) throw new Error("Credencial secreta indisponível.");
             const keypair = Keypair.fromSecret(secretKeyStr);
+            const publicKey = keypair.publicKey();
             const server = StellarNetwork.createServer();
             const account = await server.loadAccount(publicKey);
             
