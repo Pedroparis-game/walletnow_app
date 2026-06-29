@@ -225,9 +225,10 @@ function ActivityFeed() {
           </div>
         ) : (
           activities.map((tx: any, i: number) => {
-            const isCredit = tx.type === 'payment' && tx.to;
-            const amount = tx.amount ?? tx.starting_balance ?? '—';
-            const asset = tx.asset_type === 'native' ? 'XLM' : (tx.asset_code ?? 'Asset');
+            const isCredit = tx.type === 'deposit';
+            const amountFormatted = tx.amount || '—';
+            const asset = tx.assetCode || 'Asset';
+            const title = tx.title || (isCredit ? 'Recebido' : 'Enviado');
             return (
               <div key={i} style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -243,12 +244,12 @@ function ActivityFeed() {
                     {isCredit ? '↙️' : '↗️'}
                   </div>
                   <div>
-                    <div style={{ fontSize: 13, fontWeight: 600 }}>{isCredit ? 'Recebido' : 'Enviado'}</div>
+                    <div style={{ fontSize: 13, fontWeight: 600 }}>{title}</div>
                     <div style={{ fontSize: 11, color: 'var(--text-tertiary)', fontFamily: 'var(--font-mono)' }}>{asset}</div>
                   </div>
                 </div>
                 <div style={{ fontSize: 13, fontWeight: 600, color: isCredit ? 'var(--status-online)' : 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
-                  {isCredit ? '+' : ''}{parseFloat(amount).toFixed(2)}
+                  {amountFormatted}
                 </div>
               </div>
             );
