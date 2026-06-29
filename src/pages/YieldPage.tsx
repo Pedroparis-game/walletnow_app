@@ -306,8 +306,8 @@ export default function YieldPage() {
             if (activeAccount?.stellar_public_key && cap.provider.getUserPositions) {
               const positions = await cap.provider.getUserPositions(activeAccount.stellar_public_key);
               positions.forEach((p: any) => {
-                if (p.valueUsd) {
-                  totalUsd += p.valueUsd;
+                if (p.valueUsd !== undefined && p.valueUsd !== null) {
+                  totalUsd += Number(p.valueUsd);
                   hasPosition = true;
                 }
               });
@@ -320,8 +320,10 @@ export default function YieldPage() {
 
       if (mounted) {
         setBestApy(maxApy > 0 ? maxApy : null);
-        if (hasPosition || totalUsd > 0) {
+        if (activeAccount?.stellar_public_key) {
           setTotalPosition(totalUsd);
+        } else {
+          setTotalPosition(null);
         }
       }
     };
