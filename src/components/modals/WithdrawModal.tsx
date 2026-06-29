@@ -6,6 +6,7 @@ import { StellarOfframpService, OfframpSession, OfframpStatus, OfframpInfo } fro
 import { WalletFactory } from '../../services/walletFactory';
 import { logger } from '../../utils/logger';
 import { Keypair, TransactionBuilder, Networks, Asset, Operation, Memo, Horizon } from '@stellar/stellar-sdk';
+import { StellarNetwork } from '../../config/stellarNetwork';
 
 interface WithdrawModalProps {
   isOpen: boolean;
@@ -124,7 +125,7 @@ export default function WithdrawModal({ isOpen, onClose, onSuccess }: WithdrawMo
       const userSecret = WalletFactory.getSecretKey(profile.id);
       if (!userSecret) throw new Error('Secret key não encontrada');
 
-      const server = new Horizon.Server('https://horizon-testnet.stellar.org');
+      const server = StellarNetwork.createServer();
       const userKeypair = Keypair.fromSecret(userSecret);
       const account = await server.loadAccount(userKeypair.publicKey());
 
@@ -137,7 +138,7 @@ export default function WithdrawModal({ isOpen, onClose, onSuccess }: WithdrawMo
 
       const transaction = new TransactionBuilder(account, {
         fee: '100000',
-        networkPassphrase: Networks.TESTNET,
+        networkPassphrase: StellarNetwork.passphrase,
         memo,
       })
       .addOperation(Operation.payment({

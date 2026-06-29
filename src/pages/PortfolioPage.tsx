@@ -10,8 +10,10 @@ import { Briefcase, TrendingUp, Building2, Wallet, RefreshCw, ExternalLink } fro
 import { useWallet } from '../contexts/WalletContext';
 import { useManifests } from '../hooks/useManifests';
 import { WalletFactory } from '../services/walletFactory';
+import { StellarNetwork } from '../config/stellarNetwork';
 import EmptyState, { SkeletonCard, ErrorState } from '../components/ui/EmptyState';
 import StatCard from '../components/ui/StatCard';
+import { DefindexAPIClient, DefindexVaultService, DefindexYieldService } from '@walletnow/plugin-defindex';
 
 // ─── Asset Row ────────────────────────────────────────────────────────────────
 
@@ -205,6 +207,28 @@ export default function PortfolioPage() {
         });
       }
 
+      // Busca saldos do Defindex
+      try {
+        const client = new DefindexAPIClient({ apiKey: import.meta.env.VITE_DEFINDEX_API_KEY });
+        const vaultService = new DefindexVaultService({ client, network: 'testnet' });
+        const yieldService = new DefindexYieldService({ client, vaultService, network: 'testnet', events: { emit: () => {} } as any });
+        
+        const positions = await yieldService.getUserPositions(publicKey);
+        for (const pos of positions) {
+          items.push({
+            code: pos.primaryAsset,
+            name: pos.vaultName,
+            balance: pos.shares || '0',
+            icon: '📈',
+            category: 'defi',
+            color: 'var(--color-yield)',
+            valueUsd: pos.valueUsd,
+          });
+        }
+      } catch (e) {
+        console.error('[PortfolioPage] Erro ao buscar posições do Defindex:', e);
+      }
+
       // Se não há nenhum ativo com saldo, adiciona XLM para mostrar a conta
       if (items.length === 0) {
         items.push({
@@ -258,7 +282,7 @@ export default function PortfolioPage() {
         <div style={{ display: 'flex', gap: 8 }}>
           {publicKey && (
             <a
-              href={`https://stellar.expert/explorer/testnet/account/${publicKey}`}
+              href={StellarNetwork.getAccountExplorerUrl(publicKey)}
               target="_blank"
               rel="noopener noreferrer"
               className="btn btn-ghost btn-sm"
@@ -398,7 +422,7 @@ export default function PortfolioPage() {
                       <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>{m.name}</div>
                       <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>{m.category}</div>
                     </div>
-                    <div className="status-dot online" />
+                    <div className={`status-dot ${m.id === 'etherfuse' ? 'degraded' : 'online'}`} />
                   </div>
                 ))}
               </div>

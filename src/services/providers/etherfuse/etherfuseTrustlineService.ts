@@ -8,6 +8,7 @@ import {
 } from '@stellar/stellar-sdk';
 import { EtherfuseAssetConfig, ETHERFUSE_HORIZON_URL } from './etherfuseAssetConfig';
 import { logger } from '../../../utils/logger';
+import { StellarNetwork } from '../../../config/stellarNetwork';
 
 const TIMEOUT_SECONDS = 180;
 const BASE_FEE = '100000'; // 0.01 XLM — prioritized fee
@@ -42,7 +43,7 @@ export const EtherfuseTrustlineService = {
     try {
       logger.info('[WalletNow][Trustline]', `Verificando trustline ${EtherfuseAssetConfig.assetCode} para ${publicKey.substring(0, 8)}...`);
 
-      const server = new Horizon.Server(ETHERFUSE_HORIZON_URL);
+      const server = StellarNetwork.createServer();
       const account = await server.loadAccount(publicKey);
 
       const hasTrustline = account.balances.some((b: any) =>
@@ -85,7 +86,7 @@ export const EtherfuseTrustlineService = {
       }
 
       // 2. Carregar conta do Horizon para obter sequence number
-      const server = new Horizon.Server(ETHERFUSE_HORIZON_URL);
+      const server = StellarNetwork.createServer();
       const account = await server.loadAccount(publicKey);
 
       // 3. Construir o ativo TESOURO com o issuer REAL
@@ -97,7 +98,7 @@ export const EtherfuseTrustlineService = {
       // 4. Construir a transação com operação changeTrust
       const transaction = new TransactionBuilder(account, {
         fee: BASE_FEE,
-        networkPassphrase: Networks.TESTNET,
+        networkPassphrase: StellarNetwork.passphrase,
       })
         .addOperation(
           Operation.changeTrust({
@@ -118,7 +119,7 @@ export const EtherfuseTrustlineService = {
       const result = await server.submitTransaction(transaction);
 
       const hash = result.hash;
-      const explorerUrl = `https://stellar.expert/explorer/testnet/tx/${hash}`;
+      const explorerUrl = StellarNetwork.getTxExplorerUrl(hash);
 
       logger.info('[WalletNow][Treasury]', `✅ Trustline ${EtherfuseAssetConfig.assetCode} criada com sucesso!`, {
         hash,

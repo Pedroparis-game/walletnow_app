@@ -356,7 +356,7 @@ export const WalletFactory = {
     async getHistory(publicKey: string): Promise<any[]> {
         try {
             const server = StellarNetwork.createServer();
-            const page = await server.payments()
+            const page = await server.operations()
                 .forAccount(publicKey)
                 .limit(20)
                 .order('desc')
@@ -366,15 +366,27 @@ export const WalletFactory = {
             const history = page.records.map((record: any) => {
                 let amount = '0';
                 let asset = 'XLM';
+                let title = 'Transação';
+                let type = record.type;
+                let isDeposit = false;
 
                 if (record.type === 'payment') {
                     amount = record.amount;
                     asset = record.asset_code || 'XLM';
+                    isDeposit = record.to === publicKey;
+                    title = isDeposit ? 'Depósito' : 'Envio';
                 } else if (record.type === 'create_account') {
                     amount = record.starting_balance;
+                    isDeposit = record.account === publicKey;
+                    title = 'Conta Criada';
+                } else if (record.type === 'invoke_host_function') {
+                    // Smart Contract Call (Defindex Yield)
+                    amount = '0';
+                    asset = 'YIELD';
+                    isDeposit = false;
+                    title = 'Interação Defindex (Smart Contract)';
                 }
 
-                const isDeposit = record.to === publicKey || record.account === publicKey;
                 const transaction = (record as any).transaction;
                 const memoValue = transaction?.memo_type === 'text' ? transaction.memo : null;
                 
@@ -382,19 +394,25 @@ export const WalletFactory = {
                     ? memoValue.replace('X402:', '') 
                     : null;
 
+                // Para os tipos de payment, formata em R$ (fictício para mock visual) ou apenas mantém amount se não for PIX.
+                // Mas por compatibilidade da demo:
+                const amountFormatted = record.type === 'invoke_host_function' 
+                    ? 'Interação DeFi' 
+                    : (isDeposit ? `+ R$ ${parseFloat(amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : `- R$ ${parseFloat(amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`);
+
                 return {
                     id: record.id,
                     hash: record.transaction_hash,
-                    type: isDeposit ? 'deposit' : 'send',
-                    title: isDeposit ? 'Depósito PIX' : 'Saque PIX / Envio',
-                    amount: isDeposit ? `+ R$ ${parseFloat(amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : `- R$ ${parseFloat(amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+                    type: isDeposit ? 'deposit' : type,
+                    title,
+                    amount: amountFormatted,
                     rawAmount: parseFloat(amount),
                     assetCode: asset,
                     correlationID,
                     date: new Date(record.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }),
                     status: 'Concluído'
                 };
-            }).filter(tx => tx.rawAmount > 0 && (tx.assetCode === 'BRZ' || tx.assetCode === 'BRW' || tx.assetCode === 'XLM' || tx.assetCode === 'TESOURO'));
+            }).filter(tx => tx.type === 'invoke_host_function' || (tx.rawAmount > 0 && ['BRZ', 'BRW', 'XLM', 'TESOURO'].includes(tx.assetCode)));
 
             return history;
 

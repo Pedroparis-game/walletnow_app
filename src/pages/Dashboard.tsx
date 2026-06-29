@@ -16,6 +16,7 @@ import AccountSwitcher from '../components/wallet/AccountSwitcher';
 import NetworkToggle from '../components/wallet/NetworkToggle';
 import { MainnetService } from '../services/mainnetService';
 import { isCurrentNetworkMainnet } from '../contexts/NetworkContext';
+import { StellarNetwork } from '../config/stellarNetwork';
 
 /**
  * Dashboard Principal — The Money Layer
@@ -472,7 +473,7 @@ export default function Dashboard() {
                     <p className="text-sm font-bold text-emerald-400">{parseFloat(act.amountToken).toFixed(6)} {act.asset}</p>
                     <p className="text-[10px] text-slate-400">R$ {parseFloat(act.amountBRL).toFixed(2)}</p>
                     {act.txHash !== 'Pendente' ? (
-                      <a href={`https://stellar.expert/explorer/testnet/tx/${act.txHash}`} target="_blank" rel="noopener noreferrer" className="text-[10px] text-gray-500 hover:text-white transition-colors mt-1 inline-block">
+                      <a href={StellarNetwork.getTxExplorerUrl(act.txHash)} target="_blank" rel="noopener noreferrer" className="text-[10px] text-gray-500 hover:text-white transition-colors mt-1 inline-block">
                         Explorer ↗
                       </a>
                     ) : (
@@ -507,7 +508,7 @@ export default function Dashboard() {
             transactions.map((tx) => (
               <a
                 key={tx.id}
-                href={`https://stellar.expert/explorer/testnet/tx/${tx.hash}`}
+                href={StellarNetwork.getTxExplorerUrl(tx.hash)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center justify-between p-4 bg-[#161616] rounded-2xl border border-white/5 hover:border-white/10 transition-all cursor-pointer group"
@@ -585,7 +586,7 @@ export default function Dashboard() {
 
           {/* Card Interativo: Leva para o Explorer da Transação na Blockchain */}
           <a
-            href={`https://stellar.expert/explorer/testnet/tx/${profile.kyczk_hash}`}
+            href={StellarNetwork.getTxExplorerUrl(profile.kyczk_hash)}
             target="_blank"
             rel="noopener noreferrer"
             className="bg-gradient-to-br from-[#161616] to-[#0A0A0A] p-5 rounded-2xl border border-[#00E676]/20 relative overflow-hidden flex items-center gap-4 group hover:border-[#00E676]/40 text-left transition-colors cursor-pointer shadow-lg shadow-[#00E676]/5 block"

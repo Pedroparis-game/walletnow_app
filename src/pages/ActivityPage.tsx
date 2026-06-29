@@ -6,6 +6,7 @@ import React, { useState, useEffect } from 'react';
 import { Activity, ExternalLink, RefreshCw, Filter } from 'lucide-react';
 import { useWallet } from '../contexts/WalletContext';
 import { WalletFactory } from '../services/walletFactory';
+import { StellarNetwork } from '../config/stellarNetwork';
 import EmptyState, { ErrorState } from '../components/ui/EmptyState';
 
 // ─── Tipo de filtro ───────────────────────────────────────────────────────────
@@ -15,6 +16,7 @@ type TxFilter = 'all' | 'payment' | 'create_account' | 'deposit' | 'send';
 // ─── Transaction Row ──────────────────────────────────────────────────────────
 
 function TransactionRow({ tx, publicKey }: { key?: React.Key; tx: any; publicKey: string }) {
+  const isInvoke = tx.type === 'invoke_host_function';
   const isDeposit = tx.type === 'deposit' || (tx.to === publicKey);
   const asset = tx.assetCode ?? tx.asset_code ?? 'XLM';
   const amount = tx.rawAmount ?? tx.amount ?? 0;
@@ -27,9 +29,10 @@ function TransactionRow({ tx, publicKey }: { key?: React.Key; tx: any; publicKey
     send: 'Envio',
     payment: 'Pagamento',
     create_account: 'Conta criada',
+    invoke_host_function: 'Contrato Inteligente',
   }[tx.type] ?? tx.type?.replace(/_/g, ' ') ?? 'Transação';
 
-  const typeIcon = tx.type === 'create_account' ? '🌟' : isDeposit ? '↙️' : '↗️';
+  const typeIcon = tx.type === 'create_account' ? '🌟' : isInvoke ? '📈' : isDeposit ? '↙️' : '↗️';
 
   return (
     <div style={{
@@ -48,7 +51,7 @@ function TransactionRow({ tx, publicKey }: { key?: React.Key; tx: any; publicKey
       <div style={{
         width: 40, height: 40,
         borderRadius: 12,
-        background: isDeposit ? 'var(--status-online-dim)' : 'var(--bg-elevated)',
+        background: isDeposit ? 'var(--status-online-dim)' : isInvoke ? 'rgba(16, 185, 129, 0.1)' : 'var(--bg-elevated)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         fontSize: 16,
         flexShrink: 0,
@@ -105,7 +108,7 @@ function TransactionRow({ tx, publicKey }: { key?: React.Key; tx: any; publicKey
       {/* Explorer link */}
       {tx.hash && (
         <a
-          href={`https://stellar.expert/explorer/testnet/tx/${tx.hash}`}
+          href={StellarNetwork.getTxExplorerUrl(tx.hash)}
           target="_blank"
           rel="noopener noreferrer"
           className="btn btn-ghost btn-icon-sm"
@@ -165,7 +168,7 @@ export default function ActivityPage() {
         <div style={{ display: 'flex', gap: 8 }}>
           {publicKey && (
             <a
-              href={`https://stellar.expert/explorer/testnet/account/${publicKey}`}
+              href={StellarNetwork.getAccountExplorerUrl(publicKey)}
               target="_blank"
               rel="noopener noreferrer"
               className="btn btn-ghost btn-sm"

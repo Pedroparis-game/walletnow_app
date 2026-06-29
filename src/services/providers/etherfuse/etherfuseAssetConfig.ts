@@ -1,4 +1,5 @@
 import { IEtherfuseAssetConfig } from './etherfuseTypes';
+import { StellarNetwork } from '../../../config/stellarNetwork';
 
 /**
  * Configuração REAL do ativo de tesouraria Etherfuse para o Brasil.
@@ -13,7 +14,7 @@ import { IEtherfuseAssetConfig } from './etherfuseTypes';
 export const EtherfuseAssetConfig: IEtherfuseAssetConfig = {
   assetCode: 'TESOURO', // REAL asset code da Etherfuse Brazil
   issuer: 'GC3CW7EDYRTWQ635VDIGY6S4ZUF5L6TQ7AA4MWS7LEQDBLUSZXV7UPS4', // REAL issuer verificado
-  network: 'TESTNET',
+  network: StellarNetwork.config.isMainnet ? 'PUBLIC' : 'TESTNET',
   displayName: 'Tesouro Direto Tokenizado',
   description: "Tokenized representation of Brazil's Tesouro Direto — federal government short-term debt securities issued by the National Treasury. Backed by sovereign bonds via PIX.",
   decimals: 7,
@@ -21,8 +22,10 @@ export const EtherfuseAssetConfig: IEtherfuseAssetConfig = {
   status: 'preview',
 };
 
-// Horizon endpoint para Testnet (Etherfuse usa Stellar Testnet em sandbox)
-export const ETHERFUSE_HORIZON_URL = 'https://horizon-testnet.stellar.org';
+
+
+// Horizon endpoint dinâmico (Etherfuse usa Stellar Testnet ou Mainnet)
+export const ETHERFUSE_HORIZON_URL = StellarNetwork.horizonUrl;
 
 // Supabase Edge Function proxy para chamadas server-side à Etherfuse API
 export const ETHERFUSE_PROXY_ENDPOINT = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/etherfuse-proxy`;

@@ -8,6 +8,7 @@ import { OracleService } from '../../services/oracleService';
 import { useIntegrationEngine } from '../../contexts/IntegrationEngineContext';
 import { TransactionBuilder, Horizon, Keypair } from '@stellar/stellar-sdk';
 import { logger } from '../../utils/logger';
+import { StellarNetwork } from '../../config/stellarNetwork';
 
 interface SwapModalProps {
     isOpen: boolean;
@@ -185,7 +186,7 @@ export default function SwapModal({ isOpen, onClose, onSuccess, useSoroswap = fa
                 logger.info('[WalletNow][Soroswap]', 'Transação assinada com sucesso');
 
                 logger.info('[WalletNow][Soroswap]', 'Submetendo transação para o Ledger');
-                const server = new Horizon.Server('https://horizon-testnet.stellar.org');
+                const server = StellarNetwork.createServer();
                 const result = await server.submitTransaction(tx as any);
                 logger.info('[WalletNow][Soroswap]', 'Transação confirmada no Ledger', result.hash);
             } else {

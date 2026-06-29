@@ -17,6 +17,7 @@ import { EtherfusePersistenceService } from '../../services/providers/etherfuseV
 import { EtherfuseActivityService } from '../../services/providers/etherfuseV2/etherfuseActivityService';
 import type { EfV2QuoteResult, EfV2OrderResult } from '../../services/providers/etherfuseV2/etherfuseV2Types';
 import { PriceOracleService, type XlmPriceResult } from '../../services/priceOracleService';
+import { StellarNetwork } from '../../config/stellarNetwork';
 
 
 // Define quais propriedades (props) este componente espera receber.
@@ -496,7 +497,7 @@ export default function DepositModal({ isOpen, onClose, onSuccess, initialProvid
       EtherfuseActivityService.saveActivity(activeAccount.stellar_public_key, {
         orderId: order.orderId,
         txHash: hashToUse || 'Pendente',
-        explorerUrl: hashToUse ? `https://stellar.expert/explorer/testnet/tx/${hashToUse}` : '',
+        explorerUrl: hashToUse ? StellarNetwork.getTxExplorerUrl(hashToUse) : '',
         asset: 'TESOURO',
         amountBRL: quote.sourceAmount,
         amountToken: quote.destinationAmount,
@@ -1151,7 +1152,7 @@ export default function DepositModal({ isOpen, onClose, onSuccess, initialProvid
             </div>
             {efOrder?.confirmedTxSignature && (
               <a
-                href={`https://stellar.expert/explorer/testnet/tx/${efOrder.confirmedTxSignature}`}
+                href={StellarNetwork.getTxExplorerUrl(efOrder.confirmedTxSignature)}
                 target="_blank" rel="noopener noreferrer"
                 className="flex items-center gap-2 text-[10px] text-blue-400 font-mono bg-blue-950/30 px-4 py-2 rounded-xl border border-blue-800/40 hover:border-blue-500/50 transition-all"
               >
@@ -1372,7 +1373,7 @@ export default function DepositModal({ isOpen, onClose, onSuccess, initialProvid
             
             {txHash && (
               <a 
-                href={`https://stellar.expert/explorer/testnet/tx/${txHash}`} 
+                href={StellarNetwork.getTxExplorerUrl(txHash)} 
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 text-[#00E676] text-xs font-semibold bg-[#00E676]/10 px-4 py-2 rounded-xl border border-[#00E676]/20 hover:bg-[#00E676]/20 transition-all"
@@ -1558,7 +1559,7 @@ export default function DepositModal({ isOpen, onClose, onSuccess, initialProvid
                     </button>
                     {ef2TxHash !== 'Pendente' && (
                       <a
-                        href={`https://stellar.expert/explorer/testnet/tx/${ef2TxHash}`}
+                        href={StellarNetwork.getTxExplorerUrl(ef2TxHash)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="p-1.5 hover:bg-slate-800 rounded-md transition-colors flex items-center gap-1"
@@ -1689,13 +1690,13 @@ export default function DepositModal({ isOpen, onClose, onSuccess, initialProvid
                   const depositTx = await yieldService.deposit(
                     { vaultId: defindexVaultId, amounts: [stroopsAmount], from: keypair.publicKey(), invest: false },
                     async (xdr) => {
-                      const tx = TransactionBuilder.fromXDR(xdr, 'Test SDF Network ; September 2015');
+                      const tx = TransactionBuilder.fromXDR(xdr, StellarNetwork.passphrase);
                       tx.sign(keypair);
                       return tx.toXDR();
                     },
                     async (signedXdr) => {
-                      const server = new Horizon.Server('https://horizon-testnet.stellar.org');
-                      const tx = TransactionBuilder.fromXDR(signedXdr, 'Test SDF Network ; September 2015');
+                      const server = StellarNetwork.createServer();
+                      const tx = TransactionBuilder.fromXDR(signedXdr, StellarNetwork.passphrase);
                       const res = await server.submitTransaction(tx as any);
                       return { hash: res.hash, ledger: res.ledger };
                     }
@@ -1780,7 +1781,7 @@ export default function DepositModal({ isOpen, onClose, onSuccess, initialProvid
                       {copied ? <CheckCircle2 className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4 text-slate-400 hover:text-white" />}
                     </button>
                     <a
-                      href={`https://stellar.expert/explorer/testnet/tx/${defindexTxHash}`}
+                      href={StellarNetwork.getTxExplorerUrl(defindexTxHash)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="p-1.5 hover:bg-slate-800 rounded-md transition-colors flex items-center gap-1"

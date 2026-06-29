@@ -16,6 +16,7 @@ import StatCard from '../components/ui/StatCard';
 import DepositModal from '../components/modals/DepositModal';
 import type { ProtocolManifest } from '@walletnow/core';
 import type { IYieldCapability, YieldVault } from '@walletnow/core';
+import { StellarNetwork } from '../config/stellarNetwork';
 
 // ─── Vault Card ───────────────────────────────────────────────────────────────
 
@@ -169,7 +170,7 @@ function VaultCard({ vault, userPosition, onDeposit }: { key?: React.Key; vault:
         </button>
         {vault.id ? (
           <a
-            href={`https://stellar.expert/explorer/testnet/contract/${vault.id}`}
+            href={`${StellarNetwork.explorerUrl}/contract/${vault.id}`}
             target="_blank"
             rel="noopener noreferrer"
             className="btn btn-ghost btn-icon-sm"

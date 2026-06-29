@@ -18,6 +18,7 @@ import { useIntegrationEngine } from '../contexts/IntegrationEngineContext';
 import { TransactionBuilder, Horizon, Keypair } from '@stellar/stellar-sdk';
 import { logger } from '../utils/logger';
 import { PaymentService } from '../services/paymentService';
+import { StellarNetwork } from '../config/stellarNetwork';
 
 // ─── Token Selector ───────────────────────────────────────────────────────────
 
@@ -213,7 +214,7 @@ function SwapWidget() {
           logger.info('[WalletNow][Soroswap]', 'Transação assinada com sucesso');
 
           logger.info('[WalletNow][Soroswap]', 'Submetendo transação para o Ledger');
-          const server = new Horizon.Server('https://horizon-testnet.stellar.org');
+          const server = StellarNetwork.createServer();
           const result = await server.submitTransaction(tx as any);
           logger.info('[WalletNow][Soroswap]', 'Transação confirmada no Ledger', result.hash);
 

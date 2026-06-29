@@ -36,7 +36,7 @@ import { DEFINDEX_MANIFEST } from '@walletnow/plugin-defindex';
 import { ETHERFUSE_MANIFEST } from '@walletnow/plugin-etherfuse';
 
 // Serviços reais dos plugins
-import { DefindexAPIClient, DefindexVaultService } from '@walletnow/plugin-defindex';
+import { DefindexAPIClient, DefindexVaultService, DefindexYieldService } from '@walletnow/plugin-defindex';
 import { SoroswapAPIClient, SoroswapTokenService, TESTNET_TOKENS } from '@walletnow/plugin-soroswap';
 
 // ─── Portfolio Manifest (built-in) ────────────────────────────────────────────
@@ -137,6 +137,23 @@ function getDefindexVaultService(): DefindexVaultService {
   return _defindexVaultService;
 }
 
+let _defindexYieldService: DefindexYieldService | null = null;
+function getDefindexYieldService(): DefindexYieldService {
+  if (!_defindexYieldService) {
+    const client = new DefindexAPIClient({
+      apiKey: (import.meta.env.VITE_DEFINDEX_API_KEY as string | undefined) ?? '',
+    });
+    const vaultService = getDefindexVaultService();
+    _defindexYieldService = new DefindexYieldService({
+      client,
+      vaultService,
+      network: 'testnet',
+      events: { emit: () => {} } as any,
+    });
+  }
+  return _defindexYieldService;
+}
+
 let _soroswapClient: SoroswapAPIClient | null = null;
 function getSoroswapClient(): SoroswapAPIClient {
   if (!_soroswapClient) {
@@ -200,6 +217,7 @@ export function IntegrationEngineProvider({ children }: Props) {
     // ── Yield (Defindex) ────────────────────────────────────────────────────
     if (normalizedId === 'yield') {
       const vaultService = getDefindexVaultService();
+      const yieldService = getDefindexYieldService();
       return {
         manifest,
         provider: {
@@ -207,6 +225,7 @@ export function IntegrationEngineProvider({ children }: Props) {
           getVaults:  () => vaultService.listVaults(),
           getVault:   (id: string) => vaultService.getVaultById(id),
           invalidateCache: () => vaultService.invalidateCache(),
+          getUserPositions: (pubKey: string) => yieldService.getUserPositions(pubKey),
         } as unknown as T,
       };
     }

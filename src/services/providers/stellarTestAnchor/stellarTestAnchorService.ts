@@ -22,8 +22,9 @@ import {
 } from '@stellar/stellar-sdk';
 import { logger } from '../../../utils/logger';
 import { decodeHorizonResultXdr } from '../../../utils/decodeHorizonResultXdr';
+import { StellarNetwork } from '../../../config/stellarNetwork';
 
-const HORIZON_URL = 'https://horizon-testnet.stellar.org';
+const HORIZON_URL = StellarNetwork.horizonUrl;
 
 const isTreasuryConfigured = (): boolean => {
   return !!import.meta.env.VITE_STELLAR_TREASURY_SECRET;

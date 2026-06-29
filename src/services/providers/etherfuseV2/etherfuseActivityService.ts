@@ -1,5 +1,6 @@
 import { Horizon } from '@stellar/stellar-sdk';
 import { logger } from '../../../utils/logger';
+import { StellarNetwork } from '../../../config/stellarNetwork';
 
 export interface EfV2Activity {
   orderId: string;
@@ -61,7 +62,7 @@ export const EtherfuseActivityService = {
     logger.info(LOG_TAG, 'Searching settlement transaction via Horizon fallback', { publicKey });
 
     const TESOURO_ISSUER = 'GC3CW7EDYRTWQ635VDIGY6S4ZUF5L6TQ7AA4MWS7LEQDBLUSZXV7UPS4';
-    const server = new Horizon.Server('https://horizon-testnet.stellar.org');
+    const server = StellarNetwork.createServer();
 
     for (let attempt = 1; attempt <= 5; attempt++) {
       try {
@@ -105,7 +106,7 @@ export const EtherfuseActivityService = {
             logger.info(LOG_TAG, 'TESOURO transaction FOUND', { txHash: transaction_hash });
 
             const txHash = transaction_hash;
-            const explorerUrl = `https://stellar.expert/explorer/testnet/tx/${txHash}`;
+            const explorerUrl = StellarNetwork.getTxExplorerUrl(txHash);
 
             logger.info(LOG_TAG, 'Settlement operation found');
             logger.info(LOG_TAG, 'Stellar hash resolved', { txHash });

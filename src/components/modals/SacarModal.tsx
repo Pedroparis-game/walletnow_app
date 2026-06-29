@@ -4,6 +4,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { WalletFactory } from '../../services/walletFactory';
 import { PaymentService } from '../../services/paymentService';
 import { WooviService } from '../../services/wooviService';
+import { StellarNetwork } from '../../config/stellarNetwork';
 
 interface SacarModalProps {
   isOpen: boolean;
@@ -117,7 +118,7 @@ export default function SacarModal({ isOpen, onClose, onSuccess, brwBalance }: S
             
             {txHash && (
               <a 
-                href={`https://stellar.expert/explorer/testnet/tx/${txHash}`} 
+                href={StellarNetwork.getTxExplorerUrl(txHash)} 
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 text-[#00E676] text-xs font-semibold bg-[#00E676]/10 px-4 py-2 rounded-xl border border-[#00E676]/20 hover:bg-[#00E676]/20 transition-all"

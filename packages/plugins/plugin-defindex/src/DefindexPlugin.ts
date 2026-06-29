@@ -26,6 +26,8 @@ import type {
   YieldEstimate,
   YieldHealthStatus,
   YieldTransactionResult,
+  IPortfolioContributor,
+  PortfolioPosition,
 } from '@walletnow/core';
 import type { ProtocolManifest } from '@walletnow/core';
 import { HealthStatus } from '@walletnow/core';
@@ -65,6 +67,15 @@ export const DEFINDEX_MANIFEST: ProtocolManifest = {
       dependencies: [],
       experimental: false,
       permissions: ['network.read', 'network.write', 'signer.sign', 'events.emit'],
+      lifecycle: 'persistent',
+      priority: 70,
+    },
+    {
+      id: 'portfolio-contributor',
+      version: '1.0.0',
+      dependencies: ['yield'],
+      experimental: false,
+      permissions: ['network.read'],
       lifecycle: 'persistent',
       priority: 70,
     },
@@ -129,6 +140,7 @@ export class DefindexPlugin implements IPlugin {
     // ─── Monta e registra a IYieldCapability ──────────────────────────────
     const capability: IYieldCapability = this.buildCapability();
     ctx.capabilities.register('yield', capability);
+    ctx.capabilities.register('portfolio-contributor', this.buildPortfolioContributor());
 
     // ─── Registra manifesto na IntegrationEngine ──────────────────────────
     ctx.integrations.register(DEFINDEX_MANIFEST);
@@ -245,6 +257,34 @@ export class DefindexPlugin implements IPlugin {
       async health(): Promise<YieldHealthStatus> {
         return self.yieldService!.health();
       },
+    };
+  }
+
+  private buildPortfolioContributor(): IPortfolioContributor {
+    const self = this;
+    return {
+      async getPortfolioPositions(publicKey: string): Promise<PortfolioPosition[]> {
+        if (!self.yieldService) return [];
+        try {
+          const positions = await self.yieldService.getUserPositions(publicKey);
+          return positions.map(pos => ({
+            id: `defindex-${pos.vaultId}`,
+            type: 'yield',
+            protocol: 'defindex',
+            name: pos.vaultName || 'Defindex Vault',
+            balance: pos.shares || '0',
+            valueUsd: pos.valueUsd,
+            meta: {
+              vaultId: pos.vaultId,
+              estimatedDailyYieldUsd: pos.estimatedDailyYieldUsd,
+              apy: pos.apy,
+            }
+          }));
+        } catch (error) {
+          self.context?.logger.error('[DefindexPlugin] Error fetching portfolio positions:', { error });
+          return [];
+        }
+      }
     };
   }
 }
