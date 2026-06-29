@@ -368,8 +368,8 @@ export default function PortfolioPage() {
               />
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column' }}>
-                {assets.map(asset => (
-                  <AssetRow key={asset.code} asset={asset} />
+                {assets.map((asset, i) => (
+                  <AssetRow key={`${asset.code}-${asset.name}-${i}`} asset={asset} />
                 ))}
               </div>
             )}
