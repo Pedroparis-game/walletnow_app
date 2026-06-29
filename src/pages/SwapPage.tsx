@@ -163,7 +163,7 @@ function SwapWidget() {
 
   const mapAsset = (code: string) => {
     if (code === 'XLM') return 'CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC';
-    if (code === 'USDC') return 'CB3TLW74NBIOT3BUWOZ3TUM6RFDF6A4GVIRUQRQZABG5KPOUL4JJOV2F';
+    if (code === 'USDC') return 'CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA';
     if (code === 'XRP') return 'CDDIA6HYANLPMDKBVQRIIXY3NA6S3TMHZFJUNPMBEJGZ5JSHN3E2TAUI';
     throw new Error(`O token ${code} ainda não possui um Contract ID (SAC) configurado para a Soroswap no ambiente Testnet.`);
   };

@@ -119,10 +119,9 @@ const TESTNET_ASSETS: Record<string, StellarAssetConfig> = {
     decimals: 7,
   },
   USDC: {
-    // TODO [TESTNET]: Substituir pelo issuer correto do USDC na testnet se disponível
     code: 'USDC',
-    issuer: AppConfig.stellar.issuerPublicKey || null,
-    name: 'USD Coin (Mock Testnet)',
+    issuer: 'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5',
+    name: 'USD Coin (Testnet)',
     decimals: 7,
   },
   BRZ: {

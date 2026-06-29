@@ -57,7 +57,7 @@ export default function SwapModal({ isOpen, onClose, onSuccess, useSoroswap = fa
                 if (swapCap?.provider) {
                     const mapAsset = (code: string) => {
                         if (code === 'XLM') return 'CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC';
-                        if (code === 'USDC') return 'CBBHRKEP5M3NUDRISGLJKGHDHX3DA2CN2AZBQY6WLVUJ7VNLGSKBDUCM';
+                        if (code === 'USDC') return 'CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA';
                         if (code === 'XRP') return 'CDDIA6HYANLPMDKBVQRIIXY3NA6S3TMHZFJUNPMBEJGZ5JSHN3E2TAUI';
                         throw new Error(`Sem SAC`);
                     };
@@ -154,7 +154,7 @@ export default function SwapModal({ isOpen, onClose, onSuccess, useSoroswap = fa
                 
                 const mapAsset = (code: string) => {
                     if (code === 'XLM') return 'CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC';
-                    if (code === 'USDC') return 'CBBHRKEP5M3NUDRISGLJKGHDHX3DA2CN2AZBQY6WLVUJ7VNLGSKBDUCM';
+                    if (code === 'USDC') return 'CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA';
                     if (code === 'XRP') return 'CDDIA6HYANLPMDKBVQRIIXY3NA6S3TMHZFJUNPMBEJGZ5JSHN3E2TAUI';
                     throw new Error(`O token ${code} ainda não possui um Contract ID (SAC) configurado para a Soroswap no ambiente Testnet. Tente o Swap Nativo.`);
                 };
