@@ -141,6 +141,11 @@ export default function LiquidityPage() {
   const reserveUSDC = poolData?.reserves.find((r: any) => r.asset.includes('USDC'))?.amount;
   const totalShares = poolData?.total_shares;
 
+  const userLpShares = balances?.lp_shares ? parseFloat(balances.lp_shares as string) : 0;
+  const userSharePct = totalShares && userLpShares ? (userLpShares / parseFloat(totalShares)) * 100 : 0;
+  const userXLM = totalShares && reserveXLM ? (userLpShares / parseFloat(totalShares)) * parseFloat(reserveXLM) : 0;
+  const userUSDC = totalShares && reserveUSDC ? (userLpShares / parseFloat(totalShares)) * parseFloat(reserveUSDC) : 0;
+
   return (
     <div style={{
       padding: 'var(--space-6) max(var(--space-4), env(safe-area-inset-right)) var(--space-8) max(var(--space-4), env(safe-area-inset-left))',
@@ -269,8 +274,38 @@ export default function LiquidityPage() {
           )}
         </div>
 
-        {/* Informações da Pool */}
+        {/* Informações da Pool & Posição */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          
+          {/* Minha Posição */}
+          {userLpShares > 0 && (
+            <div className="glass-card" style={{ padding: 'var(--space-6)', background: 'linear-gradient(145deg, rgba(56, 189, 248, 0.1), transparent)', border: '1px solid rgba(56, 189, 248, 0.2)' }}>
+              <h3 style={{ fontSize: 16, fontWeight: 700, margin: '0 0 16px 0', display: 'flex', alignItems: 'center', gap: 8, color: '#38bdf8' }}>
+                <Zap size={16} />
+                Sua Posição
+              </h3>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: 12, borderBottom: '1px solid var(--border-subtle)' }}>
+                  <span style={{ color: 'var(--text-tertiary)' }}>LP Tokens</span>
+                  <span style={{ fontWeight: 600 }}>{userLpShares.toLocaleString(undefined, {maximumFractionDigits: 7})}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: 12, borderBottom: '1px solid var(--border-subtle)' }}>
+                  <span style={{ color: 'var(--text-tertiary)' }}>Participação no Pool</span>
+                  <span style={{ fontWeight: 600 }}>{userSharePct.toFixed(4)}%</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: 12, borderBottom: '1px solid var(--border-subtle)' }}>
+                  <span style={{ color: 'var(--text-tertiary)' }}>XLM (Estimado)</span>
+                  <span style={{ fontWeight: 600 }}>{userXLM.toLocaleString(undefined, {maximumFractionDigits: 4})} XLM</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: 'var(--text-tertiary)' }}>USDC (Estimado)</span>
+                  <span style={{ fontWeight: 600 }}>{userUSDC.toLocaleString(undefined, {maximumFractionDigits: 4})} USDC</span>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="glass-card" style={{ padding: 'var(--space-6)' }}>
             <h3 style={{ fontSize: 16, fontWeight: 700, margin: '0 0 16px 0', display: 'flex', alignItems: 'center', gap: 8 }}>
               <Info size={16} color="var(--text-tertiary)" />

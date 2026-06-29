@@ -455,13 +455,13 @@ export const WalletFactory = {
      * Consulta os saldos reais de múltiplos ativos na conta Stellar.
      * Estrutura Genérica de RWA suportando futuros ativos: TESOURO, CETES, USTB.
      */
-    async getBalances(publicKey: string): Promise<{ brz: string, brw: string, xlm: string, usdc: string, eurc: string, btc: string, tesouro: string, cetes: string, ustb: string } | null> {
+    async getBalances(publicKey: string): Promise<{ brz: string, brw: string, xlm: string, usdc: string, eurc: string, btc: string, tesouro: string, cetes: string, ustb: string, lp_shares: string } | null> {
         try {
             const server = StellarNetwork.createServer();
             const account = await server.loadAccount(publicKey);
 
             // Inicia valores vazios para todos os ativos suportados
-            const balances = { brz: '0.00', brw: '0.00', xlm: '0.00', usdc: '0.00', eurc: '0.00', btc: '0.00', tesouro: '0.00', cetes: '0.00', ustb: '0.00' };
+            const balances = { brz: '0.00', brw: '0.00', xlm: '0.00', usdc: '0.00', eurc: '0.00', btc: '0.00', tesouro: '0.00', cetes: '0.00', ustb: '0.00', lp_shares: '0.00' };
             const foundRWAs: string[] = [];
 
             account.balances.forEach((balance: any) => {
@@ -484,6 +484,9 @@ export const WalletFactory = {
                 else if (code === 'USTB') {
                     balances.ustb = balance.balance;
                     foundRWAs.push(`USTB: ${balance.balance}`);
+                }
+                else if (balance.asset_type === 'liquidity_pool_shares') {
+                    balances.lp_shares = balance.balance;
                 }
             });
 
