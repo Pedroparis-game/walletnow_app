@@ -1,4 +1,4 @@
-import { Keypair, TransactionBuilder, Asset, Operation } from '@stellar/stellar-sdk';
+import { Keypair, TransactionBuilder, Asset, Operation, LiquidityPoolAsset } from '@stellar/stellar-sdk';
 import { supabase } from '../lib/supabase';
 import { isValidPublicKey, isValidSecretKey } from '../utils/stellarValidation';
 import { DeviceVault } from '../security/deviceVault';
@@ -495,6 +495,125 @@ export const WalletFactory = {
         } catch (error: any) {
             if (error.response?.status !== 404) console.error('[WalletNow][Balances] ❌ Erro ao buscar saldos:', error);
             return null;
+        }
+    },
+
+    /**
+     * Deposita liquidez na AMM Pool Clássica especificada (EX: XLM / USDC)
+     * Também possui função "One-Click Swap" caso a carteira não tenha quantidade suficiente de um dos ativos.
+     */
+    async depositLiquidity(
+        publicKey: string, 
+        assetA: Asset, 
+        assetB: Asset, 
+        amountA: string, 
+        amountB: string,
+        opts?: { 
+            requiresTrustline?: boolean;
+            autoSwap?: {
+                buyAsset: Asset;
+                sellAsset: Asset;
+                buyAmount: string;
+                maxSellAmount: string;
+            }
+        }
+    ) {
+        try {
+            const secretKeyStr = this.getSecretKey(publicKey);
+            if (!secretKeyStr) throw new Error("Credencial secreta indisponível.");
+            const keypair = Keypair.fromSecret(secretKeyStr);
+            const server = StellarNetwork.createServer();
+            const account = await server.loadAccount(publicKey);
+            
+            const lpAsset = new LiquidityPoolAsset(assetA, assetB, 30); // 30 bps fee
+            
+            const txBuilder = new TransactionBuilder(account, {
+                fee: StellarNetwork.baseFee,
+                networkPassphrase: StellarNetwork.passphrase
+            });
+
+            // Se precisar do swap one-click, faz ANTES de confiar na pool
+            if (opts?.autoSwap) {
+                console.log("[WalletNow][Liquidity] 🔄 Injetando Swap Nativo na Transação para comprar", opts.autoSwap.buyAmount);
+                txBuilder.addOperation(Operation.pathPaymentStrictReceive({
+                    sendAsset: opts.autoSwap.sellAsset,
+                    sendMax: opts.autoSwap.maxSellAmount,
+                    destination: publicKey,
+                    destAsset: opts.autoSwap.buyAsset,
+                    destAmount: opts.autoSwap.buyAmount,
+                    path: [] // O Horizon resolve automaticamente o melhor caminho
+                }));
+            }
+
+            // Adiciona trustline da LP na carteira se for a primeira vez
+            if (opts?.requiresTrustline) {
+                console.log("[WalletNow][Liquidity] 🔐 Injetando ChangeTrust da LP na Transação");
+                txBuilder.addOperation(Operation.changeTrust({ asset: lpAsset }));
+            }
+
+            txBuilder.addOperation(Operation.liquidityPoolDeposit({
+                liquidityPoolId: lpAsset.toString(),
+                maxAmountA: amountA,
+                maxAmountB: amountB,
+                minPrice: '0',
+                maxPrice: '10000000', // Tolerância relaxada para testnet/hackathon
+            }));
+
+            const transaction = txBuilder.setTimeout(30).build();
+            transaction.sign(keypair);
+
+            console.log("[WalletNow][Liquidity] ⏳ Submetendo Depósito na Pool...", lpAsset.toString());
+            const response = await server.submitTransaction(transaction as any);
+            console.log("[WalletNow][Liquidity] ✅ Depósito confirmado:", response.hash);
+            
+            return { success: true, hash: response.hash };
+        } catch (error: any) {
+            console.error('[WalletNow][Liquidity] ❌ Falha no depósito:', error);
+            throw new Error(error.response?.data?.extras?.result_codes?.operations?.[0] || error.message);
+        }
+    },
+
+    /**
+     * Remove liquidez da AMM Pool Clássica especificada.
+     */
+    async withdrawLiquidity(
+        publicKey: string, 
+        assetA: Asset, 
+        assetB: Asset, 
+        sharesAmount: string
+    ) {
+        try {
+            const secretKeyStr = this.getSecretKey(publicKey);
+            if (!secretKeyStr) throw new Error("Credencial secreta indisponível.");
+            const keypair = Keypair.fromSecret(secretKeyStr);
+            const server = StellarNetwork.createServer();
+            const account = await server.loadAccount(publicKey);
+            
+            const lpAsset = new LiquidityPoolAsset(assetA, assetB, 30);
+            
+            const txBuilder = new TransactionBuilder(account, {
+                fee: StellarNetwork.baseFee,
+                networkPassphrase: StellarNetwork.passphrase
+            });
+
+            txBuilder.addOperation(Operation.liquidityPoolWithdraw({
+                liquidityPoolId: lpAsset.toString(),
+                amount: sharesAmount,
+                minAmountA: '0',
+                minAmountB: '0'
+            }));
+
+            const transaction = txBuilder.setTimeout(30).build();
+            transaction.sign(keypair);
+
+            console.log("[WalletNow][Liquidity] ⏳ Submetendo Saque da Pool...", lpAsset.toString());
+            const response = await server.submitTransaction(transaction as any);
+            console.log("[WalletNow][Liquidity] ✅ Saque confirmado:", response.hash);
+            
+            return { success: true, hash: response.hash };
+        } catch (error: any) {
+            console.error('[WalletNow][Liquidity] ❌ Falha no saque:', error);
+            throw new Error(error.response?.data?.extras?.result_codes?.operations?.[0] || error.message);
         }
     }
 };

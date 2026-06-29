@@ -12,6 +12,7 @@ import Settings from './pages/Settings';
 import Home from './pages/Home';
 import SwapPage from './pages/SwapPage';
 import YieldPage from './pages/YieldPage';
+import LiquidityPage from './pages/LiquidityPage';
 import RWAPage from './pages/RWAPage';
 import PortfolioPage from './pages/PortfolioPage';
 import ActivityPage from './pages/ActivityPage';
@@ -67,6 +68,9 @@ export default function App() {
 
               {/* Yield & DeFi */}
               <Route path="/yield" element={<YieldPage />} />
+              
+              {/* Liquidity */}
+              <Route path="/liquidity" element={<LiquidityPage />} />
 
               {/* Real World Assets */}
               <Route path="/rwa" element={<RWAPage />} />

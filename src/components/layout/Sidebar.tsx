@@ -23,6 +23,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Zap,
+  Droplets,
 } from 'lucide-react';
 import { useManifests } from '../../hooks/useManifests';
 import type { IntegrationCategory } from '@walletnow/core';
@@ -57,6 +58,12 @@ const CATEGORY_CONFIG: Record<string, {
     route: '/yield',
     label: 'Yield',
     color: 'var(--color-yield)',
+  },
+  liquidity: {
+    icon: <Droplets size={16} />,
+    route: '/liquidity',
+    label: 'Liquidity',
+    color: 'var(--color-swap)',
   },
   rwa: {
     icon: <Building2 size={16} />,
@@ -240,14 +247,22 @@ export default function Sidebar() {
   ];
 
   // Itens dinâmicos gerados pelos manifestos
-  const dynamicItems: NavItemData[] = Object.entries(CATEGORY_CONFIG)
-    .filter(([cat]) => byCategory[cat] && byCategory[cat].length > 0)
-    .map(([, config]) => ({
-      label: config.label,
-      to: config.route,
-      icon: config.icon,
-      categoryColor: config.color,
-    }));
+  const dynamicItems: NavItemData[] = [
+    ...Object.entries(CATEGORY_CONFIG)
+      .filter(([cat]) => byCategory[cat] && byCategory[cat].length > 0)
+      .map(([, config]) => ({
+        label: config.label,
+        to: config.route,
+        icon: config.icon,
+        categoryColor: config.color,
+      })),
+    {
+      label: 'Liquidity',
+      to: '/liquidity',
+      icon: <Droplets size={16} />,
+      categoryColor: 'var(--color-swap)',
+    }
+  ];
 
   // Itens de sistema
   const systemItems: NavItemData[] = [
