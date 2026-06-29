@@ -592,7 +592,8 @@ export const WalletFactory = {
                 if (realErrors.length > 0) {
                     errMsg = realErrors.join(', ');
                     if (errMsg.includes('op_underfunded')) {
-                        errMsg = "op_underfunded: Saldo insuficiente de XLM para cobrir o depósito + slippage do swap + reservas de rede.";
+                        const opIndex = ops.findIndex((op: string) => op === 'op_underfunded');
+                        errMsg = `op_underfunded na operação ${opIndex}: Saldo insuficiente. Verifique se tem XLM e reservas suficientes.`;
                     } else if (errMsg.includes('op_too_few_offers') || errMsg.includes('op_over_source_max')) {
                         errMsg = "op_too_few_offers: A liquidez da pool é muito baixa para suportar essa quantia sem um slippage gigantesco. Tente um valor menor.";
                     }
