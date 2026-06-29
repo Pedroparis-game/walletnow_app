@@ -4,15 +4,14 @@ import { useAuth } from '../contexts/AuthContext';
 import { useWallet } from '../contexts/WalletContext';
 import { WalletFactory } from '../services/walletFactory';
 import { Asset } from '@stellar/stellar-sdk';
-import { StellarNetwork } from '../config/stellarNetwork';
 
-// Constant for the pool we're showcasing
-const LP_ID_HEX = '4cd1f6defba237eecbc5fefe259f89ebc4b5edd49116beb5536c4034fc48d63f';
 const USDC_ISSUER = 'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5';
+const LP_ID_HEX = '4cd1f6defba237eecbc5fefe259f89ebc4b5edd49116beb5536c4034fc48d63f';
 
 export default function LiquidityPage() {
   const { profile } = useAuth();
-  const { balances, refreshAccounts } = useWallet();
+  const { activeAccount, refreshAccounts } = useWallet();
+  const [balances, setBalances] = useState<Record<string, string>>({});
   const [activeTab, setActiveTab] = useState<'deposit' | 'withdraw'>('deposit');
   const [amountXLM, setAmountXLM] = useState('');
   const [amountUSDC, setAmountUSDC] = useState('');
@@ -24,8 +23,9 @@ export default function LiquidityPage() {
   useEffect(() => {
     const fetchPool = async () => {
       try {
-        const res = await fetch(`https://horizon-testnet.stellar.org/liquidity_pools/${LP_ID_HEX}`);
-        const data = await res.json();
+        const poolRes = await fetch(`https://horizon-testnet.stellar.org/liquidity_pools/${LP_ID_HEX}`);
+        if (!poolRes.ok) return;
+        const data = await poolRes.json();
         setPoolData(data);
       } catch (err) {
         console.error("Failed to fetch pool data", err);
@@ -36,10 +36,21 @@ export default function LiquidityPage() {
     return () => clearInterval(interval);
   }, []);
 
+  // Buscar saldos
+  useEffect(() => {
+    let active = true;
+    if (activeAccount?.stellar_public_key) {
+      WalletFactory.getBalances(activeAccount.stellar_public_key).then((b) => {
+        if (b && active) setBalances(b as unknown as Record<string, string>);
+      });
+    }
+    return () => { active = false; };
+  }, [activeAccount]);
+
   // Handle auto-ratio for XLM/USDC
   const handleAmountXLMChange = (val: string) => {
     setAmountXLM(val);
-    if (!poolData) return;
+    if (!poolData || poolData.reserves[0].amount === '0') return;
     const reserveXLM = poolData.reserves.find((r: any) => r.asset === 'native')?.amount;
     const reserveUSDC = poolData.reserves.find((r: any) => r.asset.includes('USDC'))?.amount;
     if (reserveXLM && reserveUSDC && val && !isNaN(parseFloat(val))) {
@@ -52,7 +63,7 @@ export default function LiquidityPage() {
 
   const handleAmountUSDCChange = (val: string) => {
     setAmountUSDC(val);
-    if (!poolData) return;
+    if (!poolData || poolData.reserves[0].amount === '0') return;
     const reserveXLM = poolData.reserves.find((r: any) => r.asset === 'native')?.amount;
     const reserveUSDC = poolData.reserves.find((r: any) => r.asset.includes('USDC'))?.amount;
     if (reserveXLM && reserveUSDC && val && !isNaN(parseFloat(val))) {
@@ -64,7 +75,7 @@ export default function LiquidityPage() {
   };
 
   const handleDeposit = async () => {
-    if (!profile?.stellar_wallet || !amountXLM || !amountUSDC) return;
+    if (!activeAccount?.stellar_public_key || !amountXLM || !amountUSDC) return;
     setStatus('loading');
     try {
       const assetA = Asset.native();
@@ -77,9 +88,8 @@ export default function LiquidityPage() {
       let autoSwapParams = undefined;
       if (balUSDC < reqUSDC) {
         const diff = (reqUSDC - balUSDC).toFixed(7);
-        // Calcula quanto XLM vai gastar pra comprar esse USDC a mais
         const ratio = parseFloat(amountXLM) / reqUSDC;
-        const maxXLMSell = (parseFloat(diff) * ratio * 1.05).toFixed(7); // +5% slippage safety
+        const maxXLMSell = (parseFloat(diff) * ratio * 1.20).toFixed(7);
 
         autoSwapParams = {
             buyAsset: assetB,
@@ -90,7 +100,7 @@ export default function LiquidityPage() {
       }
 
       await WalletFactory.depositLiquidity(
-        profile.stellar_wallet,
+        activeAccount.stellar_public_key,
         assetA,
         assetB,
         amountXLM,
@@ -110,12 +120,12 @@ export default function LiquidityPage() {
   };
 
   const handleWithdraw = async () => {
-    if (!profile?.stellar_wallet || !sharesToWithdraw) return;
+    if (!activeAccount?.stellar_public_key || !sharesToWithdraw) return;
     setStatus('loading');
     try {
       const assetA = Asset.native();
       const assetB = new Asset('USDC', USDC_ISSUER);
-      await WalletFactory.withdrawLiquidity(profile.stellar_wallet, assetA, assetB, sharesToWithdraw);
+      await WalletFactory.withdrawLiquidity(activeAccount.stellar_public_key, assetA, assetB, sharesToWithdraw);
       setStatus('success');
       setSharesToWithdraw('');
       await refreshAccounts();
@@ -140,7 +150,6 @@ export default function LiquidityPage() {
       flexDirection: 'column',
       gap: 'var(--space-8)'
     }}>
-      {/* Header */}
       <div>
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 12px', background: 'rgba(56,189,248,0.1)', color: '#38bdf8', borderRadius: 999, fontSize: 12, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: 16 }}>
           <Droplets size={14} /> Classic AMM
@@ -155,7 +164,6 @@ export default function LiquidityPage() {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 'var(--space-6)' }}>
         
-        {/* Formulário Interativo */}
         <div className="glass-card" style={{ padding: 'var(--space-6)' }}>
           <div style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
             <button 
@@ -201,7 +209,7 @@ export default function LiquidityPage() {
                   <input
                     type="number"
                     value={amountUSDC}
-                    onChange={(e) => handleAmountUSDCChange(e.target.value)}
+                    readOnly
                     placeholder="0.0"
                     style={{ flex: 1, background: 'none', border: 'none', color: '#fff', fontSize: 20, outline: 'none' }}
                   />

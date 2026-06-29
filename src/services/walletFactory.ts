@@ -533,6 +533,15 @@ export const WalletFactory = {
                 networkPassphrase: StellarNetwork.passphrase
             });
 
+            // Adiciona trustline para Asset B (USDC) se o usuário não tiver
+            const hasTrustlineB = account.balances.some((b: any) => 
+                b.asset_type !== 'native' && b.asset_code === assetB.getCode() && b.asset_issuer === assetB.getIssuer()
+            );
+            if (!hasTrustlineB && !assetB.isNative()) {
+                console.log("[WalletNow][Liquidity] 🔐 Injetando ChangeTrust para", assetB.getCode());
+                txBuilder.addOperation(Operation.changeTrust({ asset: assetB }));
+            }
+
             // Se precisar do swap one-click, faz ANTES de confiar na pool
             if (opts?.autoSwap) {
                 console.log("[WalletNow][Liquidity] 🔄 Injetando Swap Nativo na Transação para comprar", opts.autoSwap.buyAmount);
@@ -552,12 +561,15 @@ export const WalletFactory = {
                 txBuilder.addOperation(Operation.changeTrust({ asset: lpAsset }));
             }
 
+            // Em vez de lpAsset.toString(), usamos a string hexadecimal para não dar buffer overflow
+            const liquidityPoolIdHex = '4cd1f6defba237eecbc5fefe259f89ebc4b5edd49116beb5536c4034fc48d63f';
+
             txBuilder.addOperation(Operation.liquidityPoolDeposit({
-                liquidityPoolId: lpAsset.toString(),
+                liquidityPoolId: liquidityPoolIdHex,
                 maxAmountA: amountA,
                 maxAmountB: amountB,
-                minPrice: '0',
-                maxPrice: '10000000', // Tolerância relaxada para testnet/hackathon
+                minPrice: '0.0001', // format as float string, cannot be 0.0
+                maxPrice: '1000.0', // format as float string
             }));
 
             const transaction = txBuilder.setTimeout(30).build();
@@ -570,7 +582,20 @@ export const WalletFactory = {
             return { success: true, hash: response.hash };
         } catch (error: any) {
             console.error('[WalletNow][Liquidity] ❌ Falha no depósito:', error);
-            throw new Error(error.response?.data?.extras?.result_codes?.operations?.[0] || error.message);
+            let errMsg = error.message;
+            if (error.response?.data?.extras?.result_codes?.operations) {
+                const ops = error.response.data.extras.result_codes.operations;
+                const realErrors = ops.filter((op: string) => op !== 'op_success');
+                if (realErrors.length > 0) {
+                    errMsg = realErrors.join(', ');
+                    if (errMsg.includes('op_underfunded')) {
+                        errMsg = "op_underfunded: Saldo insuficiente de XLM para cobrir o depósito + slippage do swap + reservas de rede.";
+                    } else if (errMsg.includes('op_too_few_offers') || errMsg.includes('op_over_source_max')) {
+                        errMsg = "op_too_few_offers: A liquidez da pool é muito baixa para suportar essa quantia sem um slippage gigantesco. Tente um valor menor.";
+                    }
+                }
+            }
+            throw new Error(errMsg);
         }
     },
 
@@ -598,8 +623,10 @@ export const WalletFactory = {
                 networkPassphrase: StellarNetwork.passphrase
             });
 
+            const liquidityPoolIdHex = '4cd1f6defba237eecbc5fefe259f89ebc4b5edd49116beb5536c4034fc48d63f';
+
             txBuilder.addOperation(Operation.liquidityPoolWithdraw({
-                liquidityPoolId: lpAsset.toString(),
+                liquidityPoolId: liquidityPoolIdHex,
                 amount: sharesAmount,
                 minAmountA: '0',
                 minAmountB: '0'
