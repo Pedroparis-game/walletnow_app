@@ -1,163 +1,105 @@
 /**
  * @walletnow/providers — ProviderRegistry
  *
- * Registry global de providers do WalletNow OS.
- *
- * Responsabilidades:
- * - Registrar e desregistrar providers (dApps/protocolos)
- * - Buscar providers por ID ou capability
- * - Inicializar e destruir providers de forma controlada
- * - Integrar com o EventBus para notificar mudanças de estado
- *
- * @example
- * // Registrar um provider (feito pelos builders)
- * WalletNowOS.register(new SoroswapProvider());
- * WalletNowOS.register(new DefindexProvider());
- *
- * @example
- * // Buscar providers por capability
- * const swapProviders = registry.getByCapability('swap');
+ * Implementação real do IProviderRegistry.
+ * Gerencia o ciclo de vida dos providers carregados no OS.
  */
 
-import type { IWalletNowProvider, ProviderCapability } from '../manifest/ProviderManifest.js';
-import { eventBus } from '../eventbus/EventBus.js';
+import type {
+  IProviderRegistry,
+  IWalletNowProvider,
+  ProviderCapability,
+  ProviderHealthResult,
+} from '@walletnow/contracts';
+import { ProviderError } from '@walletnow/contracts';
+import type { WalletNowEventBus } from '../eventbus/EventBus.js';
 
-/**
- * ProviderRegistry — Registro central de todos os providers do WalletNow OS.
- *
- * Cada provider é identificado pelo `manifest.id` único.
- * O registro é case-sensitive e imutável após o registro (para evitar colisões).
- */
-export class ProviderRegistry {
-  private readonly providers = new Map<string, IWalletNowProvider>();
+export class ProviderRegistry implements IProviderRegistry {
+  private readonly _providers = new Map<string, IWalletNowProvider>();
 
-  /**
-   * Registra um provider no OS.
-   *
-   * O provider será inicializado (`initialize()`) automaticamente.
-   * Um evento `provider.registered` será emitido no EventBus.
-   *
-   * @throws Error se um provider com o mesmo ID já estiver registrado
-   */
+  constructor(private readonly events?: WalletNowEventBus) {}
+
   async register(provider: IWalletNowProvider): Promise<void> {
-    const { id, name, capabilities } = provider.manifest;
-
-    if (this.providers.has(id)) {
-      throw new Error(
-        `[ProviderRegistry] Provider '${id}' já está registrado. ` +
-        `Use um ID único por provider.`,
-      );
+    const id = provider.manifest.id;
+    if (this._providers.has(id)) {
+      throw new ProviderError('PROVIDER_ALREADY_REGISTERED', `Provider '${id}' já está registrado.`);
     }
 
     try {
       await provider.initialize();
-      this.providers.set(id, provider);
-
-      eventBus.emit('provider.registered', { id, name, capabilities });
+      this._providers.set(id, provider);
+      
+      this.events?.emit('provider.registered', {
+        id,
+        name: provider.manifest.name,
+        capabilities: provider.manifest.capabilities,
+      });
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      eventBus.emit('provider.initialize_failed', { id, error: message });
-      throw new Error(`[ProviderRegistry] Falha ao inicializar provider '${id}': ${message}`);
+      this.events?.emit('provider.init_failed', {
+        id,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      throw new ProviderError('PROVIDER_INIT_FAILED', `Falha ao inicializar provider '${id}'`, { cause: err });
     }
   }
 
-  /**
-   * Remove um provider do Registry e chama seu método `destroy()`.
-   * Emite `provider.unregistered` no EventBus.
-   *
-   * @throws Error se o provider não existir no Registry
-   */
   async unregister(id: string): Promise<void> {
-    const provider = this.providers.get(id);
+    const provider = this._providers.get(id);
     if (!provider) {
-      throw new Error(`[ProviderRegistry] Provider '${id}' não encontrado.`);
+      throw new ProviderError('PROVIDER_NOT_FOUND', `Provider '${id}' não encontrado no registry.`);
     }
 
     await provider.destroy();
-    this.providers.delete(id);
-    eventBus.emit('provider.unregistered', { id });
+    this._providers.delete(id);
+    
+    this.events?.emit('provider.unregistered', { id });
   }
 
-  /**
-   * Recupera um provider pelo ID.
-   * @returns O provider ou undefined se não encontrado
-   */
   get(id: string): IWalletNowProvider | undefined {
-    return this.providers.get(id);
+    return this._providers.get(id);
   }
 
-  /**
-   * Lista todos os providers registrados que implementam uma capability.
-   *
-   * @example
-   * const swapProviders = registry.getByCapability('swap');
-   * // → [SoroswapProvider, PhoenixProvider]
-   */
   getByCapability(capability: ProviderCapability): IWalletNowProvider[] {
-    return Array.from(this.providers.values()).filter((p) =>
+    return Array.from(this._providers.values()).filter((p) =>
       p.manifest.capabilities.includes(capability),
     );
   }
 
-  /**
-   * Lista todos os providers disponíveis para uma rede Stellar específica.
-   */
-  getByNetwork(network: 'stellar-mainnet' | 'stellar-testnet'): IWalletNowProvider[] {
-    return Array.from(this.providers.values()).filter((p) =>
-      p.manifest.networks.includes(network),
-    );
-  }
-
-  /**
-   * Lista todos os providers registrados.
-   */
   list(): IWalletNowProvider[] {
-    return Array.from(this.providers.values());
+    return Array.from(this._providers.values());
   }
 
-  /**
-   * Verifica se um provider está registrado.
-   */
   has(id: string): boolean {
-    return this.providers.has(id);
+    return this._providers.has(id);
   }
 
-  /**
-   * Retorna o número de providers registrados.
-   */
   get size(): number {
-    return this.providers.size;
+    return this._providers.size;
   }
 
-  /**
-   * Executa health check em todos os providers registrados.
-   * Retorna um snapshot do estado de saúde de cada um.
-   */
-  async healthAll(): Promise<Record<string, { status: string; latencyMs?: number }>> {
-    const results: Record<string, { status: string; latencyMs?: number }> = {};
-
-    await Promise.allSettled(
-      Array.from(this.providers.entries()).map(async ([id, provider]) => {
-        try {
-          const result = await provider.health();
-          results[id] = { status: result.status, latencyMs: result.latencyMs };
-          eventBus.emit('provider.health_changed', { id, status: result.status });
-        } catch {
-          results[id] = { status: 'unavailable' };
-          eventBus.emit('provider.health_changed', { id, status: 'unavailable' });
-        }
-      }),
-    );
-
+  async healthAll(): Promise<Record<string, ProviderHealthResult>> {
+    const results: Record<string, ProviderHealthResult> = {};
+    for (const [id, provider] of this._providers) {
+      try {
+        const health = await provider.health();
+        results[id] = health;
+        
+        this.events?.emit('provider.health_changed', {
+          id,
+          status: health.status,
+          latencyMs: health.latencyMs,
+        });
+      } catch (err) {
+        results[id] = { status: 'unknown', checkedAt: Date.now(), message: String(err) };
+      }
+    }
     return results;
   }
 
-  /**
-   * Destrói todos os providers e limpa o Registry.
-   * Chamado durante o shutdown do WalletNow OS.
-   */
   async destroyAll(): Promise<void> {
-    const ids = Array.from(this.providers.keys());
-    await Promise.allSettled(ids.map((id) => this.unregister(id)));
+    const ids = Array.from(this._providers.keys());
+    for (const id of ids) {
+      await this.unregister(id);
+    }
   }
 }

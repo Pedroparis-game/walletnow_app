@@ -1,28 +1,16 @@
 /**
- * @walletnow/identity — Public API Barrel
- *
- * Exportações públicas do Identity Engine.
- * Tudo que um builder precisa para gerenciar identidades no WalletNow OS.
+ * @walletnow/identity — Public API
  */
 
-// ─── Interfaces ───────────────────────────────────────────────────────────────
-export type { IIdentityEngine } from './interfaces/IIdentityEngine.js';
+export { IdentityEngine } from './IdentityEngine.js';
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// Re-exporta contratos de identity
 export type {
+  IIdentityEngine,
+  IAuthAdapter,
   Identity,
   IdentityId,
-  IdentityStatus,
-  IdentityAuthMethod,
-  IdentityMetadata,
   IdentitySession,
   IdentityAuthResult,
   CreateIdentityParams,
-  CreateIdentityWithPasskeyParams,
-  CreateIdentityWithKeypairParams,
-  CreateIdentityReadonlyParams,
-} from './types/identity.types.js';
-
-// ─── Errors ───────────────────────────────────────────────────────────────────
-export { IdentityError } from './errors/IdentityError.js';
-export type { IdentityErrorCode } from './errors/IdentityError.js';
+} from '@walletnow/contracts';

@@ -1,7 +1,8 @@
 {
   "name": "@walletnow/providers",
-  "version": "0.2.0-alpha-foundation",
-  "description": "WalletNow Protocol — Abstract Provider Base Classes",
+  "version": "0.1.0-alpha",
+  "description": "WalletNow OS — Provider Registry, EventBus, and OS Entrypoint",
+  "keywords": ["stellar", "providers", "registry", "os", "walletnow"],
   "license": "MIT",
   "type": "module",
   "sideEffects": false,
@@ -15,18 +16,16 @@
       "types": "./dist/index.d.ts"
     }
   },
-  "files": [
-    "dist"
-  ],
+  "files": ["dist"],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@stellar/freighter-api": "^6.0.1",
-    "@stellar/stellar-sdk": "^16.0.1",
-    "@walletnow/core": "*"
+    "@walletnow/contracts": "workspace:*",
+    "@walletnow/identity": "workspace:*",
+    "@walletnow/wallet": "workspace:*"
   },
   "devDependencies": {
     "tsup": "^8.0.0",

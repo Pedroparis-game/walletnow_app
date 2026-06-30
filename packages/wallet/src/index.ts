@@ -1,24 +1,21 @@
 /**
- * @walletnow/wallet — Public API Barrel
+ * @walletnow/wallet — Public API
  */
 
-// ─── Interfaces ───────────────────────────────────────────────────────────────
+export { WalletEngine } from './WalletEngine.js';
+export { AccountEngine } from './AccountEngine.js';
+
+// Re-exporta contratos do wallet
 export type {
   IWalletEngine,
-  IAccountEngine,
-} from './interfaces/IWalletEngine.js';
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-export type {
+  IWalletAdapter,
   StellarWallet,
   WalletId,
   WalletCustodyType,
-  WalletStatus,
-  StellarAccount,
-  AccountId,
-  AccountOnChainState,
-  AccountThresholds,
-  StellarTrustline,
+  CreateWalletParams,
   ImportWalletParams,
-  CreateWalletFromIdentityParams,
-} from './types/wallet.types.js';
+  CreateWalletAdapterParams,
+  IAccountEngine,
+  StellarAccountState,
+  StellarSigner,
+} from '@walletnow/contracts';

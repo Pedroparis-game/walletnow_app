@@ -1,8 +1,8 @@
 {
   "name": "@walletnow/wallet",
   "version": "0.1.0-alpha",
-  "description": "WalletNow OS — Wallet Engine (Stellar keypair management, signing, account lifecycle)",
-  "keywords": ["stellar", "wallet", "keypair", "signing", "account", "web3"],
+  "description": "WalletNow OS — Wallet Engine (Key Management) & Account Engine (On-Chain State)",
+  "keywords": ["stellar", "wallet", "account", "walletnow"],
   "license": "MIT",
   "type": "module",
   "sideEffects": false,
@@ -22,13 +22,12 @@
     "dev": "tsup --watch",
     "typecheck": "tsc --noEmit"
   },
-  "peerDependencies": {
-    "@walletnow/core": "workspace:*",
-    "@walletnow/identity": "workspace:*"
+  "dependencies": {
+    "@walletnow/contracts": "workspace:*",
+    "@walletnow/storage": "workspace:*",
+    "@walletnow/crypto": "workspace:*"
   },
   "devDependencies": {
-    "@walletnow/core": "workspace:*",
-    "@walletnow/identity": "workspace:*",
     "tsup": "^8.0.0",
     "typescript": "^5.4.0"
   }

@@ -1,12 +1,8 @@
 {
   "name": "@walletnow/sdk",
   "version": "0.1.0-alpha",
-  "description": "WalletNow OS — Unified SDK for Stellar builders. Identity, Wallet, Providers, Protocols and Testnet infrastructure in one package.",
-  "keywords": [
-    "stellar", "sdk", "wallet", "passkeys", "identity", "defi",
-    "soroban", "horizon", "usdc", "brz", "faucet", "testnet",
-    "soroswap", "defindex", "etherfuse", "web3", "blockchain"
-  ],
+  "description": "WalletNow SDK — The complete Stellar Operating System for Builders",
+  "keywords": ["stellar", "sdk", "walletnow", "os"],
   "license": "MIT",
   "type": "module",
   "sideEffects": false,
@@ -20,14 +16,16 @@
       "types": "./dist/index.d.ts"
     }
   },
-  "files": ["dist", "README.md"],
+  "files": ["dist"],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@walletnow/core": "workspace:*",
+    "@walletnow/contracts": "workspace:*",
+    "@walletnow/crypto": "workspace:*",
+    "@walletnow/storage": "workspace:*",
     "@walletnow/identity": "workspace:*",
     "@walletnow/wallet": "workspace:*",
     "@walletnow/providers": "workspace:*"

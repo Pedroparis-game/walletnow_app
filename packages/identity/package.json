@@ -1,8 +1,8 @@
 {
   "name": "@walletnow/identity",
   "version": "0.1.0-alpha",
-  "description": "WalletNow OS — Identity Engine (FIDO2/Passkey, WebAuthn, Social Logins, Session)",
-  "keywords": ["stellar", "passkeys", "webauthn", "fido2", "identity", "web3"],
+  "description": "WalletNow OS — Identity Engine (Passkeys, OAuth, Keypair Auth)",
+  "keywords": ["stellar", "identity", "auth", "passkeys", "walletnow"],
   "license": "MIT",
   "type": "module",
   "sideEffects": false,
@@ -22,11 +22,12 @@
     "dev": "tsup --watch",
     "typecheck": "tsc --noEmit"
   },
-  "peerDependencies": {
-    "@walletnow/core": "workspace:*"
+  "dependencies": {
+    "@walletnow/contracts": "workspace:*",
+    "@walletnow/storage": "workspace:*",
+    "@walletnow/crypto": "workspace:*"
   },
   "devDependencies": {
-    "@walletnow/core": "workspace:*",
     "tsup": "^8.0.0",
     "typescript": "^5.4.0"
   }
