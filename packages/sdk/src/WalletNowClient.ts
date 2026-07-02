@@ -9,10 +9,12 @@
 import { WalletNowOS } from '@walletnow/providers';
 import { OnboardingOrchestrator } from '@walletnow/onboarding';
 import type { OnboardingContext } from '@walletnow/onboarding';
+import type { IIdentityEngine, IWalletEngine, IAccountEngine } from '@walletnow/contracts';
 
 export interface WalletNowClientConfig {
-  apiKey: string;
+  apiKey?: string;
   network?: 'mainnet' | 'testnet';
+  engines?: Partial<OnboardingContext>;
 }
 
 export class WalletNowClient {
@@ -36,15 +38,15 @@ export class WalletNowClient {
     // NOTA: Em uma implementação real, os ports (gasStation, faucet, etc)
     // seriam implementações concretas que chamam a API do WalletNow Cloud.
     const onboardingCtx: OnboardingContext = {
-      identity: os.identity,
-      wallet: os.wallet,
-      account: os.account,
+      identity: config.engines?.identity ?? os.identity,
+      wallet: config.engines?.wallet ?? os.wallet,
+      account: config.engines?.account ?? os.account,
       
       // FIXME: Implementações reais a serem criadas na próxima sprint
-      gasStation: {} as any,
-      faucet: {} as any,
-      session: {} as any,
-      analytics: {} as any,
+      gasStation: config.engines?.gasStation ?? ({} as any),
+      faucet: config.engines?.faucet ?? ({} as any),
+      session: config.engines?.session ?? ({} as any),
+      analytics: config.engines?.analytics ?? ({} as any),
       
       network,
     };

@@ -105,6 +105,15 @@ function fakeSessionToken(): string {
 // ─── PlaygroundEngine ─────────────────────────────────────────────────────────
 
 import { WalletNowClient } from '@walletnow/sdk';
+import {
+  PlaygroundIdentityEngine,
+  PlaygroundWalletEngine,
+  PlaygroundAccountEngine,
+  PlaygroundGasStation,
+  PlaygroundTestnetFaucet,
+  PlaygroundSessionPort,
+  PlaygroundAnalyticsPort,
+} from './playgroundFakes';
 
 export class PlaygroundEngine {
   private _steps: PlaygroundStep[] = [];
@@ -131,8 +140,19 @@ export class PlaygroundEngine {
     try {
       this._setStatus('init', 'running'); this._emit();
       
-      // REAL SDK INIT
-      const wn = await WalletNowClient.init({ network: params.network });
+      // REAL SDK INIT with Fakes
+      const wn = await WalletNowClient.init({
+        network: params.network,
+        engines: {
+          identity: new PlaygroundIdentityEngine(),
+          wallet: new PlaygroundWalletEngine(),
+          account: new PlaygroundAccountEngine(),
+          gasStation: new PlaygroundGasStation() as any,
+          faucet: new PlaygroundTestnetFaucet() as any,
+          session: new PlaygroundSessionPort() as any,
+          analytics: new PlaygroundAnalyticsPort() as any,
+        },
+      });
       
       await delay(200, 400); // UX delay
       this._setStatus('init', 'done'); this._emit();
