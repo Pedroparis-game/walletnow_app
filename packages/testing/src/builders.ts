@@ -91,7 +91,7 @@ export function buildProviderManifest(
     name: `${id.charAt(0).toUpperCase()}${id.slice(1)} Provider`,
     version: '0.0.0-test',
     capabilities,
-    networks: ['stellar-testnet'],
+    networks: ['testnet'],
     description: `Test provider for ${id}`,
     website: `https://${id}.test`,
     icon: `https://${id}.test/icon.svg`,

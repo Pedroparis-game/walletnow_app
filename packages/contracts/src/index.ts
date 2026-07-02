@@ -6,6 +6,7 @@
  * @example
  * import type { IIdentityEngine, IWalletEngine, IWalletNowOS } from '@walletnow/contracts';
  * import { NotImplementedError, IdentityError, WalletNowError } from '@walletnow/contracts';
+ * import type { IOnboardingDomain, CreateUserParams, UserOnboardingResult } from '@walletnow/contracts';
  */
 
 // ─── Network ──────────────────────────────────────────────────────────────────
@@ -124,6 +125,7 @@ export {
   CryptoError,
   ProviderError,
   NetworkError,
+  OnboardingError,
 } from './errors.js';
 
 export type {
@@ -133,4 +135,20 @@ export type {
   CryptoErrorCode,
   ProviderErrorCode,
   NetworkErrorCode,
+  OnboardingErrorCode,
 } from './errors.js';
+
+// ─── Onboarding (Domínio de Primeira Classe) ─────────────────────────────────────
+export type {
+  // Inputs
+  CreateUserParams,
+  RestoreUserParams,
+  SetupTrustlinesParams,
+  // Outputs
+  UserOnboardingResult,
+  OnboardingAccountStatus,
+  TrustlineSetupResult,
+  OnboardingUserStatus,
+  // Contract
+  IOnboardingDomain,
+} from './onboarding.js';

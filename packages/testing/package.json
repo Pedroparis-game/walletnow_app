@@ -23,8 +23,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@walletnow/contracts": "workspace:*",
-    "@walletnow/storage": "workspace:*"
+    "@walletnow/contracts": "*",
+    "@walletnow/storage": "*"
   },
   "devDependencies": {
     "tsup": "^8.0.0",

@@ -35,6 +35,17 @@ export default defineConfig(({ mode }) => {
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
+        // Aliases de workspace para @walletnow/* — resolvem os pacotes internos
+        // em modo de desenvolvimento e durante a execução de testes (Vitest)
+        '@walletnow/contracts':  path.resolve(__dirname, 'packages/contracts/src/index.ts'),
+        '@walletnow/crypto':     path.resolve(__dirname, 'packages/crypto/src/index.ts'),
+        '@walletnow/storage':    path.resolve(__dirname, 'packages/storage/src/index.ts'),
+        '@walletnow/identity':   path.resolve(__dirname, 'packages/identity/src/index.ts'),
+        '@walletnow/wallet':     path.resolve(__dirname, 'packages/wallet/src/index.ts'),
+        '@walletnow/onboarding': path.resolve(__dirname, 'packages/onboarding/src/index.ts'),
+        '@walletnow/testing':    path.resolve(__dirname, 'packages/testing/src/index.ts'),
+        '@walletnow/domain':     path.resolve(__dirname, 'packages/domain/src/index.ts'),
+        '@walletnow/providers':  path.resolve(__dirname, 'packages/providers/src/index.ts'),
       },
     },
     build: {

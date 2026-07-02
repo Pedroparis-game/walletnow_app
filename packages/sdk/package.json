@@ -1,8 +1,8 @@
 {
   "name": "@walletnow/sdk",
   "version": "0.1.0-alpha",
-  "description": "WalletNow SDK — The complete Stellar Operating System for Builders",
-  "keywords": ["stellar", "sdk", "walletnow", "os"],
+  "description": "WalletNow SDK — The simplest way to put users inside Stellar",
+  "keywords": ["stellar", "sdk", "walletnow", "onboarding", "infrastructure"],
   "license": "MIT",
   "type": "module",
   "sideEffects": false,
@@ -23,12 +23,9 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@walletnow/contracts": "workspace:*",
-    "@walletnow/crypto": "workspace:*",
-    "@walletnow/storage": "workspace:*",
-    "@walletnow/identity": "workspace:*",
-    "@walletnow/wallet": "workspace:*",
-    "@walletnow/providers": "workspace:*"
+    "@walletnow/contracts": "*",
+    "@walletnow/onboarding": "*",
+    "@walletnow/providers": "*"
   },
   "devDependencies": {
     "tsup": "^8.0.0",

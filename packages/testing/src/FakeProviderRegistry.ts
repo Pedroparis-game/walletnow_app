@@ -30,7 +30,7 @@ export function makeFakeProvider(overrides: Partial<WalletNowProviderManifest> &
     name: overrides.name ?? `Fake ${overrides.id} Provider`,
     version: overrides.version ?? '0.0.0-test',
     capabilities: overrides.capabilities ?? [],
-    networks: overrides.networks ?? ['stellar-testnet'],
+    networks: overrides.networks ?? ['testnet'],
     description: overrides.description ?? 'Fake provider for testing',
     website: overrides.website ?? 'https://example.com',
     icon: overrides.icon ?? 'https://example.com/icon.svg',

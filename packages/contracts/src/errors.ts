@@ -14,7 +14,7 @@
 export class WalletNowError extends Error {
   readonly code: string;
   readonly domain: string;
-  readonly context?: Record<string, unknown>;
+  readonly context?: Record<string, unknown> | undefined;
 
   constructor(
     domain: string,
@@ -168,5 +168,27 @@ export class NetworkError extends WalletNowError {
   constructor(code: NetworkErrorCode, message: string, context?: Record<string, unknown>) {
     super('Network', code, message, context);
     this.name = 'NetworkError';
+  }
+}
+
+// ─── Onboarding Errors ────────────────────────────────────────────────────────
+
+export type OnboardingErrorCode =
+  | 'USER_ALREADY_EXISTS'        // externalId já registrado neste projeto
+  | 'USER_NOT_FOUND'             // externalId não encontrado
+  | 'ACCOUNT_CREATION_FAILED'    // Falha ao criar conta on-chain
+  | 'SPONSORSHIP_FAILED'         // Gas Station não pôde patrocinar
+  | 'SPONSORSHIP_LIMIT_EXCEEDED' // Cota de patrocínio do plano esgotada
+  | 'TRUSTLINE_SETUP_FAILED'     // Falha parcial ou total nas trustlines
+  | 'INVALID_ASSET_CODE'         // Código de ativo inválido ou não suportado
+  | 'TESTNET_ONLY'               // Operação só disponível em testnet
+  | 'INVALID_EXTERNAL_ID'        // externalId inválido (vazio, muito longo, etc.)
+  | 'SESSION_CREATION_FAILED'    // Falha ao gerar token de sessão
+  | 'NETWORK_MISMATCH';          // Conta existe em rede diferente da configurada
+
+export class OnboardingError extends WalletNowError {
+  constructor(code: OnboardingErrorCode, message: string, context?: Record<string, unknown>) {
+    super('Onboarding', code, message, context);
+    this.name = 'OnboardingError';
   }
 }

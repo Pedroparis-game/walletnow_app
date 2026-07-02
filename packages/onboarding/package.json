@@ -1,0 +1,38 @@
+{
+  "name": "@walletnow/onboarding",
+  "version": "0.1.0-alpha",
+  "description": "WalletNow — Onboarding Domain (First-Class). The simplest way to put a user inside Stellar.",
+  "keywords": ["stellar", "onboarding", "wallet", "infrastructure", "walletnow"],
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@walletnow/contracts": "*",
+    "@walletnow/crypto": "*",
+    "@walletnow/storage": "*",
+    "@walletnow/identity": "*",
+    "@walletnow/wallet": "*"
+  },
+  "devDependencies": {
+    "tsup": "^8.0.0",
+    "typescript": "^5.4.0",
+    "vitest": "^1.6.0"
+  }
+}

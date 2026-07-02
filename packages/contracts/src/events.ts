@@ -15,7 +15,7 @@ import type { AuthMethod } from './identity.js';
  * Mapa canônico de todos os eventos do WalletNow OS.
  * Adicionar novos eventos aqui é a única forma de estender o sistema.
  */
-export interface WalletNowOSEvents {
+export type WalletNowOSEvents = {
 
   // ─── OS / Kernel ─────────────────────────────────────────────────────────
   'os.ready':                   { version: string; network: StellarNetworkType };
@@ -46,7 +46,7 @@ export interface WalletNowOSEvents {
   // ─── Provider Registry ────────────────────────────────────────────────────
   'provider.registered':        { id: string; name: string; capabilities: string[] };
   'provider.unregistered':      { id: string };
-  'provider.health_changed':    { id: string; status: string; latencyMs?: number };
+  'provider.health_changed':    { id: string; status: string; latencyMs?: number | undefined };
   'provider.init_failed':       { id: string; error: string };
 
   // ─── Transaction Pipeline ─────────────────────────────────────────────────

@@ -23,6 +23,8 @@ import { IntegrationEngineProvider } from './contexts/IntegrationEngineContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import QADebugPanel from './components/QADebugPanel';
 import { AppErrorBoundary } from './components/system/AppErrorBoundary';
+import DocsLayout from './pages/docs/DocsLayout';
+import DocsRouter from './pages/docs/DocsRouter';
 
 /**
  * WalletNow — Sprint H
@@ -48,6 +50,11 @@ export default function App() {
         <Routes>
           {/* ─── Páginas públicas ────────────────────────────────────────── */}
           <Route path="/" element={<Landing />} />
+
+          {/* ─── Developer Portal ────────────────────────────────────────── */}
+          <Route path="/docs" element={<DocsLayout />}>
+            <Route path="*" element={<DocsRouter />} />
+          </Route>
 
           {/* ─── Login (sem AppShell) ────────────────────────────────────── */}
           <Route element={<RootLayout />}>

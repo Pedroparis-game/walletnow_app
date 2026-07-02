@@ -45,7 +45,7 @@ function makeIdentity(id: IdentityId, params: CreateIdentityParams): Identity {
   return {
     id,
     authMethod: params.method,
-    label: 'label' in params ? params.label : undefined,
+    ...(params.label !== undefined ? { label: params.label } : {}),
     createdAt: Date.now(),
     lastAuthAt: Date.now(),
     isActive: true,
