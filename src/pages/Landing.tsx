@@ -66,6 +66,7 @@ function LandingNavbar() {
     { href: '#why',         label: t.nav.why },
     { href: '#open-source', label: t.nav.openSource },
     { href: '#ecosystem',   label: t.nav.ecosystem },
+    { href: '/walletnow/docs', label: 'Docs', isExternal: true },
   ];
 
   const handleScroll = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
@@ -113,20 +114,30 @@ function LandingNavbar() {
           background: 'rgba(0,168,107,0.12)', color: 'var(--color-wn-green)',
           border: '1px solid rgba(0,168,107,0.25)', letterSpacing: '0.06em',
         }}>
-          INFRA
+          SDK v0.4
         </span>
       </div>
 
       {/* Nav links — desktop only */}
       <div className="nav-links-desktop" style={{ alignItems: 'center', gap: 2, flex: 1, justifyContent: 'center', display: 'flex' }}>
-        {NAV_LINKS.map(link => (
+      {NAV_LINKS.map(link => (
           <a
             key={link.href}
             href={link.href}
             className="navbar-link"
-            onClick={(e) => handleScroll(e, link.href)}
+            onClick={(e) => {
+              if ((link as any).isExternal) return;
+              handleScroll(e, link.href);
+            }}
           >
             {link.label}
+            {(link as any).isExternal && (
+              <span style={{
+                fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 999,
+                background: 'rgba(0,255,153,0.12)', color: 'var(--color-wn-green)',
+                border: '1px solid rgba(0,255,153,0.25)', marginLeft: 5, verticalAlign: 'middle',
+              }}>NEW</span>
+            )}
           </a>
         ))}
       </div>
