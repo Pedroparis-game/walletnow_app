@@ -148,7 +148,7 @@ export default function TestnetKit() {
     friendbot: 'checking',
     faucet: 'operational',
     rpc: 'operational',
-    confidentialVerifier: 'operational'
+    confidentialVerifier: 'soon'
   });
 
   const addLog = useCallback((message: string, type: 'info' | 'success' | 'error' | 'warning' = 'info') => {
@@ -1272,7 +1272,7 @@ export default function TestnetKit() {
                   <span className="tk-hm-lbl">OpenZeppelin Confidential Verifier</span>
                   <span className="tk-light-text">Zero-Knowledge Proofs (Ultrahonk) Verifier</span>
                 </div>
-                <div className="tk-status-badge green">
+                <div className={`tk-status-badge ${healthStatus.confidentialVerifier === 'soon' ? 'yellow' : 'green'}`}>
                   {healthStatus.confidentialVerifier}
                 </div>
               </div>
