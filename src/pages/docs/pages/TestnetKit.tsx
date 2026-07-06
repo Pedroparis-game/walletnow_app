@@ -1,5 +1,5 @@
 /**
- * WalletNow Developer Portal — Testnet Infrastructure Kit
+ * WalletNow Developer Portal â€” Testnet Infrastructure Kit
  *
  * Painel completo e interativo para inicializar, financiar e gerenciar
  * ambientes de desenvolvimento e ativos confidenciais na Stellar Testnet.
@@ -36,12 +36,12 @@ import {
 } from '../../../lib/docs/playgroundFakes';
 import { Keypair, TransactionBuilder, Asset, Operation, LiquidityPoolAsset, Transaction, Networks } from '@stellar/stellar-sdk';
 
-// Configurações do Faucet e Emissores
+// ConfiguraÃ§Ãµes do Faucet e Emissores
 const NETWORKS = {
   TESTNET: 'Test SDF Network ; September 2015'
 };
 
-// Helper para instanciar LiquidityPoolAsset garantindo ordenação lexicográfica
+// Helper para instanciar LiquidityPoolAsset garantindo ordenaÃ§Ã£o lexicogrÃ¡fica
 function createLpAsset(assetA: Asset, assetB: Asset): LiquidityPoolAsset {
   if (assetA.isNative()) return new LiquidityPoolAsset(assetA, assetB, 30);
   if (assetB.isNative()) return new LiquidityPoolAsset(assetB, assetA, 30);
@@ -59,7 +59,7 @@ function createLpAsset(assetA: Asset, assetB: Asset): LiquidityPoolAsset {
     : new LiquidityPoolAsset(assetB, assetA, 30);
 }
 
-type ActiveTab = 'dashboard' | 'faucet' | 'pools' | 'explorer' | 'health' | 'sep';
+type ActiveTab = 'dashboard' | 'faucet' | 'pools' | 'explorer' | 'health';
 
 interface LogEntry {
   message: string;
@@ -151,104 +151,6 @@ export default function TestnetKit() {
     confidentialVerifier: 'soon'
   });
 
-  // Estado do SEP & IA Integration
-  const [sepSecretKey, setSepSecretKey] = useState('');
-  const [sepAnchor, setSepAnchor] = useState('testanchor.stellar.org');
-  const [sepAsset, setSepAsset] = useState('SRT');
-  const [sepLoading, setSepLoading] = useState(false);
-  const [sepResultUrl, setSepResultUrl] = useState<string | null>(null);
-  const [sepLogs, setSepLogs] = useState<LogEntry[]>([
-    { message: 'IA & SEP Integration Console initialized.', type: 'info', timestamp: new Date().toLocaleTimeString() }
-  ]);
-
-  useEffect(() => {
-    if (envResult?.secretKey) {
-      setSepSecretKey(envResult.secretKey);
-    }
-  }, [envResult]);
-
-  const addSepLog = useCallback((message: string, type: 'info' | 'success' | 'error' | 'warning' = 'info') => {
-    setSepLogs(prev => [
-      { message, type, timestamp: new Date().toLocaleTimeString() },
-      ...prev
-    ]);
-  }, []);
-
-  const handleRunSepFlow = async () => {
-    if (!sepSecretKey) {
-      addSepLog('Erro: Chave Secreta do usuário é obrigatória.', 'error');
-      return;
-    }
-    setSepLoading(true);
-    setSepResultUrl(null);
-    addSepLog(`Iniciando fluxo invisível com ${sepAnchor}...`, 'info');
-
-    try {
-      const userKeypair = Keypair.fromSecret(sepSecretKey);
-      const userAddress = userKeypair.publicKey();
-
-      // 1. SEP-10 Auth Challenge
-      addSepLog(`[SEP-10] Solicitando desafio para conta: ${userAddress.slice(0, 8)}...`, 'info');
-      const challengeUrl = `https://${sepAnchor}/auth?account=${userAddress}`;
-      const challengeRes = await fetch(challengeUrl);
-      if (!challengeRes.ok) {
-        throw new Error(`Falha no GET /auth: HTTP ${challengeRes.status}`);
-      }
-      const challengeJson = await challengeRes.json();
-      const transactionXDR = challengeJson.transaction;
-      addSepLog(`[SEP-10] Desafio obtido. Assinando silenciosamente localmente...`, 'info');
-
-      // Assinar transação
-      const challengeTx = new Transaction(transactionXDR, NETWORKS.TESTNET);
-      challengeTx.sign(userKeypair);
-      const signedXDR = challengeTx.toEnvelope().toXDR('base64');
-      addSepLog(`[SEP-10] Enviando desafio assinado para a âncora...`, 'info');
-
-      // Enviar de volta
-      const tokenRes = await fetch(`https://${sepAnchor}/auth`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ transaction: signedXDR })
-      });
-      if (!tokenRes.ok) {
-        throw new Error(`Falha no POST /auth: HTTP ${tokenRes.status}`);
-      }
-      const tokenJson = await tokenRes.json();
-      const jwtToken = tokenJson.token;
-      addSepLog(`[SEP-10] Autenticação concluída! Token JWT recebido.`, 'success');
-
-      // 2. SEP-24 Interactive Deposit
-      addSepLog(`[SEP-24] Solicitando rampa interativa para o ativo ${sepAsset}...`, 'info');
-      const depositUrl = `https://${sepAnchor}/sep24/transactions/deposit/interactive`;
-      const formData = new FormData();
-      formData.append('asset_code', sepAsset);
-      formData.append('account', userAddress);
-
-      const depositRes = await fetch(depositUrl, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${jwtToken}`
-        },
-        body: formData
-      });
-
-      if (!depositRes.ok) {
-        const errText = await depositRes.text();
-        throw new Error(`Falha no depósito SEP-24: HTTP ${depositRes.status} — ${errText}`);
-      }
-
-      const depositData = await depositRes.json();
-      const interactiveUrl = depositData.url;
-      addSepLog(`[SEP-24] Sucesso! Rampa fiduciária gerada em background.`, 'success');
-      setSepResultUrl(interactiveUrl);
-    } catch (err: any) {
-      console.error('[SEP Flow Error]', err);
-      addSepLog(`Falha no fluxo SEP: ${err.message}`, 'error');
-    } finally {
-      setSepLoading(false);
-    }
-  };
-
   const addLog = useCallback((message: string, type: 'info' | 'success' | 'error' | 'warning' = 'info') => {
     setLogs(prev => [
       { message, type, timestamp: new Date().toLocaleTimeString() },
@@ -295,7 +197,7 @@ export default function TestnetKit() {
       addLog(`User account activated with 10,000 XLM! Tx Hash: ${friendbotData.hash.slice(0, 12)}...`, 'success');
       addLog('BRW & USDW Token Issuers are active on-chain!', 'success');
 
-      // Delay de propagação do ledger
+      // Delay de propagaÃ§Ã£o do ledger
       addLog('Waiting for ledger propagation (2.5s)...', 'info');
       await new Promise(resolve => setTimeout(resolve, 2500));
 
@@ -344,7 +246,7 @@ export default function TestnetKit() {
       const brwAccount = await server.loadAccount(BRW_ISSUER);
       const usdwAccount = await server.loadAccount(USDW_ISSUER);
 
-      // Transação BRW Faucet
+      // TransaÃ§Ã£o BRW Faucet
       const brwTx = new TransactionBuilder(brwAccount, {
         fee: '100',
         networkPassphrase: NETWORKS.TESTNET
@@ -355,7 +257,7 @@ export default function TestnetKit() {
       brwTx.sign(BRW_KEYPAIR);
       const brwFaucetRes = await server.submitTransaction(brwTx);
 
-      // Transação USDW Faucet
+      // TransaÃ§Ã£o USDW Faucet
       const usdwTx = new TransactionBuilder(usdwAccount, {
         fee: '100',
         networkPassphrase: NETWORKS.TESTNET
@@ -376,7 +278,7 @@ export default function TestnetKit() {
         faucetTxHash: usdwFaucetRes.hash
       });
 
-      // Atualiza o search input do Explorer para conveniência
+      // Atualiza o search input do Explorer para conveniÃªncia
       setSearchAddress(pubKey);
     } catch (err: any) {
       console.error('[Playground Error]', err);
@@ -422,7 +324,7 @@ export default function TestnetKit() {
         const issuerAccount = await server.loadAccount(issuerPub);
         const assetObj = new Asset(assetCode, issuerPub);
 
-        // Transferência Pública Clássica
+        // TransferÃªncia PÃºblica ClÃ¡ssica
         const tx = new TransactionBuilder(issuerAccount, {
           fee: '100',
           networkPassphrase: NETWORKS.TESTNET
@@ -506,7 +408,7 @@ export default function TestnetKit() {
             };
           }
         } catch (e) {
-          // A pool não existe on-chain ainda
+          // A pool nÃ£o existe on-chain ainda
         }
         return {
           ...pool,
@@ -523,7 +425,7 @@ export default function TestnetKit() {
     }
   };
 
-  // Inicialização das pools com IDs determinísticos na montagem
+  // InicializaÃ§Ã£o das pools com IDs determinÃ­sticos na montagem
   useEffect(() => {
     setPools(prev => prev.map(p => {
       try {
@@ -545,7 +447,7 @@ export default function TestnetKit() {
     }
   }, [activeTab]);
 
-  // Ação de Depósito de Liquidez / Seed Pool
+  // AÃ§Ã£o de DepÃ³sito de Liquidez / Seed Pool
   const handleDepositLiquidity = async (poolIndex: number, isQuickSeed = false) => {
     if (!envResult) {
       addLog('Error: Please initialize your 1-Click Test Environment first to have active keys and funds.', 'error');
@@ -565,12 +467,12 @@ export default function TestnetKit() {
       const userKeypair = Keypair.fromSecret(envResult.secretKey);
       const userAddress = userKeypair.publicKey();
 
-      // Carrega conta do usuário
+      // Carrega conta do usuÃ¡rio
       const account = await server.loadAccount(userAddress);
       const lpAsset = createLpAsset(pool.assetA, pool.assetB);
       const poolId = lpAsset.toString().split(':')[1];
 
-      // Determina a correspondência correta das quantias com os ativos ordenados lexicograficamente
+      // Determina a correspondÃªncia correta das quantias com os ativos ordenados lexicograficamente
       const isOrdered = pool.assetA.isNative() || (!pool.assetB.isNative() && pool.assetA.getCode() < pool.assetB.getCode());
       const finalDepA = isOrdered ? depA : depB;
       const finalDepB = isOrdered ? depB : depA;
@@ -580,7 +482,7 @@ export default function TestnetKit() {
         networkPassphrase: NETWORKS.TESTNET
       });
 
-      // Adiciona trustline do Liquidity Pool Share (LPS) se necessário
+      // Adiciona trustline do Liquidity Pool Share (LPS) se necessÃ¡rio
       const hasLpTrust = account.balances.some((b: any) => 
         b.asset_type === 'liquidity_pool_shares' && b.liquidity_pool_id === poolId
       );
@@ -590,7 +492,7 @@ export default function TestnetKit() {
         txBuilder = txBuilder.addOperation(Operation.changeTrust({ asset: lpAsset, limit: '1000000000' }));
       }
 
-      // Adiciona operação de depósito
+      // Adiciona operaÃ§Ã£o de depÃ³sito
       addLog(`Adding LiquidityPoolDeposit operation (A: ${finalDepA}, B: ${finalDepB})...`, 'info');
       txBuilder = txBuilder.addOperation(Operation.liquidityPoolDeposit({
         liquidityPoolId: poolId,
@@ -623,7 +525,7 @@ export default function TestnetKit() {
     }
   };
 
-  // Ação de Retirada de Liquidez
+  // AÃ§Ã£o de Retirada de Liquidez
   const handleWithdrawLiquidity = async (poolIndex: number) => {
     if (!envResult) {
       addLog('Error: Please initialize your 1-Click Test Environment first to have active keys and funds.', 'error');
@@ -642,7 +544,7 @@ export default function TestnetKit() {
       const userKeypair = Keypair.fromSecret(envResult.secretKey);
       const userAddress = userKeypair.publicKey();
 
-      // Carrega conta do usuário
+      // Carrega conta do usuÃ¡rio
       const account = await server.loadAccount(userAddress);
       const lpAsset = createLpAsset(pool.assetA, pool.assetB);
       const poolId = lpAsset.toString().split(':')[1];
@@ -652,7 +554,7 @@ export default function TestnetKit() {
         networkPassphrase: NETWORKS.TESTNET
       });
 
-      // Adiciona operação de saque
+      // Adiciona operaÃ§Ã£o de saque
       addLog(`Adding LiquidityPoolWithdraw operation (Shares: ${sharesToBurn})...`, 'info');
       txBuilder = txBuilder.addOperation(Operation.liquidityPoolWithdraw({
         liquidityPoolId: poolId,
@@ -684,7 +586,7 @@ export default function TestnetKit() {
     }
   };
 
-  // Ação de Swap na Pool
+  // AÃ§Ã£o de Swap na Pool
   const handleSwapLiquidity = async (poolIndex: number) => {
     if (!envResult) {
       addLog('Error: Please initialize your 1-Click Test Environment first to have active keys and funds.', 'error');
@@ -710,7 +612,7 @@ export default function TestnetKit() {
       
       const assetIn = direction === 'AtoB' ? pool.assetA : pool.assetB;
       const assetOut = direction === 'AtoB' ? pool.assetB : pool.assetA;
-      // Cálculo do AMM
+      // CÃ¡lculo do AMM
       const amountInNum = parseFloat(amountIn);
       const isAtoB = direction === 'AtoB';
       const reserveIn = isAtoB ? parseFloat(pool.reservesA) : parseFloat(pool.reservesB);
@@ -725,7 +627,7 @@ export default function TestnetKit() {
         networkPassphrase: NETWORKS.TESTNET
       });
 
-      // Se o asset de saída não for nativo, verificar trustline
+      // Se o asset de saÃ­da nÃ£o for nativo, verificar trustline
       if (!assetOut.isNative()) {
         const outCode = assetOut.getCode();
         const hasOutTrust = account.balances.some((b: any) => 
@@ -803,7 +705,7 @@ export default function TestnetKit() {
         <h1>{tk.title}</h1>
         <p className="doc-subtitle">{tk.subtitle}</p>
         <div className="tk-subtitle-desc">
-          O conjunto completo de infraestrutura para acelerar testes, automação de liquidez e simulações com privacidade na Stellar Testnet.
+          O conjunto completo de infraestrutura para acelerar testes, automaÃ§Ã£o de liquidez e simulaÃ§Ãµes com privacidade na Stellar Testnet.
         </div>
       </div>
 
@@ -824,9 +726,6 @@ export default function TestnetKit() {
         <button className={`tk-tab-btn ${activeTab === 'health' ? 'active' : ''}`} onClick={() => setActiveTab('health')}>
           <Activity size={14} /> Infrastructure Health
         </button>
-        <button className={`tk-tab-btn ${activeTab === 'sep' ? 'active' : ''}`} onClick={() => setActiveTab('sep')}>
-          <Shield size={14} /> IA & SEP Integration
-        </button>
       </div>
 
       {/* Content Area */}
@@ -841,7 +740,7 @@ export default function TestnetKit() {
                 <h3>One-Click Test Environment</h3>
               </div>
               <p className="tk-card-desc">
-                Crie um ambiente de testes completo em segundos. Isso gera uma nova carteira Stellar real na rede Testnet, solicita a ativação via Friendbot (10.000 XLM), configura as trustlines para nossos ativos BRW e USDW e deposita saldos de teste iniciais em ambas as moedas.
+                Crie um ambiente de testes completo em segundos. Isso gera uma nova carteira Stellar real na rede Testnet, solicita a ativaÃ§Ã£o via Friendbot (10.000 XLM), configura as trustlines para nossos ativos BRW e USDW e deposita saldos de teste iniciais em ambas as moedas.
               </p>
 
               <div className="tk-action-panel">
@@ -874,7 +773,7 @@ export default function TestnetKit() {
                   <div className="tk-result-field">
                     <span className="tk-result-lbl">Secret Key (Private Key)</span>
                     <div className="tk-copyable-value">
-                      <code className="tk-mono-text">{showSecret ? envResult.secretKey : '••••••••••••••••••••••••••••••••••••••••••••••••••••••••'}</code>
+                      <code className="tk-mono-text">{showSecret ? envResult.secretKey : 'â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢'}</code>
                       <div className="tk-btn-group">
                         <button className="tk-icon-btn" onClick={() => setShowSecret(!showSecret)} title="Toggle Visibility">
                           {showSecret ? <EyeOff size={14} /> : <Eye size={14} />}
@@ -949,7 +848,7 @@ export default function TestnetKit() {
             <div className="tk-main-card">
               <h3>Faucet++ Multiativos</h3>
               <p className="tk-card-desc">
-                Adicione fundos a qualquer endereço de carteira ativo na Stellar Testnet. Distribua XLM, BRW ou USDW em um clique de forma imediata.
+                Adicione fundos a qualquer endereÃ§o de carteira ativo na Stellar Testnet. Distribua XLM, BRW ou USDW em um clique de forma imediata.
               </p>
 
               <form onSubmit={handleFaucetRequest} className="tk-form">
@@ -1009,7 +908,7 @@ export default function TestnetKit() {
                   <div className="tk-ai-badge usdw">USDW</div>
                   <div>
                     <strong>WalletNow USD (USDW)</strong>
-                    <span>Moeda indexada ao Dólar americano. Emissor:<br /><code className="tk-mini-mono">{USDW_ISSUER}</code></span>
+                    <span>Moeda indexada ao DÃ³lar americano. Emissor:<br /><code className="tk-mini-mono">{USDW_ISSUER}</code></span>
                   </div>
                 </div>
               </div>
@@ -1018,7 +917,7 @@ export default function TestnetKit() {
               {faucetError && (
                 <div className="tk-badge mt-6" style={{ borderColor: 'rgba(255,50,50,0.5)', color: '#ff6666', background: 'rgba(255,50,50,0.1)' }}>
                   Error: {faucetError}
-                  <div className="text-[10px] text-gray-400 mt-2">Dica: Verifique se você não esqueceu de criar a Trustline na aba One-Click Env (op_no_trust) ou certifique-se de que o endereço é válido e existe na rede!</div>
+                  <div className="text-[10px] text-gray-400 mt-2">Dica: Verifique se vocÃª nÃ£o esqueceu de criar a Trustline na aba One-Click Env (op_no_trust) ou certifique-se de que o endereÃ§o Ã© vÃ¡lido e existe na rede!</div>
                 </div>
               )}
               {faucetSuccess && (
@@ -1046,7 +945,7 @@ export default function TestnetKit() {
           <div className="tk-main-card">
             <h3>Liquidity Pools de Teste (AMM)</h3>
             <p className="tk-card-desc">
-              Pools de liquidez nativas da Stellar para testes de Swap sem slippage. Essas pools rodam on-chain e você pode interagir com elas depositando e retirando liquidez.
+              Pools de liquidez nativas da Stellar para testes de Swap sem slippage. Essas pools rodam on-chain e vocÃª pode interagir com elas depositando e retirando liquidez.
             </p>
 
             <div className="tk-pools-list">
@@ -1054,7 +953,7 @@ export default function TestnetKit() {
                 const inputs = poolInputs[index] || { amountA: '1000', amountB: '1000', withdrawShares: '100' };
                 const isLoading = poolsLoading[index] === true;
 
-                // Cálculo em tempo real do Swap
+                // CÃ¡lculo em tempo real do Swap
                 const amountInNum = parseFloat(inputs.swapAmount || '0');
                 let expectedOut = 0;
                 let executionPrice = 0;
@@ -1092,7 +991,7 @@ export default function TestnetKit() {
                     <div className="tk-pool-id-box">
                       <span className="tk-result-lbl text-xs">Liquidity Pool ID (Hex)</span>
                       <div className="tk-copyable-value sm">
-                        <code className="tk-mono-text text-xs break-all">{pool.id || 'Carregando ID determinístico...'}</code>
+                        <code className="tk-mono-text text-xs break-all">{pool.id || 'Carregando ID determinÃ­stico...'}</code>
                         <button className="tk-icon-btn" onClick={() => copyToClipboard(pool.id, `${pool.name} Pool ID`)} title="Copy Pool ID">
                           {copiedText === `${pool.name} Pool ID` ? <Check size={12} color="#00ff99" /> : <Copy size={12} />}
                         </button>
@@ -1210,8 +1109,8 @@ export default function TestnetKit() {
                             }))}
                             disabled={isLoading}
                           >
-                            <option value="AtoB">{pool.name.split(' / ')[0]} ➔ {pool.name.split(' / ')[1]}</option>
-                            <option value="BtoA">{pool.name.split(' / ')[1]} ➔ {pool.name.split(' / ')[0]}</option>
+                            <option value="AtoB">{pool.name.split(' / ')[0]} âž” {pool.name.split(' / ')[1]}</option>
+                            <option value="BtoA">{pool.name.split(' / ')[1]} âž” {pool.name.split(' / ')[0]}</option>
                           </select>
                           <input
                             type="number"
@@ -1269,7 +1168,7 @@ export default function TestnetKit() {
           <div className="tk-main-card">
             <h3>Explorer Simplificado da Testnet</h3>
             <p className="tk-card-desc">
-              Consulte e valide o saldo on-chain da sua carteira ou qualquer outro endereço de testes diretamente na Horizon testnet.
+              Consulte e valide o saldo on-chain da sua carteira ou qualquer outro endereÃ§o de testes diretamente na Horizon testnet.
             </p>
 
             <div className="tk-search-bar">
@@ -1324,7 +1223,7 @@ export default function TestnetKit() {
           <div className="tk-main-card">
             <h3>Infrastructure Status & Health</h3>
             <p className="tk-card-desc">
-              Verificador em tempo real da integridade das conexões e servidores da Stellar Testnet para garantir que o seu ambiente de desenvolvimento esteja totalmente operacional.
+              Verificador em tempo real da integridade das conexÃµes e servidores da Stellar Testnet para garantir que o seu ambiente de desenvolvimento esteja totalmente operacional.
             </p>
 
             <div className="tk-health-list">
@@ -1351,7 +1250,7 @@ export default function TestnetKit() {
               <div className="tk-health-item">
                 <div className="tk-health-meta">
                   <span className="tk-hm-lbl">WalletNow Faucet Engine</span>
-                  <span className="tk-light-text">Cunhagem e distribuição de BRW/USDW</span>
+                  <span className="tk-light-text">Cunhagem e distribuiÃ§Ã£o de BRW/USDW</span>
                 </div>
                 <div className="tk-status-badge green">
                   {healthStatus.faucet}
@@ -1361,7 +1260,7 @@ export default function TestnetKit() {
               <div className="tk-health-item">
                 <div className="tk-health-meta">
                   <span className="tk-hm-lbl">Liquidity Pool Seeder</span>
-                  <span className="tk-light-text">Reposição automática de AMMs a cada 5min</span>
+                  <span className="tk-light-text">ReposiÃ§Ã£o automÃ¡tica de AMMs a cada 5min</span>
                 </div>
                 <div className="tk-status-badge green">
                   {healthStatus.rpc}
@@ -1387,169 +1286,6 @@ export default function TestnetKit() {
           </div>
         )}
 
-        {/* TAB 6: IA & SEP INTEGRATION */}
-        {activeTab === 'sep' && (
-          <div className="tk-grid">
-            <div className="tk-main-card">
-              <div className="tk-card-header">
-                <div className="tk-badge">SEP-01 · SEP-10 · SEP-24</div>
-                <h3>IA & SEP Integration (Onboarding Invisível)</h3>
-              </div>
-              <p className="tk-card-desc">
-                Veja o WalletNow SDK em ação. Aqui você pode copiar os prompts para alimentar sua IA de codificação e testar os fluxos de autenticação e rampa fiduciária de forma silenciosa e invisível para o usuário final.
-              </p>
-
-              {/* Seção 1: Prompt para IAs */}
-              <div className="tk-pool-action-section mb-6" style={{ borderColor: 'rgba(0,255,153,0.2)' }}>
-                <h4 className="text-sm font-bold text-white mb-2 flex items-center gap-2">
-                  <span style={{ color: 'var(--accent)' }}>🤖 Prompt de System para IAs (Cursor, Gemini, Copilot)</span>
-                </h4>
-                <p className="text-xs text-gray-400 mb-3">
-                  Copie e cole este prompt no chat da sua IA de codificação favorita para ensiná-la a integrar o WalletNow SDK e gerar o código correto instantaneamente.
-                </p>
-                <div className="tk-copyable-value" style={{ background: '#090d16', padding: '16px', alignItems: 'flex-start', flexDirection: 'column', gap: '8px' }}>
-                  <textarea
-                    readOnly
-                    className="w-full bg-transparent text-xs text-gray-300 font-mono focus:outline-none border-none resize-none"
-                    rows={8}
-                    value={`Você é um assistente de desenvolvimento especialista na blockchain Stellar e no WalletNow SDK.
-Ao gerar códigos para integração de carteiras e onboarding:
-1. Sempre use o WalletNowClient da biblioteca '@walletnow/sdk' para inicializar.
-2. Abstraia a complexidade de transações. Use 'wn.onboarding.createUser({ externalId, authMethod })' para criar contas com biometria/Passkey de forma gasless patrocinada.
-3. Para depósitos fiduciários e onboarding de ativos de forma invisível, utilize o 'StellarAnchorService.seamlessFund(anchorDomain, userAddress, userSecretKey, assetCode)'.
-4. NUNCA exponha chaves privadas no frontend de produção.`}
-                  />
-                  <div className="w-full flex justify-end">
-                    <button
-                      className="tk-sec-btn sm"
-                      onClick={() => copyToClipboard(`Você é um assistente de desenvolvimento especialista na blockchain Stellar e no WalletNow SDK.
-Ao gerar códigos para integração de carteiras e onboarding:
-1. Sempre use o WalletNowClient da biblioteca '@walletnow/sdk' para inicializar.
-2. Abstraia a complexidade de transações. Use 'wn.onboarding.createUser({ externalId, authMethod })' para criar contas com biometria/Passkey de forma gasless patrocinada.
-3. Para depósitos fiduciários e onboarding de ativos de forma invisível, utilize o 'StellarAnchorService.seamlessFund(anchorDomain, userAddress, userSecretKey, assetCode)'.
-4. NUNCA exponha chaves privadas no frontend de produção.`, 'AI Prompt')}
-                    >
-                      {copiedText === 'AI Prompt' ? <Check size={12} color="#00ff99" /> : <Copy size={12} />} Copiar Prompt
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Seção 2: Live Demo do Onboarding Invisível */}
-              <div className="tk-pool-action-section">
-                <h4 className="text-sm font-bold text-white mb-2">⚡ Live Demo: Onboarding Silencioso de Âncora</h4>
-                <p className="text-xs text-gray-400 mb-4">
-                  Simule o fluxo criptográfico em segundo plano. O SDK assinará o desafio SEP-10 sem expor XDRs e gerará a rampa SEP-24 interativa.
-                </p>
-
-                <div className="tk-form">
-                  <div className="tk-form-group">
-                    <label className="tk-lbl">Chave Privada de Teste (S...)</label>
-                    <input
-                      type="password"
-                      className="tk-input-text font-mono"
-                      placeholder="Insira a Secret Key do usuário (ou crie um ambiente na aba 1)"
-                      value={sepSecretKey}
-                      onChange={e => setSepSecretKey(e.target.value)}
-                    />
-                  </div>
-
-                  <div className="tk-input-row">
-                    <div className="tk-input-col">
-                      <label className="tk-lbl">Âncora de Destino</label>
-                      <input
-                        type="text"
-                        className="tk-input-text"
-                        value={sepAnchor}
-                        onChange={e => setSepAnchor(e.target.value)}
-                      />
-                    </div>
-                    <div className="tk-input-col">
-                      <label className="tk-lbl">Código do Ativo</label>
-                      <input
-                        type="text"
-                        className="tk-input-text font-mono"
-                        value={sepAsset}
-                        onChange={e => setSepAsset(e.target.value)}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex gap-4">
-                    <button
-                      className={`tk-primary-btn flex-1 ${sepLoading ? 'loading' : ''}`}
-                      onClick={handleRunSepFlow}
-                      disabled={sepLoading}
-                    >
-                      {sepLoading ? <span className="tk-spinner" /> : 'Executar Fluxo Invisível (SEP-10 + SEP-24)'}
-                    </button>
-                  </div>
-                </div>
-
-                {sepResultUrl && (
-                  <div className="tk-result-box" style={{ borderColor: 'var(--accent)' }}>
-                    <h5 style={{ color: 'var(--accent)' }}>Rampa Fiduciária Criada!</h5>
-                    <p className="text-xs text-gray-300 mb-3">
-                      O SDK obteve o token JWT silenciosamente e gerou a rampa. Clique no botão abaixo para abrir a interface hospedada da âncora Stellar:
-                    </p>
-                    <a
-                      href={sepResultUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="tk-primary-btn w-full text-center"
-                      style={{ textDecoration: 'none' }}
-                    >
-                      Abrir Rampa Interativa SEP-24 <ExternalLink size={14} />
-                    </a>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Lado Direito: Visualizador de stellar.toml (SEP-01) */}
-            <div className="flex flex-col gap-6" style={{ width: '340px' }}>
-              <div className="tk-side-card">
-                <h4 className="tk-card-title-small">📄 SEP-01: stellar.toml do Emissor</h4>
-                <div className="text-xs text-gray-400 mb-3">
-                  Metadados descobertos publicamente no nosso domínio de testes.
-                </div>
-                <div className="tk-console" style={{ background: '#090d16', maxHeight: '320px' }}>
-                  <pre className="text-gray-300 text-xs overflow-x-auto whitespace-pre font-mono">
-{`# stellar.toml
-ACCOUNTS = [
-  "GDGD77A34F5T3TLSOOHWRE4KXZ5TMLWZ5EBYUQSCE2AXGWWPL2RXYWRX",
-  "GBCLQJID2ESAVTYM5GGPX7GQNW42WBAELU5RVITBGFS5PM6XCG4IVDP42"
-]
-VERSION = "2.1.0"
-NETWORK_PASSPHRASE = "Test Network"
-
-[[CURRENCIES]]
-code = "BRW"
-name = "WalletNow BRL"
-status = "live"
-
-[[CURRENCIES]]
-code = "USDW"
-name = "WalletNow USD"
-status = "live"`}
-                  </pre>
-                </div>
-              </div>
-
-              <div className="tk-side-card">
-                <h4 className="tk-card-title-small">🔍 Logs do Console de Abstração</h4>
-                <div className="tk-console" style={{ minHeight: '120px' }}>
-                  {sepLogs.map((log, idx) => (
-                    <div key={idx} className={`tk-console-line ${log.type}`}>
-                      <span className="tk-console-time">{log.timestamp}</span>
-                      {log.message}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
 
       </div>
 

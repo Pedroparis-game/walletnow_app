@@ -58,6 +58,7 @@ const NAV_GROUPS: NavGroup[] = [
       { key: 'examples', path: '/docs/examples', icon: <Package size={14} /> },
       { key: 'recipes', path: '/docs/recipes', icon: <Lightbulb size={14} /> },
       { key: 'testnet', path: '/docs/testnet-kit', icon: <FlaskConical size={14} /> },
+      { key: 'aiAgents', path: '/docs/ai-agents', icon: <Shield size={14} /> },
     ],
   },
   {

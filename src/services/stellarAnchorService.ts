@@ -43,7 +43,7 @@ export class StellarAnchorService {
       }
 
       // 2. Assinar o desafio localmente (comportamento invisível ao usuário final)
-      const networkPassphrase = StellarNetwork.isMainnet ? Networks.PUBLIC : Networks.TESTNET;
+      const networkPassphrase = StellarNetwork.config.isMainnet ? Networks.PUBLIC : Networks.TESTNET;
       const challengeTx = new Transaction(transactionXDR, networkPassphrase);
       const userKeypair = Keypair.fromSecret(userSecretKey);
       

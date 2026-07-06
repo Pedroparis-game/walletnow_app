@@ -21,6 +21,8 @@ const WhyNotYourself = lazy(() => import('./pages/WhyNotYourself'));
 const Examples = lazy(() => import('./pages/Examples'));
 const Recipes = lazy(() => import('./pages/Recipes'));
 const TestnetKit = lazy(() => import('./pages/TestnetKit'));
+const AIAgents = lazy(() => import('./pages/AIAgents'));
+
 const DashboardPreview = lazy(() => import('./pages/DashboardPreview'));
 const Pricing = lazy(() => import('./pages/Pricing'));
 const RoadmapPage = lazy(() => import('./pages/RoadmapPage'));
@@ -73,6 +75,7 @@ export default function DocsRouter() {
         <Route path="examples" element={<Examples />} />
         <Route path="recipes" element={<Recipes />} />
         <Route path="testnet-kit" element={<TestnetKit />} />
+        <Route path="ai-agents" element={<AIAgents />} />
         <Route path="dashboard" element={<DashboardPreview />} />
         <Route path="pricing" element={<Pricing />} />
         <Route path="roadmap" element={<RoadmapPage />} />
