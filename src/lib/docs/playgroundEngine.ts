@@ -137,54 +137,31 @@ export class PlaygroundEngine {
     }));
     this._emit();
 
+    const updateStep = (id: PlaygroundStepId, status: PlaygroundStepStatus) => {
+      this._setStatus(id, status);
+      this._emit();
+    };
+
     try {
-      this._setStatus('init', 'running'); this._emit();
+      updateStep('init', 'running');
       
-      // REAL SDK INIT with Fakes
+      // REAL SDK INIT com Fakes reais conectando na rede Stellar Testnet
       const wn = await WalletNowClient.init({
         network: params.network,
         engines: {
-          identity: new PlaygroundIdentityEngine(),
-          wallet: new PlaygroundWalletEngine(),
-          account: new PlaygroundAccountEngine(),
-          gasStation: new PlaygroundGasStation() as any,
-          faucet: new PlaygroundTestnetFaucet() as any,
-          session: new PlaygroundSessionPort() as any,
+          identity: new PlaygroundIdentityEngine(updateStep),
+          wallet: new PlaygroundWalletEngine(updateStep),
+          account: new PlaygroundAccountEngine(updateStep),
+          gasStation: new PlaygroundGasStation(updateStep) as any,
+          faucet: new PlaygroundTestnetFaucet(updateStep) as any,
+          session: new PlaygroundSessionPort(updateStep) as any,
           analytics: new PlaygroundAnalyticsPort() as any,
         },
       });
       
-      await delay(200, 400); // UX delay
-      this._setStatus('init', 'done'); this._emit();
+      updateStep('init', 'done');
 
-      this._setStatus('identity', 'running'); this._emit();
-      await delay(200, 400); // UX delay
-      this._setStatus('identity', 'done'); this._emit();
-
-      this._setStatus('wallet', 'running'); this._emit();
-      await delay(100, 200); // UX delay
-      this._setStatus('wallet', 'done'); this._emit();
-
-      this._setStatus('account', 'running'); this._emit();
-      await delay(200, 400); // UX delay
-      this._setStatus('account', 'done'); this._emit();
-
-      if (params.sponsored) {
-        this._setStatus('sponsor', 'running'); this._emit();
-        await delay(400, 700); // UX delay
-        this._setStatus('sponsor', 'done'); this._emit();
-      } else {
-        this._setStatus('sponsor', 'done'); this._emit();
-      }
-
-      this._setStatus('trustlines', 'running'); this._emit();
-      if (params.trustlines.length > 0) await delay(300, 600); // UX delay
-      this._setStatus('trustlines', 'done'); this._emit();
-
-      this._setStatus('session', 'running'); this._emit();
-      await delay(100, 200); // UX delay
-      
-      // REAL SDK CALL
+      // Chamada real ao SDK. Cada engine disparará o updateStep de acordo com o progresso real.
       const realResult = await wn.onboarding.createUser({
         externalId: params.externalId,
         authMethod: 'keypair',
@@ -192,11 +169,21 @@ export class PlaygroundEngine {
         trustlines: params.trustlines,
       });
 
-      this._setStatus('session', 'done'); this._emit();
+      // Garante que todas as etapas foram devidamente concluídas
+      (Object.keys(DEFAULT_STEP_LABELS) as PlaygroundStepId[]).forEach((id) => {
+        const step = this._steps.find(s => s.id === id);
+        if (step && step.status !== 'done') {
+          updateStep(id, 'done');
+        }
+      });
 
       const totalMs = Math.round(performance.now() - startTime);
       return { success: true, result: realResult as any, totalMs };
     } catch (err) {
+      const runningStep = this._steps.find(s => s.status === 'running');
+      if (runningStep) {
+        updateStep(runningStep.id, 'error');
+      }
       const totalMs = Math.round(performance.now() - startTime);
       return {
         success: false,
