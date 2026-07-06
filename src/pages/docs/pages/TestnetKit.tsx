@@ -41,6 +41,24 @@ const NETWORKS = {
   TESTNET: 'Test SDF Network ; September 2015'
 };
 
+// Helper para instanciar LiquidityPoolAsset garantindo ordenação lexicográfica
+function createLpAsset(assetA: Asset, assetB: Asset): LiquidityPoolAsset {
+  if (assetA.isNative()) return new LiquidityPoolAsset(assetA, assetB, 30);
+  if (assetB.isNative()) return new LiquidityPoolAsset(assetB, assetA, 30);
+
+  const codeA = assetA.getCode();
+  const codeB = assetB.getCode();
+
+  if (codeA < codeB) return new LiquidityPoolAsset(assetA, assetB, 30);
+  if (codeA > codeB) return new LiquidityPoolAsset(assetB, assetA, 30);
+
+  const issuerA = assetA.getIssuer();
+  const issuerB = assetB.getIssuer();
+  return issuerA < issuerB 
+    ? new LiquidityPoolAsset(assetA, assetB, 30) 
+    : new LiquidityPoolAsset(assetB, assetA, 30);
+}
+
 type ActiveTab = 'dashboard' | 'faucet' | 'pools' | 'explorer' | 'health';
 
 interface LogEntry {
@@ -371,7 +389,7 @@ export default function TestnetKit() {
   const fetchPoolsData = async () => {
     try {
       const updated = await Promise.all(pools.map(async (pool) => {
-        const lp = new LiquidityPoolAsset(pool.assetA, pool.assetB, 30);
+        const lp = createLpAsset(pool.assetA, pool.assetB);
         const poolId = lp.toString().split(':')[1];
         
         try {
@@ -411,7 +429,7 @@ export default function TestnetKit() {
   useEffect(() => {
     setPools(prev => prev.map(p => {
       try {
-        const lp = new LiquidityPoolAsset(p.assetA, p.assetB, 30);
+        const lp = createLpAsset(p.assetA, p.assetB);
         return {
           ...p,
           id: lp.toString().split(':')[1]
@@ -451,8 +469,13 @@ export default function TestnetKit() {
 
       // Carrega conta do usuário
       const account = await server.loadAccount(userAddress);
-      const lpAsset = new LiquidityPoolAsset(pool.assetA, pool.assetB, 30);
+      const lpAsset = createLpAsset(pool.assetA, pool.assetB);
       const poolId = lpAsset.toString().split(':')[1];
+
+      // Determina a correspondência correta das quantias com os ativos ordenados lexicograficamente
+      const isOrdered = pool.assetA.isNative() || (!pool.assetB.isNative() && pool.assetA.getCode() < pool.assetB.getCode());
+      const finalDepA = isOrdered ? depA : depB;
+      const finalDepB = isOrdered ? depB : depA;
       
       let txBuilder = new TransactionBuilder(account, {
         fee: '100',
@@ -470,11 +493,11 @@ export default function TestnetKit() {
       }
 
       // Adiciona operação de depósito
-      addLog(`Adding LiquidityPoolDeposit operation (A: ${depA}, B: ${depB})...`, 'info');
+      addLog(`Adding LiquidityPoolDeposit operation (A: ${finalDepA}, B: ${finalDepB})...`, 'info');
       txBuilder = txBuilder.addOperation(Operation.liquidityPoolDeposit({
         liquidityPoolId: poolId,
-        maxAmountA: depA,
-        maxAmountB: depB,
+        maxAmountA: finalDepA,
+        maxAmountB: finalDepB,
         minPrice: '0.0001',
         maxPrice: '10000.0'
       }));
@@ -523,7 +546,7 @@ export default function TestnetKit() {
 
       // Carrega conta do usuário
       const account = await server.loadAccount(userAddress);
-      const lpAsset = new LiquidityPoolAsset(pool.assetA, pool.assetB, 30);
+      const lpAsset = createLpAsset(pool.assetA, pool.assetB);
       const poolId = lpAsset.toString().split(':')[1];
       
       let txBuilder = new TransactionBuilder(account, {

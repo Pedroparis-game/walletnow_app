@@ -15,12 +15,12 @@ import type { PlaygroundStepId, PlaygroundStepStatus } from './playgroundEngine'
 // Horizon Server apontando para Stellar Testnet
 export const server = new Horizon.Server('https://horizon-testnet.stellar.org');
 
-// Emissores de desenvolvimento gerados dinamicamente em memória
-export const BRW_KEYPAIR = Keypair.random();
-export const USDW_KEYPAIR = Keypair.random();
+// Emissores de desenvolvimento fixos e persistentes na Stellar Testnet
+export const BRW_KEYPAIR = Keypair.fromSecret('SDW6MDSQADPIALPY5SAHQTEXPLTIZQC2YIJGSG3ZLPUKZ6YLVYLS7ZUA');
+export const USDW_KEYPAIR = Keypair.fromSecret('SBALCQUATVXGHPPMXUIE3HHKTCGELQZI74YSCKQ2WZR43HA5EBTMPOGO');
 
-export const BRW_ISSUER = BRW_KEYPAIR.publicKey();
-export const USDW_ISSUER = USDW_KEYPAIR.publicKey();
+export const BRW_ISSUER = 'GCJIRFZQJAO6JSYS4YFXFHLVJ6R4WWWB2VTREMRK7WXNNLMGIAXBBNC6';
+export const USDW_ISSUER = 'GDKZT3AXAOMMYVVG3TKFVUYDJODAIAL2ADHNJYQLK2PJQ6CE2U6KKFLQ';
 
 let brwIssuerActivated = false;
 let usdwIssuerActivated = false;
