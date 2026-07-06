@@ -34,7 +34,7 @@ import {
   PLAYGROUND_IDENTITY_KEYS,
   ensureIssuerActive
 } from '../../../lib/docs/playgroundFakes';
-import { Keypair, TransactionBuilder, Asset, Operation, LiquidityPoolAsset } from '@stellar/stellar-sdk';
+import { Keypair, TransactionBuilder, Asset, Operation, LiquidityPoolAsset, Transaction, Networks } from '@stellar/stellar-sdk';
 
 // Configurações do Faucet e Emissores
 const NETWORKS = {
@@ -59,7 +59,7 @@ function createLpAsset(assetA: Asset, assetB: Asset): LiquidityPoolAsset {
     : new LiquidityPoolAsset(assetB, assetA, 30);
 }
 
-type ActiveTab = 'dashboard' | 'faucet' | 'pools' | 'explorer' | 'health';
+type ActiveTab = 'dashboard' | 'faucet' | 'pools' | 'explorer' | 'health' | 'sep';
 
 interface LogEntry {
   message: string;
@@ -150,6 +150,104 @@ export default function TestnetKit() {
     rpc: 'operational',
     confidentialVerifier: 'soon'
   });
+
+  // Estado do SEP & IA Integration
+  const [sepSecretKey, setSepSecretKey] = useState('');
+  const [sepAnchor, setSepAnchor] = useState('testanchor.stellar.org');
+  const [sepAsset, setSepAsset] = useState('SRT');
+  const [sepLoading, setSepLoading] = useState(false);
+  const [sepResultUrl, setSepResultUrl] = useState<string | null>(null);
+  const [sepLogs, setSepLogs] = useState<LogEntry[]>([
+    { message: 'IA & SEP Integration Console initialized.', type: 'info', timestamp: new Date().toLocaleTimeString() }
+  ]);
+
+  useEffect(() => {
+    if (envResult?.secretKey) {
+      setSepSecretKey(envResult.secretKey);
+    }
+  }, [envResult]);
+
+  const addSepLog = useCallback((message: string, type: 'info' | 'success' | 'error' | 'warning' = 'info') => {
+    setSepLogs(prev => [
+      { message, type, timestamp: new Date().toLocaleTimeString() },
+      ...prev
+    ]);
+  }, []);
+
+  const handleRunSepFlow = async () => {
+    if (!sepSecretKey) {
+      addSepLog('Erro: Chave Secreta do usuário é obrigatória.', 'error');
+      return;
+    }
+    setSepLoading(true);
+    setSepResultUrl(null);
+    addSepLog(`Iniciando fluxo invisível com ${sepAnchor}...`, 'info');
+
+    try {
+      const userKeypair = Keypair.fromSecret(sepSecretKey);
+      const userAddress = userKeypair.publicKey();
+
+      // 1. SEP-10 Auth Challenge
+      addSepLog(`[SEP-10] Solicitando desafio para conta: ${userAddress.slice(0, 8)}...`, 'info');
+      const challengeUrl = `https://${sepAnchor}/auth?account=${userAddress}`;
+      const challengeRes = await fetch(challengeUrl);
+      if (!challengeRes.ok) {
+        throw new Error(`Falha no GET /auth: HTTP ${challengeRes.status}`);
+      }
+      const challengeJson = await challengeRes.json();
+      const transactionXDR = challengeJson.transaction;
+      addSepLog(`[SEP-10] Desafio obtido. Assinando silenciosamente localmente...`, 'info');
+
+      // Assinar transação
+      const challengeTx = new Transaction(transactionXDR, NETWORKS.TESTNET);
+      challengeTx.sign(userKeypair);
+      const signedXDR = challengeTx.toEnvelope().toXDR('base64');
+      addSepLog(`[SEP-10] Enviando desafio assinado para a âncora...`, 'info');
+
+      // Enviar de volta
+      const tokenRes = await fetch(`https://${sepAnchor}/auth`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ transaction: signedXDR })
+      });
+      if (!tokenRes.ok) {
+        throw new Error(`Falha no POST /auth: HTTP ${tokenRes.status}`);
+      }
+      const tokenJson = await tokenRes.json();
+      const jwtToken = tokenJson.token;
+      addSepLog(`[SEP-10] Autenticação concluída! Token JWT recebido.`, 'success');
+
+      // 2. SEP-24 Interactive Deposit
+      addSepLog(`[SEP-24] Solicitando rampa interativa para o ativo ${sepAsset}...`, 'info');
+      const depositUrl = `https://${sepAnchor}/sep24/transactions/deposit/interactive`;
+      const formData = new FormData();
+      formData.append('asset_code', sepAsset);
+      formData.append('account', userAddress);
+
+      const depositRes = await fetch(depositUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${jwtToken}`
+        },
+        body: formData
+      });
+
+      if (!depositRes.ok) {
+        const errText = await depositRes.text();
+        throw new Error(`Falha no depósito SEP-24: HTTP ${depositRes.status} — ${errText}`);
+      }
+
+      const depositData = await depositRes.json();
+      const interactiveUrl = depositData.url;
+      addSepLog(`[SEP-24] Sucesso! Rampa fiduciária gerada em background.`, 'success');
+      setSepResultUrl(interactiveUrl);
+    } catch (err: any) {
+      console.error('[SEP Flow Error]', err);
+      addSepLog(`Falha no fluxo SEP: ${err.message}`, 'error');
+    } finally {
+      setSepLoading(false);
+    }
+  };
 
   const addLog = useCallback((message: string, type: 'info' | 'success' | 'error' | 'warning' = 'info') => {
     setLogs(prev => [
@@ -726,6 +824,9 @@ export default function TestnetKit() {
         <button className={`tk-tab-btn ${activeTab === 'health' ? 'active' : ''}`} onClick={() => setActiveTab('health')}>
           <Activity size={14} /> Infrastructure Health
         </button>
+        <button className={`tk-tab-btn ${activeTab === 'sep' ? 'active' : ''}`} onClick={() => setActiveTab('sep')}>
+          <Shield size={14} /> IA & SEP Integration
+        </button>
       </div>
 
       {/* Content Area */}
@@ -1282,6 +1383,170 @@ export default function TestnetKit() {
               <button className="tk-sec-btn" onClick={runHealthCheck}>
                 <RefreshCw size={12} /> Force Infrastructure Refresh
               </button>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 6: IA & SEP INTEGRATION */}
+        {activeTab === 'sep' && (
+          <div className="tk-grid">
+            <div className="tk-main-card">
+              <div className="tk-card-header">
+                <div className="tk-badge">SEP-01 · SEP-10 · SEP-24</div>
+                <h3>IA & SEP Integration (Onboarding Invisível)</h3>
+              </div>
+              <p className="tk-card-desc">
+                Veja o WalletNow SDK em ação. Aqui você pode copiar os prompts para alimentar sua IA de codificação e testar os fluxos de autenticação e rampa fiduciária de forma silenciosa e invisível para o usuário final.
+              </p>
+
+              {/* Seção 1: Prompt para IAs */}
+              <div className="tk-pool-action-section mb-6" style={{ borderColor: 'rgba(0,255,153,0.2)' }}>
+                <h4 className="text-sm font-bold text-white mb-2 flex items-center gap-2">
+                  <span style={{ color: 'var(--accent)' }}>🤖 Prompt de System para IAs (Cursor, Gemini, Copilot)</span>
+                </h4>
+                <p className="text-xs text-gray-400 mb-3">
+                  Copie e cole este prompt no chat da sua IA de codificação favorita para ensiná-la a integrar o WalletNow SDK e gerar o código correto instantaneamente.
+                </p>
+                <div className="tk-copyable-value" style={{ background: '#090d16', padding: '16px', alignItems: 'flex-start', flexDirection: 'column', gap: '8px' }}>
+                  <textarea
+                    readOnly
+                    className="w-full bg-transparent text-xs text-gray-300 font-mono focus:outline-none border-none resize-none"
+                    rows={8}
+                    value={`Você é um assistente de desenvolvimento especialista na blockchain Stellar e no WalletNow SDK.
+Ao gerar códigos para integração de carteiras e onboarding:
+1. Sempre use o WalletNowClient da biblioteca '@walletnow/sdk' para inicializar.
+2. Abstraia a complexidade de transações. Use 'wn.onboarding.createUser({ externalId, authMethod })' para criar contas com biometria/Passkey de forma gasless patrocinada.
+3. Para depósitos fiduciários e onboarding de ativos de forma invisível, utilize o 'StellarAnchorService.seamlessFund(anchorDomain, userAddress, userSecretKey, assetCode)'.
+4. NUNCA exponha chaves privadas no frontend de produção.`}
+                  />
+                  <div className="w-full flex justify-end">
+                    <button
+                      className="tk-sec-btn sm"
+                      onClick={() => copyToClipboard(`Você é um assistente de desenvolvimento especialista na blockchain Stellar e no WalletNow SDK.
+Ao gerar códigos para integração de carteiras e onboarding:
+1. Sempre use o WalletNowClient da biblioteca '@walletnow/sdk' para inicializar.
+2. Abstraia a complexidade de transações. Use 'wn.onboarding.createUser({ externalId, authMethod })' para criar contas com biometria/Passkey de forma gasless patrocinada.
+3. Para depósitos fiduciários e onboarding de ativos de forma invisível, utilize o 'StellarAnchorService.seamlessFund(anchorDomain, userAddress, userSecretKey, assetCode)'.
+4. NUNCA exponha chaves privadas no frontend de produção.`, 'AI Prompt')}
+                    >
+                      {copiedText === 'AI Prompt' ? <Check size={12} color="#00ff99" /> : <Copy size={12} />} Copiar Prompt
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Seção 2: Live Demo do Onboarding Invisível */}
+              <div className="tk-pool-action-section">
+                <h4 className="text-sm font-bold text-white mb-2">⚡ Live Demo: Onboarding Silencioso de Âncora</h4>
+                <p className="text-xs text-gray-400 mb-4">
+                  Simule o fluxo criptográfico em segundo plano. O SDK assinará o desafio SEP-10 sem expor XDRs e gerará a rampa SEP-24 interativa.
+                </p>
+
+                <div className="tk-form">
+                  <div className="tk-form-group">
+                    <label className="tk-lbl">Chave Privada de Teste (S...)</label>
+                    <input
+                      type="password"
+                      className="tk-input-text font-mono"
+                      placeholder="Insira a Secret Key do usuário (ou crie um ambiente na aba 1)"
+                      value={sepSecretKey}
+                      onChange={e => setSepSecretKey(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="tk-input-row">
+                    <div className="tk-input-col">
+                      <label className="tk-lbl">Âncora de Destino</label>
+                      <input
+                        type="text"
+                        className="tk-input-text"
+                        value={sepAnchor}
+                        onChange={e => setSepAnchor(e.target.value)}
+                      />
+                    </div>
+                    <div className="tk-input-col">
+                      <label className="tk-lbl">Código do Ativo</label>
+                      <input
+                        type="text"
+                        className="tk-input-text font-mono"
+                        value={sepAsset}
+                        onChange={e => setSepAsset(e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex gap-4">
+                    <button
+                      className={`tk-primary-btn flex-1 ${sepLoading ? 'loading' : ''}`}
+                      onClick={handleRunSepFlow}
+                      disabled={sepLoading}
+                    >
+                      {sepLoading ? <span className="tk-spinner" /> : 'Executar Fluxo Invisível (SEP-10 + SEP-24)'}
+                    </button>
+                  </div>
+                </div>
+
+                {sepResultUrl && (
+                  <div className="tk-result-box" style={{ borderColor: 'var(--accent)' }}>
+                    <h5 style={{ color: 'var(--accent)' }}>Rampa Fiduciária Criada!</h5>
+                    <p className="text-xs text-gray-300 mb-3">
+                      O SDK obteve o token JWT silenciosamente e gerou a rampa. Clique no botão abaixo para abrir a interface hospedada da âncora Stellar:
+                    </p>
+                    <a
+                      href={sepResultUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="tk-primary-btn w-full text-center"
+                      style={{ textDecoration: 'none' }}
+                    >
+                      Abrir Rampa Interativa SEP-24 <ExternalLink size={14} />
+                    </a>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Lado Direito: Visualizador de stellar.toml (SEP-01) */}
+            <div className="flex flex-col gap-6" style={{ width: '340px' }}>
+              <div className="tk-side-card">
+                <h4 className="tk-card-title-small">📄 SEP-01: stellar.toml do Emissor</h4>
+                <div className="text-xs text-gray-400 mb-3">
+                  Metadados descobertos publicamente no nosso domínio de testes.
+                </div>
+                <div className="tk-console" style={{ background: '#090d16', maxHeight: '320px' }}>
+                  <pre className="text-gray-300 text-xs overflow-x-auto whitespace-pre font-mono">
+{`# stellar.toml
+ACCOUNTS = [
+  "GDGD77A34F5T3TLSOOHWRE4KXZ5TMLWZ5EBYUQSCE2AXGWWPL2RXYWRX",
+  "GBCLQJID2ESAVTYM5GGPX7GQNW42WBAELU5RVITBGFS5PM6XCG4IVDP42"
+]
+VERSION = "2.1.0"
+NETWORK_PASSPHRASE = "Test Network"
+
+[[CURRENCIES]]
+code = "BRW"
+name = "WalletNow BRL"
+status = "live"
+
+[[CURRENCIES]]
+code = "USDW"
+name = "WalletNow USD"
+status = "live"`}
+                  </pre>
+                </div>
+              </div>
+
+              <div className="tk-side-card">
+                <h4 className="tk-card-title-small">🔍 Logs do Console de Abstração</h4>
+                <div className="tk-console" style={{ minHeight: '120px' }}>
+                  {sepLogs.map((log, idx) => (
+                    <div key={idx} className={`tk-console-line ${log.type}`}>
+                      <span className="tk-console-time">{log.timestamp}</span>
+                      {log.message}
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
         )}
