@@ -95,6 +95,8 @@ export default function TestnetKit() {
   const [faucetAsset, setFaucetAsset] = useState<'XLM' | 'BRW' | 'USDW'>('BRW');
   const [faucetLoading, setFaucetLoading] = useState(false);
   const [confidentialMode, setConfidentialMode] = useState(false);
+  const [faucetSuccess, setFaucetSuccess] = useState<{hash: string, asset: string, amount: string, confidential: boolean} | null>(null);
+  const [faucetError, setFaucetError] = useState<string | null>(null);
 
   // Estado do Explorer
   const [searchAddress, setSearchAddress] = useState('');
@@ -303,6 +305,8 @@ export default function TestnetKit() {
       return;
     }
     setFaucetLoading(true);
+    setFaucetSuccess(null);
+    setFaucetError(null);
     addLog(`Processing Faucet request for ${faucetAsset}...`, 'info');
 
     try {
@@ -311,6 +315,7 @@ export default function TestnetKit() {
         if (!res.ok) throw new Error('Friendbot failed to distribute XLM.');
         const data = await res.json();
         addLog(`Successfully funded 10,000 XLM. Tx Hash: ${data.hash.slice(0, 12)}...`, 'success');
+        setFaucetSuccess({ hash: data.hash, asset: 'XLM', amount: '10,000', confidential: false });
       } else {
         const isBRW = faucetAsset === 'BRW';
         const issuerKeypair = isBRW ? BRW_KEYPAIR : USDW_KEYPAIR;
@@ -344,6 +349,7 @@ export default function TestnetKit() {
           const result = await server.submitTransaction(tx);
           addLog(`[Privacy Mode] ZK proof verified via OpenZeppelin Verifier!`, 'success');
           addLog(`Successfully minted 10,000 ${assetCode} CONFIDENTIALLY. Tx Hash: ${result.hash.slice(0, 12)}...`, 'success');
+          setFaucetSuccess({ hash: result.hash, asset: assetCode, amount: '10,000', confidential: true });
         } else {
           // Transferência Pública Clássica
           const tx = new TransactionBuilder(issuerAccount, {
@@ -363,10 +369,12 @@ export default function TestnetKit() {
           tx.sign(issuerKeypair);
           const result = await server.submitTransaction(tx);
           addLog(`Successfully funded 10,000 ${assetCode}. Tx Hash: ${result.hash.slice(0, 12)}...`, 'success');
+          setFaucetSuccess({ hash: result.hash, asset: assetCode, amount: '10,000', confidential: false });
         }
       }
     } catch (err: any) {
       addLog(`Faucet transaction failed: ${err.message}. Make sure the trustline is set up!`, 'error');
+      setFaucetError(err.message);
     } finally {
       setFaucetLoading(false);
     }
@@ -942,14 +950,35 @@ export default function TestnetKit() {
                 </div>
               </div>
               
-              <h3 className="tk-badge mt-6">Infrastructure Console Output</h3>
-              <div className="tk-console" style={{ minHeight: '200px' }}>
-                {logs.map((log, index) => (
-                  <div key={index} className={`tk-console-line ${log.type}`}>
-                    <span className="tk-console-time">[{log.timestamp}]</span> {log.message}
+              {/* Resultado do Faucet */}
+              {faucetError && (
+                <div className="tk-badge mt-6" style={{ borderColor: 'rgba(255,50,50,0.5)', color: '#ff6666', background: 'rgba(255,50,50,0.1)' }}>
+                  Error: {faucetError}
+                  <div className="text-[10px] text-gray-400 mt-2">Dica: Verifique se você não esqueceu de criar a Trustline na aba One-Click Env (op_no_trust) ou certifique-se de que o endereço é válido e existe na rede!</div>
+                </div>
+              )}
+              {faucetSuccess && (
+                <div className="mt-6" style={{ background: 'rgba(0,255,153,0.05)', border: '1px solid var(--accent)', borderRadius: 'var(--radius-lg)', padding: '16px' }}>
+                  <div className="flex items-center gap-2 mb-3 text-[var(--accent)]">
+                    {faucetSuccess.confidential ? <Shield size={18} /> : <Check size={18} />}
+                    <h3 className="m-0 font-bold" style={{ color: 'var(--accent)', fontSize: '14px' }}>
+                      {faucetSuccess.confidential ? 'Confidential Transfer Success' : 'Airdrop Success'}
+                    </h3>
                   </div>
-                ))}
-              </div>
+                  <div className="text-sm text-gray-300 mb-4">
+                    Successfully requested <strong>{faucetSuccess.amount} {faucetSuccess.asset}</strong>.
+                    {faucetSuccess.confidential && (
+                       <div className="mt-3 text-xs p-3 rounded" style={{color: '#ffcc00', background: 'rgba(255,204,0,0.1)', border: '1px solid rgba(255,204,0,0.2)'}}>
+                         <div className="font-bold mb-1">OpenZeppelin ZK-Verifier</div>
+                         A prova de conhecimento zero (Ultrahonk) foi verificada on-chain e enviada em anexo pelo Emissor (manageData). O valor enviado e a sua conta de destino não foram expostas publicamente no ledger.
+                       </div>
+                    )}
+                  </div>
+                  <a href={`https://stellar.expert/explorer/testnet/tx/${faucetSuccess.hash}`} target="_blank" rel="noopener noreferrer" className="tk-primary-btn sm w-full justify-center" style={{ textDecoration: 'none' }}>
+                    View Transaction on Explorer <ExternalLink size={14} />
+                  </a>
+                </div>
+              )}
             </div>
           </div>
         )}
