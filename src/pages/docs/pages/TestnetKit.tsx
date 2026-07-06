@@ -612,7 +612,16 @@ export default function TestnetKit() {
       
       const assetIn = direction === 'AtoB' ? pool.assetA : pool.assetB;
       const assetOut = direction === 'AtoB' ? pool.assetB : pool.assetA;
+      // Cálculo do AMM
+      const amountInNum = parseFloat(amountIn);
+      const isAtoB = direction === 'AtoB';
+      const reserveIn = isAtoB ? parseFloat(pool.reservesA) : parseFloat(pool.reservesB);
+      const reserveOut = isAtoB ? parseFloat(pool.reservesB) : parseFloat(pool.reservesA);
       
+      const amountInWithFee = amountInNum * 0.997;
+      const expectedOut = (reserveOut * amountInWithFee) / (reserveIn + amountInWithFee);
+      const destMin = (expectedOut * 0.99).toFixed(7); // 1% slippage max
+
       let txBuilder = new TransactionBuilder(account, {
         fee: '100',
         networkPassphrase: NETWORKS.TESTNET
@@ -630,12 +639,12 @@ export default function TestnetKit() {
         }
       }
 
-      addLog(`Adding PathPaymentStrictSend (Send ${amountIn} ${assetIn.isNative() ? 'XLM' : assetIn.getCode()} -> ${assetOut.isNative() ? 'XLM' : assetOut.getCode()})...`, 'info');
+      addLog(`Adding PathPaymentStrictSend (Send ${amountIn} ${assetIn.isNative() ? 'XLM' : assetIn.getCode()} -> receive min ${destMin} ${assetOut.isNative() ? 'XLM' : assetOut.getCode()})...`, 'info');
       txBuilder = txBuilder.addOperation(Operation.pathPaymentStrictSend({
         sendAsset: assetIn,
         sendAmount: amountIn,
         destAsset: assetOut,
-        destMin: '0', // Em produção, calcularíamos slippage limit (ex: 0.5%)
+        destMin: destMin,
         path: [],
         destination: userAddress
       }));
@@ -944,6 +953,24 @@ export default function TestnetKit() {
                 const inputs = poolInputs[index] || { amountA: '1000', amountB: '1000', withdrawShares: '100' };
                 const isLoading = poolsLoading[index] === true;
 
+                // Cálculo em tempo real do Swap
+                const amountInNum = parseFloat(inputs.swapAmount || '0');
+                let expectedOut = 0;
+                let executionPrice = 0;
+                let impact = 0;
+                
+                if (amountInNum > 0 && parseFloat(pool.reservesA) > 0 && parseFloat(pool.reservesB) > 0) {
+                  const isAtoB = (inputs.swapDirection || 'AtoB') === 'AtoB';
+                  const reserveIn = isAtoB ? parseFloat(pool.reservesA) : parseFloat(pool.reservesB);
+                  const reserveOut = isAtoB ? parseFloat(pool.reservesB) : parseFloat(pool.reservesA);
+                  const amountInWithFee = amountInNum * 0.997;
+                  expectedOut = (reserveOut * amountInWithFee) / (reserveIn + amountInWithFee);
+                  
+                  const spotPrice = reserveOut / reserveIn;
+                  executionPrice = expectedOut / amountInNum;
+                  impact = (1 - (executionPrice / spotPrice)) * 100;
+                }
+
                 return (
                   <div key={pool.name} className="tk-pool-item-rich">
                     <div className="tk-pool-header-rich">
@@ -1088,7 +1115,7 @@ export default function TestnetKit() {
                           <input
                             type="number"
                             className="tk-input-text sm font-mono"
-                            placeholder={`Qtd de ${inputs.swapDirection === 'BtoA' ? pool.name.split(' / ')[1] : pool.name.split(' / ')[0]}`}
+                            placeholder={`You send: Qtd de ${inputs.swapDirection === 'BtoA' ? pool.name.split(' / ')[1] : pool.name.split(' / ')[0]}`}
                             value={inputs.swapAmount || ''}
                             onChange={e => setPoolInputs(prev => ({
                               ...prev,
@@ -1096,8 +1123,27 @@ export default function TestnetKit() {
                             }))}
                             disabled={isLoading}
                           />
-                          <div className="text-[10px] text-gray-500 text-center">
-                            Slippage config: <span className="text-gray-300">~0.5% (AMM Testnet)</span>
+                          <div className="text-[11px] bg-[rgba(0,0,0,0.2)] p-2 rounded border border-gray-800">
+                            {amountInNum > 0 && expectedOut > 0 ? (
+                              <div className="flex flex-col gap-1">
+                                <div className="flex justify-between text-gray-300">
+                                  <span>Receive (~):</span>
+                                  <strong className="text-[var(--accent)]">{expectedOut.toFixed(4)} {inputs.swapDirection === 'BtoA' ? pool.name.split(' / ')[0] : pool.name.split(' / ')[1]}</strong>
+                                </div>
+                                <div className="flex justify-between text-gray-500">
+                                  <span>Price Impact:</span>
+                                  <span style={{ color: impact > 2 ? '#ff6666' : impact > 0.5 ? '#ffcc00' : 'inherit' }}>
+                                    {impact.toFixed(2)}%
+                                  </span>
+                                </div>
+                                <div className="flex justify-between text-gray-500">
+                                  <span>Slippage Tol.:</span>
+                                  <span>1.00%</span>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="text-gray-500 text-center">Informe o valor para ver a estimativa da Pool.</div>
+                            )}
                           </div>
                         </div>
                         <button
