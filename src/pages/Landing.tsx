@@ -66,7 +66,7 @@ function LandingNavbar() {
     { href: '#why',         label: t.nav.why },
     { href: '#open-source', label: t.nav.openSource },
     { href: '#ecosystem',   label: t.nav.ecosystem },
-    { href: '/walletnow/docs', label: 'Docs', isExternal: true },
+    { href: '/docs', label: 'Docs', isRoute: true },
   ];
 
   const handleScroll = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
@@ -126,12 +126,16 @@ function LandingNavbar() {
             href={link.href}
             className="navbar-link"
             onClick={(e) => {
-              if ((link as any).isExternal) return;
+              if ((link as any).isRoute) {
+                e.preventDefault();
+                navigate((link as any).href);
+                return;
+              }
               handleScroll(e, link.href);
             }}
           >
             {link.label}
-            {(link as any).isExternal && (
+            {(link as any).isRoute && (
               <span style={{
                 fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 999,
                 background: 'rgba(0,255,153,0.12)', color: 'var(--color-wn-green)',
