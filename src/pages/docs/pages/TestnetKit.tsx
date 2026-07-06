@@ -34,7 +34,7 @@ import {
   PLAYGROUND_IDENTITY_KEYS,
   ensureIssuerActive
 } from '../../../lib/docs/playgroundFakes';
-import { Keypair, TransactionBuilder, Asset, Operation } from '@stellar/stellar-sdk';
+import { Keypair, TransactionBuilder, Asset, Operation, LiquidityPoolAsset } from '@stellar/stellar-sdk';
 
 // Configurações do Faucet e Emissores
 const NETWORKS = {
@@ -82,6 +82,46 @@ export default function TestnetKit() {
   const [searchAddress, setSearchAddress] = useState('');
   const [accountData, setAccountData] = useState<any | null>(null);
   const [explorerLoading, setExplorerLoading] = useState(false);
+
+  // Estado das Pools de Liquidez Reais
+  const [pools, setPools] = useState<any[]>([
+    {
+      name: 'XLM / USDW',
+      assetA: Asset.native(),
+      assetB: new Asset('USDW', USDW_ISSUER),
+      id: '',
+      reservesA: '0',
+      reservesB: '0',
+      shares: '0',
+      loaded: false
+    },
+    {
+      name: 'XLM / BRW',
+      assetA: Asset.native(),
+      assetB: new Asset('BRW', BRW_ISSUER),
+      id: '',
+      reservesA: '0',
+      reservesB: '0',
+      shares: '0',
+      loaded: false
+    },
+    {
+      name: 'USDW / BRW',
+      assetA: new Asset('USDW', USDW_ISSUER),
+      assetB: new Asset('BRW', BRW_ISSUER),
+      id: '',
+      reservesA: '0',
+      reservesB: '0',
+      shares: '0',
+      loaded: false
+    }
+  ]);
+  const [poolInputs, setPoolInputs] = useState<Record<number, { amountA: string; amountB: string; withdrawShares: string }>>({
+    0: { amountA: '1000', amountB: '1000', withdrawShares: '100' },
+    1: { amountA: '1000', amountB: '5000', withdrawShares: '100' },
+    2: { amountA: '1000', amountB: '1000', withdrawShares: '100' }
+  });
+  const [poolsLoading, setPoolsLoading] = useState<Record<number, boolean>>({});
 
   // Estado do Health Check
   const [healthStatus, setHealthStatus] = useState<any>({
@@ -324,6 +364,202 @@ export default function TestnetKit() {
       addLog(`Failed to fetch account info: ${err.message}`, 'error');
     } finally {
       setExplorerLoading(false);
+    }
+  };
+
+  // Busca os dados das pools on-chain em tempo real
+  const fetchPoolsData = async () => {
+    try {
+      const updated = await Promise.all(pools.map(async (pool) => {
+        const lp = new LiquidityPoolAsset(pool.assetA, pool.assetB, 30);
+        const poolId = lp.toString().split(':')[1];
+        
+        try {
+          const res = await fetch(`https://horizon-testnet.stellar.org/liquidity_pools/${poolId}`);
+          if (res.ok) {
+            const data = await res.json();
+            const resA = data.reserves.find((r: any) => r.asset === (pool.assetA.isNative() ? 'native' : `${pool.assetA.getCode()}:${pool.assetA.getIssuer()}`))?.amount ?? '0';
+            const resB = data.reserves.find((r: any) => r.asset === (pool.assetB.isNative() ? 'native' : `${pool.assetB.getCode()}:${pool.assetB.getIssuer()}`))?.amount ?? '0';
+            return {
+              ...pool,
+              id: poolId,
+              reservesA: resA,
+              reservesB: resB,
+              shares: data.total_shares,
+              loaded: true
+            };
+          }
+        } catch (e) {
+          // A pool não existe on-chain ainda
+        }
+        return {
+          ...pool,
+          id: poolId,
+          reservesA: '0',
+          reservesB: '0',
+          shares: '0',
+          loaded: true
+        };
+      }));
+      setPools(updated);
+    } catch (err) {
+      console.error('Failed to fetch pools state:', err);
+    }
+  };
+
+  // Inicialização das pools com IDs determinísticos na montagem
+  useEffect(() => {
+    setPools(prev => prev.map(p => {
+      try {
+        const lp = new LiquidityPoolAsset(p.assetA, p.assetB, 30);
+        return {
+          ...p,
+          id: lp.toString().split(':')[1]
+        };
+      } catch (err) {
+        return p;
+      }
+    }));
+  }, []);
+
+  // Recarregar os dados das pools ao alternar para a aba 'pools'
+  useEffect(() => {
+    if (activeTab === 'pools') {
+      fetchPoolsData();
+    }
+  }, [activeTab]);
+
+  // Ação de Depósito de Liquidez / Seed Pool
+  const handleDepositLiquidity = async (poolIndex: number, isQuickSeed = false) => {
+    if (!envResult) {
+      addLog('Error: Please initialize your 1-Click Test Environment first to have active keys and funds.', 'error');
+      alert('Por favor, crie seu ambiente de testes de 1-Clique na primeira aba para ter chaves e saldo!');
+      return;
+    }
+
+    const pool = pools[poolIndex];
+    const inputs = poolInputs[poolIndex] || { amountA: '1000', amountB: '1000', withdrawShares: '100' };
+    const depA = isQuickSeed ? '5000' : inputs.amountA;
+    const depB = isQuickSeed ? '5000' : inputs.amountB;
+
+    setPoolsLoading(prev => ({ ...prev, [poolIndex]: true }));
+    addLog(`Preparing liquidity deposit for ${pool.name} on-chain...`, 'info');
+
+    try {
+      const userKeypair = Keypair.fromSecret(envResult.secretKey);
+      const userAddress = userKeypair.publicKey();
+
+      // Carrega conta do usuário
+      const account = await server.loadAccount(userAddress);
+      const lpAsset = new LiquidityPoolAsset(pool.assetA, pool.assetB, 30);
+      const poolId = lpAsset.toString().split(':')[1];
+      
+      let txBuilder = new TransactionBuilder(account, {
+        fee: '100',
+        networkPassphrase: NETWORKS.TESTNET
+      });
+
+      // Adiciona trustline do Liquidity Pool Share (LPS) se necessário
+      const hasLpTrust = account.balances.some((b: any) => 
+        b.asset_type === 'liquidity_pool_shares' && b.liquidity_pool_id === poolId
+      );
+
+      if (!hasLpTrust) {
+        addLog(`Adding ChangeTrust operation for Liquidity Pool Shares (LPS)...`, 'info');
+        txBuilder = txBuilder.addOperation(Operation.changeTrust({ asset: lpAsset, limit: '1000000000' }));
+      }
+
+      // Adiciona operação de depósito
+      addLog(`Adding LiquidityPoolDeposit operation (A: ${depA}, B: ${depB})...`, 'info');
+      txBuilder = txBuilder.addOperation(Operation.liquidityPoolDeposit({
+        liquidityPoolId: poolId,
+        maxAmountA: depA,
+        maxAmountB: depB,
+        minPrice: '0.0001',
+        maxPrice: '10000.0'
+      }));
+
+      const tx = txBuilder.setTimeout(30).build();
+      tx.sign(userKeypair);
+
+      addLog(`Submitting transaction to Stellar Horizon...`, 'info');
+      const res = await server.submitTransaction(tx);
+      addLog(`Successfully deposited liquidity into ${pool.name}! Tx Hash: ${res.hash.slice(0, 12)}...`, 'success');
+      
+      // Atualiza dados
+      await fetchPoolsData();
+    } catch (err: any) {
+      console.error('[Pool Deposit Error]', err);
+      let detail = err.message;
+      if (err.response?.data?.extras?.result_codes) {
+        const codes = err.response.data.extras.result_codes;
+        const opCodes = codes.operations ? ` operations=${codes.operations.join(', ')}` : '';
+        detail += ` (Codes: transaction=${codes.transaction}${opCodes})`;
+      }
+      addLog(`Failed to deposit liquidity: ${detail}`, 'error');
+    } finally {
+      setPoolsLoading(prev => ({ ...prev, [poolIndex]: false }));
+    }
+  };
+
+  // Ação de Retirada de Liquidez
+  const handleWithdrawLiquidity = async (poolIndex: number) => {
+    if (!envResult) {
+      addLog('Error: Please initialize your 1-Click Test Environment first to have active keys and funds.', 'error');
+      alert('Por favor, crie seu ambiente de testes de 1-Clique na primeira aba para ter chaves e saldo!');
+      return;
+    }
+
+    const pool = pools[poolIndex];
+    const inputs = poolInputs[poolIndex] || { amountA: '1000', amountB: '1000', withdrawShares: '100' };
+    const sharesToBurn = inputs.withdrawShares;
+
+    setPoolsLoading(prev => ({ ...prev, [poolIndex]: true }));
+    addLog(`Preparing liquidity withdrawal from ${pool.name} on-chain...`, 'info');
+
+    try {
+      const userKeypair = Keypair.fromSecret(envResult.secretKey);
+      const userAddress = userKeypair.publicKey();
+
+      // Carrega conta do usuário
+      const account = await server.loadAccount(userAddress);
+      const lpAsset = new LiquidityPoolAsset(pool.assetA, pool.assetB, 30);
+      const poolId = lpAsset.toString().split(':')[1];
+      
+      let txBuilder = new TransactionBuilder(account, {
+        fee: '100',
+        networkPassphrase: NETWORKS.TESTNET
+      });
+
+      // Adiciona operação de saque
+      addLog(`Adding LiquidityPoolWithdraw operation (Shares: ${sharesToBurn})...`, 'info');
+      txBuilder = txBuilder.addOperation(Operation.liquidityPoolWithdraw({
+        liquidityPoolId: poolId,
+        amount: sharesToBurn,
+        minAmountA: '0.0001',
+        minAmountB: '0.0001'
+      }));
+
+      const tx = txBuilder.setTimeout(30).build();
+      tx.sign(userKeypair);
+
+      addLog(`Submitting transaction to Stellar Horizon...`, 'info');
+      const res = await server.submitTransaction(tx);
+      addLog(`Successfully withdrew ${sharesToBurn} shares from ${pool.name}! Tx Hash: ${res.hash.slice(0, 12)}...`, 'success');
+      
+      // Atualiza dados
+      await fetchPoolsData();
+    } catch (err: any) {
+      console.error('[Pool Withdraw Error]', err);
+      let detail = err.message;
+      if (err.response?.data?.extras?.result_codes) {
+        const codes = err.response.data.extras.result_codes;
+        const opCodes = codes.operations ? ` operations=${codes.operations.join(', ')}` : '';
+        detail += ` (Codes: transaction=${codes.transaction}${opCodes})`;
+      }
+      addLog(`Failed to withdraw liquidity: ${detail}`, 'error');
+    } finally {
+      setPoolsLoading(prev => ({ ...prev, [poolIndex]: false }));
     }
   };
 
@@ -594,37 +830,141 @@ export default function TestnetKit() {
           <div className="tk-main-card">
             <h3>Liquidity Pools de Teste (AMM)</h3>
             <p className="tk-card-desc">
-              Pools de liquidez para garantir testes sem slippage no Swap do portal. Estas pools contêm suprimentos de fundos seeded automatizados.
+              Pools de liquidez nativas da Stellar para testes de Swap sem slippage. Essas pools rodam on-chain e você pode interagir com elas depositando e retirando liquidez.
             </p>
 
             <div className="tk-pools-list">
-              {[
-                { pair: 'XLM / USDW', tvl: '$120,450', liquidity: '50,000 XLM + 60,000 USDW', slippage: '0.05%' },
-                { pair: 'XLM / BRW', tvl: '$88,900', liquidity: '50,000 XLM + 300,000 BRW', slippage: '0.08%' },
-                { pair: 'USDW / BRW', tvl: '$150,000', liquidity: '75,000 USDW + 375,000 BRW', slippage: '0.02%' }
-              ].map(pool => (
-                <div key={pool.pair} className="tk-pool-item">
-                  <div className="tk-pool-name">{pool.pair}</div>
-                  <div className="tk-pool-meta">
-                    <div>
-                      <span className="tk-pm-label">TVL</span>
-                      <span className="tk-pm-value">{pool.tvl}</span>
+              {pools.map((pool, index) => {
+                const inputs = poolInputs[index] || { amountA: '1000', amountB: '1000', withdrawShares: '100' };
+                const isLoading = poolsLoading[index] === true;
+
+                return (
+                  <div key={pool.name} className="tk-pool-item-rich">
+                    <div className="tk-pool-header-rich">
+                      <div className="tk-pool-name-rich">{pool.name}</div>
+                      <div className="tk-pool-actions-quick">
+                        <button
+                          className={`tk-primary-btn sm ${isLoading ? 'loading' : ''}`}
+                          onClick={() => handleDepositLiquidity(index, true)}
+                          disabled={isLoading}
+                          title="Deposita 5.000 unidades de cada ativo para inicializar/reabastecer a pool na hora!"
+                        >
+                          {isLoading ? <span className="tk-spinner" /> : <Zap size={12} />} Quick Seed (5,000 / 5,000)
+                        </button>
+                      </div>
                     </div>
-                    <div>
-                      <span className="tk-pm-label">Total Liquidity</span>
-                      <span className="tk-pm-value">{pool.liquidity}</span>
+
+                    {/* Liquidity Pool ID */}
+                    <div className="tk-pool-id-box">
+                      <span className="tk-result-lbl text-xs">Liquidity Pool ID (Hex)</span>
+                      <div className="tk-copyable-value sm">
+                        <code className="tk-mono-text text-xs break-all">{pool.id || 'Carregando ID determinístico...'}</code>
+                        <button className="tk-icon-btn" onClick={() => copyToClipboard(pool.id, `${pool.name} Pool ID`)} title="Copy Pool ID">
+                          {copiedText === `${pool.name} Pool ID` ? <Check size={12} color="#00ff99" /> : <Copy size={12} />}
+                        </button>
+                      </div>
                     </div>
-                    <div>
-                      <span className="tk-pm-label">Est. Slippage</span>
-                      <span className="tk-pm-value">{pool.slippage}</span>
+
+                    {/* Reserves & Shares */}
+                    <div className="tk-pool-reserves">
+                      <div className="tk-reserve-card">
+                        <span className="tk-pm-label">Reserva Ativo A</span>
+                        <span className="tk-pm-value">{parseFloat(pool.reservesA).toLocaleString()} {pool.name.split(' / ')[0]}</span>
+                      </div>
+                      <div className="tk-reserve-card">
+                        <span className="tk-pm-label">Reserva Ativo B</span>
+                        <span className="tk-pm-value">{parseFloat(pool.reservesB).toLocaleString()} {pool.name.split(' / ')[1]}</span>
+                      </div>
+                      <div className="tk-reserve-card">
+                        <span className="tk-pm-label">Total Pool Shares</span>
+                        <span className="tk-pm-value">{parseFloat(pool.shares).toLocaleString()} LPS</span>
+                      </div>
+                    </div>
+
+                    {/* Link Explorer */}
+                    {pool.id && (
+                      <div className="mb-4">
+                        <a
+                          href={`https://stellar.expert/explorer/testnet/liquidity-pool/${pool.id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="tk-exp-link text-xs inline-flex items-center gap-1 font-semibold"
+                        >
+                          View Pool on Stellar.Expert <ExternalLink size={10} />
+                        </a>
+                      </div>
+                    )}
+
+                    {/* Interactive Operations Panel */}
+                    <div className="tk-pool-interactive-panel">
+                      {/* Deposit Form */}
+                      <div className="tk-pool-action-section">
+                        <h5>Depositar Liquidez</h5>
+                        <div className="tk-input-row">
+                          <div className="tk-input-col">
+                            <label className="text-xs text-gray-400">Qtd. {pool.name.split(' / ')[0]}</label>
+                            <input
+                              type="number"
+                              className="tk-input-text sm"
+                              value={inputs.amountA}
+                              onChange={e => setPoolInputs(prev => ({
+                                ...prev,
+                                [index]: { ...inputs, amountA: e.target.value }
+                              }))}
+                              disabled={isLoading}
+                            />
+                          </div>
+                          <div className="tk-input-col">
+                            <label className="text-xs text-gray-400">Qtd. {pool.name.split(' / ')[1]}</label>
+                            <input
+                              type="number"
+                              className="tk-input-text sm"
+                              value={inputs.amountB}
+                              onChange={e => setPoolInputs(prev => ({
+                                ...prev,
+                                [index]: { ...inputs, amountB: e.target.value }
+                              }))}
+                              disabled={isLoading}
+                            />
+                          </div>
+                        </div>
+                        <button
+                          className={`tk-sec-btn sm w-full mt-2 ${isLoading ? 'loading' : ''}`}
+                          onClick={() => handleDepositLiquidity(index, false)}
+                          disabled={isLoading}
+                        >
+                          {isLoading ? <span className="tk-spinner" /> : 'Deposit Liquidity'}
+                        </button>
+                      </div>
+
+                      {/* Withdraw Form */}
+                      <div className="tk-pool-action-section">
+                        <h5>Retirar Liquidez</h5>
+                        <div className="tk-input-col">
+                          <label className="text-xs text-gray-400">Qtd. Shares a Queimar (LPS)</label>
+                          <input
+                            type="number"
+                            className="tk-input-text sm font-mono"
+                            value={inputs.withdrawShares}
+                            onChange={e => setPoolInputs(prev => ({
+                              ...prev,
+                              [index]: { ...inputs, withdrawShares: e.target.value }
+                            }))}
+                            disabled={isLoading}
+                          />
+                        </div>
+                        <button
+                          className={`tk-sec-btn sm w-full mt-2 danger ${isLoading ? 'loading' : ''}`}
+                          onClick={() => handleWithdrawLiquidity(index)}
+                          disabled={isLoading}
+                        >
+                          {isLoading ? <span className="tk-spinner" /> : 'Withdraw Liquidity'}
+                        </button>
+                      </div>
                     </div>
                   </div>
-                  <div className="tk-pool-actions">
-                    <button className="tk-sec-btn sm" onClick={() => addLog(`Adding liquidity to ${pool.pair} pool...`, 'info')}>Add Liquidity</button>
-                    <button className="tk-sec-btn sm" onClick={() => addLog(`Seeding ${pool.pair} pool to maximum capacity...`, 'success')}>Seed Pool</button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
@@ -977,21 +1317,98 @@ export default function TestnetKit() {
 
         /* Pools */
         .tk-pools-list { display: flex; flex-direction: column; gap: 16px; }
-        .tk-pool-item {
+        .tk-pool-item-rich {
+          background: rgba(255,255,255,0.02);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-lg);
+          padding: 24px;
+          margin-bottom: 24px;
           display: flex;
-          align-items: center;
+          flex-direction: column;
+          gap: 16px;
+        }
+        .tk-pool-header-rich {
+          display: flex;
           justify-content: space-between;
+          align-items: center;
+          border-bottom: 1px solid var(--border-subtle);
+          padding-bottom: 12px;
+        }
+        .tk-pool-name-rich {
+          font-size: 18px;
+          font-weight: 800;
+          color: var(--text-primary);
+        }
+        .tk-pool-id-box {
+          background: rgba(0,0,0,0.3);
+          border: 1px solid rgba(255,255,255,0.05);
+          border-radius: var(--radius-md);
+          padding: 10px 14px;
+        }
+        .tk-pool-reserves {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 12px;
+        }
+        .tk-reserve-card {
           background: rgba(255,255,255,0.01);
           border: 1px solid var(--border-subtle);
-          padding: 16px 20px;
+          padding: 12px;
           border-radius: var(--radius-md);
-          gap: 20px;
+          display: flex;
+          flex-direction: column;
         }
-        .tk-pool-name { font-weight: 700; font-size: 14px; color: var(--text-primary); min-width: 120px; }
-        .tk-pool-meta { display: flex; gap: 32px; flex: 1; }
-        .tk-pm-label { display: block; font-size: 10px; color: var(--text-tertiary); text-transform: uppercase; margin-bottom: 2px; }
-        .tk-pm-value { display: block; font-size: 13px; font-weight: 600; color: var(--text-secondary); }
-        .tk-pool-actions { display: flex; gap: 8px; }
+        .tk-pool-interactive-panel {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 20px;
+          border-top: 1px solid var(--border-subtle);
+          padding-top: 16px;
+          margin-top: 8px;
+        }
+        .tk-pool-action-section {
+          background: rgba(0,0,0,0.15);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-md);
+          padding: 16px;
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+        .tk-pool-action-section h5 {
+          font-size: 13px;
+          font-weight: 700;
+          color: var(--text-primary);
+          margin: 0 0 4px 0;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+        .tk-input-row {
+          display: flex;
+          gap: 10px;
+        }
+        .tk-input-col {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          flex: 1;
+        }
+        .tk-input-text.sm {
+          padding: 6px 10px;
+          font-size: 12px;
+        }
+        .tk-sec-btn.sm.w-full {
+          justify-content: center;
+        }
+        .tk-sec-btn.sm.danger {
+          border-color: rgba(239, 68, 68, 0.3);
+          color: #ef4444;
+        }
+        .tk-sec-btn.sm.danger:hover {
+          background: rgba(239, 68, 68, 0.08);
+          border-color: #ef4444;
+        }
+        .tk-pool-actions-quick { display: flex; gap: 8px; }
 
         /* Explorer */
         .tk-search-bar { display: flex; gap: 10px; margin-bottom: 24px; }
