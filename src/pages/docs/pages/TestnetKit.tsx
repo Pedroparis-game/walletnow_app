@@ -586,6 +586,83 @@ export default function TestnetKit() {
     }
   };
 
+  // Ação de Swap na Pool
+  const handleSwapLiquidity = async (poolIndex: number) => {
+    if (!envResult) {
+      addLog('Error: Please initialize your 1-Click Test Environment first to have active keys and funds.', 'error');
+      alert('Por favor, crie seu ambiente de testes de 1-Clique na primeira aba para ter chaves e saldo!');
+      return;
+    }
+
+    const pool = pools[poolIndex];
+    const inputs = poolInputs[poolIndex] || {};
+    const amountIn = inputs.swapAmount || '10';
+    const direction = inputs.swapDirection || 'AtoB';
+
+    if (parseFloat(amountIn) <= 0) return;
+
+    setPoolsLoading(prev => ({ ...prev, [poolIndex]: true }));
+    addLog(`Preparing swap for ${pool.name} on-chain...`, 'info');
+
+    try {
+      const userKeypair = Keypair.fromSecret(envResult.secretKey);
+      const userAddress = userKeypair.publicKey();
+
+      const account = await server.loadAccount(userAddress);
+      
+      const assetIn = direction === 'AtoB' ? pool.assetA : pool.assetB;
+      const assetOut = direction === 'AtoB' ? pool.assetB : pool.assetA;
+      
+      let txBuilder = new TransactionBuilder(account, {
+        fee: '100',
+        networkPassphrase: NETWORKS.TESTNET
+      });
+
+      // Se o asset de saída não for nativo, verificar trustline
+      if (!assetOut.isNative()) {
+        const outCode = assetOut.getCode();
+        const hasOutTrust = account.balances.some((b: any) => 
+          b.asset_code === outCode && b.asset_issuer === assetOut.getIssuer()
+        );
+        if (!hasOutTrust) {
+          addLog(`Adding ChangeTrust operation for ${outCode}...`, 'info');
+          txBuilder = txBuilder.addOperation(Operation.changeTrust({ asset: assetOut, limit: '1000000000' }));
+        }
+      }
+
+      addLog(`Adding PathPaymentStrictSend (Send ${amountIn} ${assetIn.isNative() ? 'XLM' : assetIn.getCode()} -> ${assetOut.isNative() ? 'XLM' : assetOut.getCode()})...`, 'info');
+      txBuilder = txBuilder.addOperation(Operation.pathPaymentStrictSend({
+        sendAsset: assetIn,
+        sendAmount: amountIn,
+        destAsset: assetOut,
+        destMin: '0', // Em produção, calcularíamos slippage limit (ex: 0.5%)
+        path: [],
+        destination: userAddress
+      }));
+
+      const tx = txBuilder.setTimeout(30).build();
+      tx.sign(userKeypair);
+
+      addLog(`Submitting transaction to Stellar Horizon...`, 'info');
+      const res = await server.submitTransaction(tx);
+      addLog(`Successfully swapped! Tx Hash: ${res.hash.slice(0, 12)}...`, 'success');
+      
+      // Atualiza dados
+      await fetchPoolsData();
+    } catch (err: any) {
+      console.error('[Pool Swap Error]', err);
+      let detail = err.message;
+      if (err.response?.data?.extras?.result_codes) {
+        const codes = err.response.data.extras.result_codes;
+        const opCodes = codes.operations ? ` operations=${codes.operations.join(', ')}` : '';
+        detail += ` (Codes: transaction=${codes.transaction}${opCodes})`;
+      }
+      addLog(`Failed to swap: ${detail}`, 'error');
+    } finally {
+      setPoolsLoading(prev => ({ ...prev, [poolIndex]: false }));
+    }
+  };
+
   // 4. Health Check
   const runHealthCheck = useCallback(async () => {
     setHealthStatus(prev => ({ ...prev, horizon: 'checking', friendbot: 'checking' }));
@@ -984,6 +1061,48 @@ export default function TestnetKit() {
                           {isLoading ? <span className="tk-spinner" /> : 'Withdraw Liquidity'}
                         </button>
                       </div>
+
+                      {/* Swap Form */}
+                      <div className="tk-pool-action-section" style={{ borderColor: 'rgba(0,255,153,0.3)', background: 'rgba(0,255,153,0.02)' }}>
+                        <h5 style={{ color: 'var(--accent)' }}>Swap Nativo</h5>
+                        <div className="tk-input-row" style={{ flexDirection: 'column', gap: '8px' }}>
+                          <select 
+                            className="tk-input-text sm" 
+                            style={{ padding: '6px', cursor: 'pointer', background: 'rgba(0,0,0,0.4)', color: 'var(--accent)' }}
+                            value={inputs.swapDirection || 'AtoB'}
+                            onChange={e => setPoolInputs(prev => ({
+                              ...prev,
+                              [index]: { ...inputs, swapDirection: e.target.value }
+                            }))}
+                            disabled={isLoading}
+                          >
+                            <option value="AtoB">{pool.name.split(' / ')[0]} ➔ {pool.name.split(' / ')[1]}</option>
+                            <option value="BtoA">{pool.name.split(' / ')[1]} ➔ {pool.name.split(' / ')[0]}</option>
+                          </select>
+                          <input
+                            type="number"
+                            className="tk-input-text sm font-mono"
+                            placeholder={`Qtd de ${inputs.swapDirection === 'BtoA' ? pool.name.split(' / ')[1] : pool.name.split(' / ')[0]}`}
+                            value={inputs.swapAmount || ''}
+                            onChange={e => setPoolInputs(prev => ({
+                              ...prev,
+                              [index]: { ...inputs, swapAmount: e.target.value }
+                            }))}
+                            disabled={isLoading}
+                          />
+                          <div className="text-[10px] text-gray-500 text-center">
+                            Slippage config: <span className="text-gray-300">~0.5% (AMM Testnet)</span>
+                          </div>
+                        </div>
+                        <button
+                          className={`tk-sec-btn sm w-full mt-2 ${isLoading ? 'loading' : ''}`}
+                          onClick={() => handleSwapLiquidity(index)}
+                          disabled={isLoading}
+                          style={{ borderColor: 'var(--accent)', color: 'var(--accent)' }}
+                        >
+                          {isLoading ? <span className="tk-spinner" /> : 'Executar Swap'}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 );
@@ -1342,10 +1461,11 @@ export default function TestnetKit() {
         .tk-pools-list { display: flex; flex-direction: column; gap: 16px; }
         .tk-pool-item-rich {
           background: rgba(255,255,255,0.02);
-          border: 1px solid var(--border-subtle);
+          border: 2px solid rgba(255,255,255,0.08);
+          box-shadow: 0 8px 32px rgba(0,0,0,0.4);
           border-radius: var(--radius-lg);
           padding: 24px;
-          margin-bottom: 24px;
+          margin-bottom: 32px;
           display: flex;
           flex-direction: column;
           gap: 16px;
@@ -1383,7 +1503,7 @@ export default function TestnetKit() {
         }
         .tk-pool-interactive-panel {
           display: grid;
-          grid-template-columns: 1fr 1fr;
+          grid-template-columns: repeat(3, 1fr);
           gap: 20px;
           border-top: 1px solid var(--border-subtle);
           padding-top: 16px;
