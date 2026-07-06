@@ -94,8 +94,7 @@ export default function TestnetKit() {
   const [faucetAddress, setFaucetAddress] = useState('');
   const [faucetAsset, setFaucetAsset] = useState<'XLM' | 'BRW' | 'USDW'>('BRW');
   const [faucetLoading, setFaucetLoading] = useState(false);
-  const [confidentialMode, setConfidentialMode] = useState(false);
-  const [faucetSuccess, setFaucetSuccess] = useState<{hash: string, asset: string, amount: string, confidential: boolean} | null>(null);
+  const [faucetSuccess, setFaucetSuccess] = useState<{hash: string, asset: string, amount: string} | null>(null);
   const [faucetError, setFaucetError] = useState<string | null>(null);
 
   // Estado do Explorer
@@ -315,7 +314,7 @@ export default function TestnetKit() {
         if (!res.ok) throw new Error('Friendbot failed to distribute XLM.');
         const data = await res.json();
         addLog(`Successfully funded 10,000 XLM. Tx Hash: ${data.hash.slice(0, 12)}...`, 'success');
-        setFaucetSuccess({ hash: data.hash, asset: 'XLM', amount: '10,000', confidential: false });
+        setFaucetSuccess({ hash: data.hash, asset: 'XLM', amount: '10,000' });
       } else {
         const isBRW = faucetAsset === 'BRW';
         const issuerKeypair = isBRW ? BRW_KEYPAIR : USDW_KEYPAIR;
@@ -325,52 +324,25 @@ export default function TestnetKit() {
         const issuerAccount = await server.loadAccount(issuerPub);
         const assetObj = new Asset(assetCode, issuerPub);
 
-        // Lógica de Privacidade/Confidencialidade
-        if (confidentialMode) {
-          addLog('[Privacy Mode] Generating zk-proof (Ultrahonk) for confidential transfer...', 'info');
-          
-          // Gera um payload aleatório para simular a prova ZK gravada on-chain
-          const mockZkProof = Array.from({length: 16}, () => Math.floor(Math.random()*256).toString(16).padStart(2, '0')).join('');
-          
-          const tx = new TransactionBuilder(issuerAccount, {
-            fee: '100',
-            networkPassphrase: NETWORKS.TESTNET
+        // Transferência Pública Clássica
+        const tx = new TransactionBuilder(issuerAccount, {
+          fee: '100',
+          networkPassphrase: NETWORKS.TESTNET
+        })
+        .addOperation(
+          Operation.payment({
+            destination: faucetAddress,
+            asset: assetObj,
+            amount: '10000'
           })
-          .addOperation(
-            Operation.manageData({
-              name: 'zk_transfer',
-              value: mockZkProof // String direta, 32 caracteres (dentro do limite de 64 bytes)
-            })
-          )
-          .setTimeout(30)
-          .build();
+        )
+        .setTimeout(30)
+        .build();
 
-          tx.sign(issuerKeypair);
-          const result = await server.submitTransaction(tx);
-          addLog(`[Privacy Mode] ZK proof verified via OpenZeppelin Verifier!`, 'success');
-          addLog(`Successfully minted 10,000 ${assetCode} CONFIDENTIALLY. Tx Hash: ${result.hash.slice(0, 12)}...`, 'success');
-          setFaucetSuccess({ hash: result.hash, asset: assetCode, amount: '10,000', confidential: true });
-        } else {
-          // Transferência Pública Clássica
-          const tx = new TransactionBuilder(issuerAccount, {
-            fee: '100',
-            networkPassphrase: NETWORKS.TESTNET
-          })
-          .addOperation(
-            Operation.payment({
-              destination: faucetAddress,
-              asset: assetObj,
-              amount: '10000'
-            })
-          )
-          .setTimeout(30)
-          .build();
-
-          tx.sign(issuerKeypair);
-          const result = await server.submitTransaction(tx);
-          addLog(`Successfully funded 10,000 ${assetCode}. Tx Hash: ${result.hash.slice(0, 12)}...`, 'success');
-          setFaucetSuccess({ hash: result.hash, asset: assetCode, amount: '10,000', confidential: false });
-        }
+        tx.sign(issuerKeypair);
+        const result = await server.submitTransaction(tx);
+        addLog(`Successfully funded 10,000 ${assetCode}. Tx Hash: ${result.hash.slice(0, 12)}...`, 'success');
+        setFaucetSuccess({ hash: result.hash, asset: assetCode, amount: '10,000' });
       }
     } catch (err: any) {
       addLog(`Faucet transaction failed: ${err.message}. Make sure the trustline is set up!`, 'error');
@@ -900,24 +872,6 @@ export default function TestnetKit() {
                   </div>
                 </div>
 
-                {/* Confidentiality/Privacy Toggle */}
-                {faucetAsset !== 'XLM' && (
-                  <div className="tk-form-group">
-                    <label className="tk-lbl-inline">
-                      <input
-                        type="checkbox"
-                        checked={confidentialMode}
-                        onChange={e => setConfidentialMode(e.target.checked)}
-                        disabled={faucetLoading}
-                      />
-                      <span>Enable Confidential & Zero-Knowledge Mode (OpenZeppelin Verifier)</span>
-                    </label>
-                    <span className="tk-input-help">
-                      Oculta os saldos e o valor cunhado utilizando criptografia homomórfica e provas ZK-SNARKs (Ultrahonk) verificadas on-chain nos contratos da OpenZeppelin.
-                    </span>
-                  </div>
-                )}
-
                 <button type="submit" className={`tk-primary-btn ${faucetLoading ? 'loading' : ''}`} disabled={faucetLoading}>
                   {faucetLoading ? <span className="tk-spinner" /> : <Droplets size={14} />} Request Airdrop (10,000 {faucetAsset})
                 </button>
@@ -960,22 +914,16 @@ export default function TestnetKit() {
               {faucetSuccess && (
                 <div className="mt-6" style={{ background: 'rgba(0,255,153,0.05)', border: '1px solid var(--accent)', borderRadius: 'var(--radius-lg)', padding: '16px' }}>
                   <div className="flex items-center gap-2 mb-3 text-[var(--accent)]">
-                    {faucetSuccess.confidential ? <Shield size={18} /> : <Check size={18} />}
+                    <Check size={18} />
                     <h3 className="m-0 font-bold" style={{ color: 'var(--accent)', fontSize: '14px' }}>
-                      {faucetSuccess.confidential ? 'Confidential Transfer Success' : 'Airdrop Success'}
+                      Airdrop Success
                     </h3>
                   </div>
                   <div className="text-sm text-gray-300 mb-4">
                     Successfully requested <strong>{faucetSuccess.amount} {faucetSuccess.asset}</strong>.
-                    {faucetSuccess.confidential && (
-                       <div className="mt-3 text-xs p-3 rounded" style={{color: '#ffcc00', background: 'rgba(255,204,0,0.1)', border: '1px solid rgba(255,204,0,0.2)'}}>
-                         <div className="font-bold mb-1">OpenZeppelin ZK-Verifier</div>
-                         A prova de conhecimento zero (Ultrahonk) foi verificada on-chain e enviada em anexo pelo Emissor (manageData). O valor enviado e a sua conta de destino não foram expostas publicamente no ledger.
-                       </div>
-                    )}
                   </div>
-                  <a href={`https://stellar.expert/explorer/testnet/tx/${faucetSuccess.hash}`} target="_blank" rel="noopener noreferrer" className="tk-primary-btn sm w-full justify-center" style={{ textDecoration: 'none' }}>
-                    View Transaction on Explorer <ExternalLink size={14} />
+                  <a href={`https://stellar.expert/explorer/testnet/tx/${faucetSuccess.hash}`} target="_blank" rel="noopener noreferrer" className="tk-primary-btn sm w-full justify-center" style={{ textDecoration: 'none', color: '#000', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    View on Explorer <ExternalLink size={14} />
                   </a>
                 </div>
               )}
