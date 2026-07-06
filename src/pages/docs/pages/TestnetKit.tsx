@@ -334,7 +334,7 @@ export default function TestnetKit() {
           .addOperation(
             Operation.manageData({
               name: 'zk_transfer',
-              value: Buffer.from(mockZkProof, 'hex')
+              value: mockZkProof // String direta, 32 caracteres (dentro do limite de 64 bytes)
             })
           )
           .setTimeout(30)
@@ -940,6 +940,15 @@ export default function TestnetKit() {
                     <span>Moeda indexada ao Dólar americano. Emissor:<br /><code className="tk-mini-mono">{USDW_ISSUER}</code></span>
                   </div>
                 </div>
+              </div>
+              
+              <h3 className="tk-badge mt-6">Infrastructure Console Output</h3>
+              <div className="tk-console" style={{ minHeight: '200px' }}>
+                {logs.map((log, index) => (
+                  <div key={index} className={`tk-console-line ${log.type}`}>
+                    <span className="tk-console-time">[{log.timestamp}]</span> {log.message}
+                  </div>
+                ))}
               </div>
             </div>
           </div>
