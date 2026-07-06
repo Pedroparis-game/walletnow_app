@@ -351,7 +351,6 @@ export default function HeroSection() {
                 textDecoration: 'none', cursor: 'pointer',
                 transition: 'all 0.25s',
                 boxShadow: '0 4px 24px rgba(0,255,153,0.08)',
-                background: 'rgba(0,255,153,0.08)',
               }}
             >
               Ler a Documentação
