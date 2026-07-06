@@ -1,0 +1,449 @@
+# WalletNow — Product Architecture v4.1
+## "Onboarding Infrastructure for Stellar"
+
+> **A promessa central**: Um builder integra a Stellar em minutos, sem precisar entender Horizon, XDR, Soroban ou trustlines. Ele chama `wn.onboarding.createUser()` e recebe um usuário pronto para operar na rede.
+
+---
+
+## O Reposicionamento Estratégico
+
+A versão anterior (v4.0) estava correta na estrutura, mas errada na hierarquia de valor. A distinção crítica:
+
+| v4.0 (Plataforma de Infraestrutura) | v4.1 (Onboarding Infrastructure) |
+| :--- | :--- |
+| Vende SDK, Cloud, OS | Vende **tempo** — horas de integração eliminadas |
+| Identity + Wallet + Assets como domínios iguais | **Onboarding** como domínio de primeira classe |
+| Swap, Yield como features centrais | Swap, Yield como extensões **opcionais** sobre Onboarding |
+| O builder configura engines e providers | O builder chama **uma função** e tem um usuário na Stellar |
+
+**A pergunta que guia tudo**: _"Quanto tempo leva para um builder colocar seu primeiro usuário dentro da Stellar com WalletNow?"_
+
+A resposta deve ser: **menos de 1 hora, desde o cadastro no Dashboard até o primeiro usuário com carteira ativa em produção.**
+
+---
+
+## 1. Os Três Produtos e sua Nova Hierarquia
+
+```
+╔══════════════════════════════════════════════════════════════════════╗
+║                     O QUE O BUILDER COMPRA                          ║
+║                                                                      ║
+║   "Quero colocar meus usuários dentro da Stellar sem aprender       ║
+║    XDR, trustlines ou gerenciamento de contas."                     ║
+╚══════════════════════════════════════════════════════════════════════╝
+              │
+              ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                        WALLETNOW CLOUD                              │
+│                    (O Produto — o que se vende)                     │
+│                                                                      │
+│  Onboarding API · Gas Station · API Keys · Dashboard · Analytics   │
+│  Sponsorship · Webhooks · Testnet Kit · Faucet · Limits            │
+└─────────────────────────────────────────────────────────────────────┘
+              │ alimentado por
+              ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                         WALLETNOW SDK                               │
+│               (A Interface — o que o builder escreve)               │
+│                                                                      │
+│     wn.onboarding  ← PRIMEIRO DOMÍNIO, SEMPRE                      │
+│     wn.payments    ← opcional, sobre onboarding                    │
+│     wn.swap        ← opcional, sobre onboarding                    │
+│     wn.yield       ← opcional, sobre onboarding                    │
+└─────────────────────────────────────────────────────────────────────┘
+              │ executa via
+              ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                        WALLETNOW OS                                 │
+│            (A Engine — invisível para o builder)                    │
+│                                                                      │
+│  Kernel · Identity Engine · Account Engine · Transaction Builder   │
+│  Crypto Driver · Storage Adapters · Plugin Registry                │
+└─────────────────────────────────────────────────────────────────────┘
+              │ fala com
+              ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                  STELLAR NETWORK + PROTOCOLS                        │
+│         Horizon · Soroban RPC · DEXs · Lending · RWA               │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+> [!IMPORTANT]
+> **O OS existe para tornar a promessa do Onboarding possível. Ele não é o produto.** O builder nunca deve saber que o WalletNow OS existe.
+
+---
+
+## 2. O Domínio de Primeira Classe: `wn.onboarding`
+
+O `onboarding` não é a combinação de `identity + wallet + assets`. Ele é um **orquestrador de jornada completa** que esconde toda a complexidade da Stellar atrás de uma única interface orientada a negócio.
+
+### O Contrato Central do SDK
+
+```typescript
+// O ÚNICO código que o builder precisa conhecer para começar
+const user = await wn.onboarding.createUser({
+  email: "alice@example.com",  // ou socialId, phoneNumber etc.
+  displayName: "Alice",
+});
+
+// O que o builder recebe de volta:
+// {
+//   userId: "usr_abc123",
+//   stellarAddress: "GABC...XYZ",  ← conta criada e ATIVA na Stellar
+//   isSponsored: true,              ← patrocinada pelo Gas Station
+//   trustlines: ["USDC", "BRL"],   ← configuradas automaticamente
+//   network: "testnet",
+//   createdAt: "2026-07-01T..."
+// }
+```
+
+### O que `createUser()` faz internamente (invisível para o builder)
+
+```
+wn.onboarding.createUser()
+         │
+         ├─ 1. Cria par de chaves criptográfico (OS Kernel)
+         │
+         ├─ 2. Cria identidade vinculada ao email/social (Identity Engine)
+         │
+         ├─ 3. Verifica se conta existe no ledger (Account Engine)
+         │     └─ Se não existe → solicita patrocínio (Gas Station / Cloud)
+         │
+         ├─ 4. Configura trustlines automáticas (Transaction Builder)
+         │     └─ Patrocina taxas de trustline (Gas Station / Cloud)
+         │
+         ├─ 5. Registra evento no Analytics (Cloud)
+         │
+         └─ 6. Retorna UserOnboardingResult para o builder
+```
+
+### A API Completa do Domínio `onboarding`
+
+```typescript
+// Criar novo usuário (fluxo principal)
+wn.onboarding.createUser(params: CreateUserParams): Promise<UserOnboardingResult>
+
+// Recuperar usuário existente (login)
+wn.onboarding.restoreUser(identifier: string): Promise<UserOnboardingResult>
+
+// Verificar se um usuário já foi integrado
+wn.onboarding.getUserStatus(userId: string): Promise<OnboardingStatus>
+
+// Configurar trustlines adicionais para usuário existente
+wn.onboarding.setupTrustlines(userId: string, assets: string[]): Promise<TrustlineResult>
+
+// Fluxo específico para Testnet (ganha tokens automaticamente)
+wn.onboarding.createTestUser(params?: TestUserParams): Promise<UserOnboardingResult>
+```
+
+---
+
+## 3. Mapeamento do Estado Atual da Codebase
+
+Análise do código existente em `packages/` para identificar o que já existe e o que precisa ser construído:
+
+### Pacotes Existentes
+
+| Pacote | Estado Atual | Avaliação |
+| :--- | :--- | :--- |
+| `@walletnow/core` | `WalletNow.ts` com Kernel, lifecycle e plugin system bem estruturados | ✅ Base sólida — mantém |
+| `@walletnow/identity` | `IdentityEngine.ts` com stubs — interface completa, sem implementação | ⚠️ Contrato ok, precisa implementar |
+| `@walletnow/wallet` | `AccountEngine.ts` com stubs — `existsOnChain`, `getState`, `sync` | ⚠️ Contrato ok, precisa implementar |
+| `@walletnow/crypto` | Presente, provavelmente drivers de criptografia | ⚠️ Verificar completude |
+| `@walletnow/storage` | `LocalStorageAdapter.ts` — indexado no SDK | ⚠️ Verificar para contextos server-side |
+| `@walletnow/sdk` | Barrel que expõe engines e contratos diretamente | ❌ **Anti-pattern** — expõe infraestrutura |
+| `@walletnow/providers` | `WalletNowOS`, `ProviderRegistry` | ⚠️ Renomear/reorganizar |
+| `@walletnow/domain` | Existe como pacote mas src é mínima | ❌ Aqui deveria morar o Onboarding |
+| `@walletnow/plugins/*` | Defindex, etc. | ✅ Padrão de plugin correto |
+
+### O Problema Atual do SDK
+
+O SDK atual expõe a arquitetura interna diretamente:
+
+```typescript
+// ❌ Atual — expõe engines, contratos e utilitários ao builder
+export { WalletNowOS, ProviderRegistry, WalletNowEventBus } from '@walletnow/providers';
+export { IdentityEngine } from '@walletnow/identity';
+export { WalletEngine, AccountEngine } from '@walletnow/wallet';
+export * from '@walletnow/contracts';
+export * from '@walletnow/storage';
+export * from '@walletnow/crypto';
+```
+
+```typescript
+// ✅ Alvo v4.1 — expõe apenas domínios orientados a negócio
+export { WalletNow } from '@walletnow/core';
+export type { CreateUserParams, UserOnboardingResult } from '@walletnow/onboarding';
+export type { PaymentParams, PaymentResult } from '@walletnow/payments';
+export type { SwapQuoteParams, SwapExecuteResult } from '@walletnow/swap';
+// Engines, Registries, Storage, Crypto → NUNCA exportados publicamente
+```
+
+---
+
+## 4. Roadmap de Evolução: MVP → Growth → Platform
+
+### 🔵 MVP — "O Onboarding mais rápido da Stellar"
+
+**Objetivo**: Um builder consegue colocar um usuário com carteira ativa na Stellar em menos de 1 hora, sem conhecer Stellar.
+
+**O que constrói**:
+
+```
+packages/
+  onboarding/       ← [NOVO] Domínio central — wn.onboarding.*
+  identity/         ← [IMPLEMENTAR] IdentityEngine (Email, Google OAuth, Passkey)
+  wallet/           ← [IMPLEMENTAR] AccountEngine (existsOnChain, criar, patrocinar)
+  core/             ← [MANTER] Kernel existente está bem estruturado
+  sdk/              ← [REFATORAR] Expor apenas domínios, não engines
+
+cloud/
+  gas-station/      ← [NOVO] Fee Sponsorship API (criar conta + trustlines)
+  api-gateway/      ← [NOVO] Autenticação de API Keys por workspace
+  
+dashboard/
+  onboarding/       ← [NOVO] Tela de setup guiado — do cadastro à primeira API Key
+```
+
+**Critério de sucesso do MVP**:
+
+```typescript
+// Isso funciona em produção em menos de 10 linhas de código do builder
+import { WalletNow } from "@walletnow/sdk";
+
+const wn = await WalletNow.init({ apiKey: "wn_live_abc123" });
+const user = await wn.onboarding.createUser({ email: req.user.email });
+
+// user.stellarAddress → GABC...XYZ (conta ativa, patrocinada, trustlines ok)
+```
+
+---
+
+### 🟡 Growth — "DeFi Suite sobre Onboarding"
+
+**Objetivo**: Builders que já usam o Onboarding conseguem adicionar capacidades DeFi sem mudar a arquitetura base.
+
+**O que constrói** (sobre o MVP):
+
+```
+packages/
+  payments/         ← [NOVO] wn.payments.send() — transferências gasless
+  swap/             ← [MOVER de plugins] wn.swap.quote() + execute()
+  assets/           ← [NOVO] wn.assets.list() — saldos e portfólio
+
+cloud/
+  analytics/        ← [NOVO] Volume por usuário, taxas, falhas
+  webhooks/         ← [NOVO] Eventos garantidos para backends Web2
+  rate-limits/      ← [NOVO] Por plano e por API Key
+
+dashboard/
+  analytics/        ← [NOVO] Gráficos de usuários integrados, volume
+  gas-usage/        ← [NOVO] Consumo de Gas Station por projeto
+```
+
+---
+
+### 🟢 Platform — "Infraestrutura Enterprise & Ecossistema"
+
+**Objetivo**: Empresas e protocolos usam o WalletNow como infraestrutura de onboarding padrão na Stellar.
+
+**O que constrói** (sobre Growth):
+
+```
+packages/
+  yield/            ← wn.yield.deposit() — Blend, Defindex
+  rwa/              ← wn.rwa.* — Etherfuse, RWA tokenizados
+  compliance/       ← wn.kyc.verify() — integração KYC/AML
+
+cloud/
+  marketplace/      ← Providers (Soroswap, Phoenix, Blend) ativáveis no dashboard
+  billing/          ← Planos, limites, faturamento por uso de Gas
+  enterprise/       ← SSO, Multi-sig, Auditoria de logs, SLAs
+  
+ecosystem/
+  walletnow.json    ← Manifest padrão para DApps na Stellar
+  cli/              ← walletnow init, walletnow deploy
+  templates/        ← Boilerplates React, Next.js, Flutter
+```
+
+---
+
+## 5. Estrutura de Pacotes Alvo (v4.1)
+
+```
+packages/
+├── core/           ← WalletNow Kernel (lifecycle, plugins, events) — MANTÉM
+├── contracts/      ← Tipos e interfaces compartilhadas — MANTÉM
+├── crypto/         ← Drivers criptográficos — MANTÉM (nunca exportado no SDK público)
+├── storage/        ← Adapters de storage — MANTÉM (nunca exportado no SDK público)
+│
+├── onboarding/     ← [NOVO - MVP] Domínio principal: createUser, restoreUser
+├── identity/       ← [IMPLEMENTAR - MVP] Auth: Email, OAuth, Passkey, Keypair
+├── wallet/         ← [IMPLEMENTAR - MVP] Accounts: create, sponsor, trustlines
+│
+├── payments/       ← [NOVO - Growth] send(), history()
+├── assets/         ← [NOVO - Growth] list(), balances(), trustlines query
+│
+├── swap/           ← [MOVER - Growth] do plugins/ para domain principal
+├── yield/          ← [NOVO - Platform] Blend, Defindex
+├── rwa/            ← [NOVO - Platform] Etherfuse, ativos tokenizados
+│
+├── sdk/            ← [REFATORAR - MVP] Barrel limpo — só domínios, zero engines
+│
+└── plugins/        ← Extensões de terceiros (mantém padrão atual)
+    ├── plugin-soroswap/
+    ├── plugin-phoenix/
+    ├── plugin-defindex/
+    └── plugin-blend/
+```
+
+---
+
+## 6. Diagrama de Dependências dos Domínios
+
+```mermaid
+graph TD
+    SDK["@walletnow/sdk<br/>(API pública)"]
+    ONB["@walletnow/onboarding<br/>wn.onboarding.*"]
+    PAY["@walletnow/payments<br/>wn.payments.*"]
+    SWP["@walletnow/swap<br/>wn.swap.*"]
+    YLD["@walletnow/yield<br/>wn.yield.*"]
+    ASS["@walletnow/assets<br/>wn.assets.*"]
+
+    IDN["@walletnow/identity<br/>(Engine)"]
+    WAL["@walletnow/wallet<br/>(Engine)"]
+    CORE["@walletnow/core<br/>(Kernel)"]
+    CRYP["@walletnow/crypto"]
+    STOR["@walletnow/storage"]
+    CNTR["@walletnow/contracts"]
+
+    SDK --> ONB
+    SDK --> PAY
+    SDK --> SWP
+    SDK --> YLD
+    SDK --> ASS
+
+    ONB --> IDN
+    ONB --> WAL
+    PAY --> WAL
+    SWP --> WAL
+    YLD --> WAL
+
+    IDN --> CORE
+    WAL --> CORE
+    IDN --> CRYP
+    IDN --> STOR
+    WAL --> STOR
+
+    CORE --> CNTR
+    IDN --> CNTR
+    WAL --> CNTR
+
+    style ONB fill:#2563eb,color:#fff,stroke:#1d4ed8
+    style SDK fill:#7c3aed,color:#fff,stroke:#6d28d9
+    style CORE fill:#374151,color:#fff,stroke:#1f2937
+```
+
+**Regra de dependência**: As camadas superiores dependem das inferiores, nunca o inverso. O `sdk/` nunca importa de `crypto/` ou `storage/` diretamente.
+
+---
+
+## 7. O `walletnow.json` Centrado em Onboarding
+
+O manifest evolui para refletir o produto como infraestrutura de onboarding:
+
+```json
+{
+  "name": "Super DApp",
+  "version": "1.0",
+  "network": "mainnet",
+  
+  "onboarding": {
+    "identity": {
+      "providers": ["email", "google", "passkey"],
+      "recovery": "cloud-backup"
+    },
+    "wallet": {
+      "type": "non-custodial",
+      "sponsor": true
+    },
+    "trustlines": {
+      "auto": ["USDC", "BRL"],
+      "manual": false
+    }
+  },
+
+  "extensions": {
+    "payments": { "gasless": true },
+    "swap": { "preferredProviders": ["soroswap", "phoenix"] },
+    "yield": { "enabled": false }
+  }
+}
+```
+
+A seção `onboarding` é **obrigatória e de primeira classe**. A seção `extensions` é totalmente opcional.
+
+---
+
+## 8. Jornada do Builder — Centrada no Onboarding
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│  PASSO 1 — Cadastro no Dashboard (2 min)                         │
+│  dashboard.walletnow.dev → Criar Workspace → Criar Projeto       │
+│  → Obter API Key → Copiar walletnow.json pré-preenchido          │
+└───────────────────────────┬──────────────────────────────────────┘
+                            │
+                            ▼
+┌──────────────────────────────────────────────────────────────────┐
+│  PASSO 2 — Instalar SDK (30 segundos)                            │
+│  npm install @walletnow/sdk                                       │
+└───────────────────────────┬──────────────────────────────────────┘
+                            │
+                            ▼
+┌──────────────────────────────────────────────────────────────────┐
+│  PASSO 3 — Primeiro usuário na Stellar (10 min)                  │
+│                                                                   │
+│  const wn = await WalletNow.init({ apiKey: "..." });             │
+│  const user = await wn.onboarding.createUser({                   │
+│    email: "alice@example.com"                                     │
+│  });                                                              │
+│  // user.stellarAddress → pronto!                                │
+└───────────────────────────┬──────────────────────────────────────┘
+                            │
+                            ▼
+┌──────────────────────────────────────────────────────────────────┐
+│  PASSO 4 — Escalar (conforme precisar)                           │
+│  + wn.payments.send()   → adicionar em dias                      │
+│  + wn.swap.execute()    → adicionar em dias                      │
+│  + wn.yield.deposit()   → adicionar em dias                      │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 9. O que pode ser ADIADO (fora do MVP)
+
+> [!NOTE]
+> O foco no MVP é exclusivamente entregar `wn.onboarding.createUser()` funcionando em produção, com Gas Station e Dashboard operacional.
+
+| Funcionalidade | Por quê Adiar |
+| :--- | :--- |
+| `wn.swap.*` | Valioso, mas não é pré-requisito para onboarding |
+| `wn.yield.*` | Blend e Defindex requerem liquidez de mercado — Growth |
+| `wn.rwa.*` | Etherfuse e outros — Platform |
+| Providers Marketplace no Dashboard | Requer billing e planos — Platform |
+| Multi-sig e compliance | Enterprise use-cases — Platform |
+| `walletnow.json` como padrão do ecossistema | Requer adoção ampla — Growth |
+| Webhooks gerenciados | Útil mas não bloqueia o MVP |
+| CLI e templates de scaffolding | Developer experience — Growth |
+
+---
+
+## 10. Pergunta Central para Aprovação
+
+> **Antes de escrever uma linha de código**, a equipe deve conseguir responder com convicção:
+>
+> *"Um desenvolvedor React sem nenhum conhecimento de Stellar consegue colocar o primeiro usuário com carteira ativa na rede em menos de 1 hora, usando apenas nossa documentação e nosso SDK?"*
+>
+> Se a resposta for sim, o MVP está correto. Se não, ainda tem fricção a remover.

@@ -85,6 +85,7 @@ Our core engine provides retail users with a unified payments account experience
 * **Pro Mode (Hybrid Account Architecture)**: An advanced Web3 dashboard that supports the co-existence of legacy cloud-based accounts (`legacy-profile-account`) with local-first, biometrically protected imported accounts using the *Legacy Account Synthesis* algorithm.
 * **RWA & Treasury Layer (Etherfuse V2)**: Seamless programmatic KYC validation and simulated/live order routing to tokenized treasury bills (RWA) directly on-chain.
 * **Micro-Seconds Sync Dashboard**: Real-time WebSocket connection to Stellar network nodes powered by Supabase Realtime, immediately updating the user's balance without page reloads.
+* **Testnet Infrastructure Kit**: A fully-fledged sandbox environment with One-Click environment creation, a real-time faucet for custom assets (BRW & USDW), persistent constant-product AMM DEX pools (X * Y = K) with slippage protection, a ledger explorer, and an infrastructure latency and health monitor.
 
 ---
 

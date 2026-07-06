@@ -1,0 +1,28 @@
+# Tasks — WalletNow v4.1: Onboarding Infrastructure
+
+## Fase MVP — Sprint: @walletnow/onboarding
+
+### 1. Contratos (packages/contracts)
+- [ ] Adicionar `onboarding.ts` em `@walletnow/contracts` com tipos canônicos do domínio
+- [ ] Adicionar `OnboardingError` em `errors.ts`
+- [ ] Exportar os novos tipos no `index.ts` de contracts
+
+### 2. Pacote @walletnow/onboarding (NOVO)
+- [ ] Criar estrutura de pastas: `packages/onboarding/src/`
+- [ ] Criar `package.json` do pacote
+- [ ] Criar `tsup.config.ts` e `tsconfig.json`
+- [ ] Criar `IOnboardingDomain.ts` — contrato da interface pública
+- [ ] Criar `OnboardingOrchestrator.ts` — implementação principal
+- [ ] Criar `OnboardingContext.ts` — dependências injetadas
+- [ ] Criar `index.ts` barrel do pacote
+
+### 3. Refatoração do @walletnow/sdk
+- [ ] Refatorar `packages/sdk/src/index.ts` para expor apenas domínios
+- [ ] Criar `WalletNowClient.ts` — facade de alto nível com `wn.onboarding.*`
+
+### 4. Adicionar onboarding ao workspace
+- [ ] Registrar `@walletnow/onboarding` no `pnpm-workspace.yaml` (já deve cobrir por glob)
+- [ ] Adicionar ao `turbo.json` se necessário
+
+### 5. Testes
+- [ ] Criar `packages/onboarding/src/__tests__/OnboardingOrchestrator.test.ts`

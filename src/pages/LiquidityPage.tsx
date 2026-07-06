@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Droplets, Settings, Zap, ArrowDown, ArrowUp, Info } from 'lucide-react';
+import { Droplets, Settings, Zap, ArrowDown, ArrowUp, Info, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useWallet } from '../contexts/WalletContext';
 import { WalletFactory } from '../services/walletFactory';
@@ -17,6 +17,7 @@ export default function LiquidityPage() {
   const [amountUSDC, setAmountUSDC] = useState('');
   const [sharesToWithdraw, setSharesToWithdraw] = useState('');
   const [status, setStatus] = useState<'idle' | 'loading' | 'success'>('idle');
+  const [txHash, setTxHash] = useState('');
   const [poolData, setPoolData] = useState<any>(null);
 
   // Fetch Pool Data from Horizon
@@ -87,7 +88,8 @@ export default function LiquidityPage() {
       // Auto Swap One-Click
       let autoSwapParams = undefined;
       if (balUSDC < reqUSDC) {
-        const diff = (reqUSDC - balUSDC).toFixed(7);
+        // Buffer de 0.5% para garantir que problemas de arredondamento (stroops) não disparem op_underfunded no liquidityPoolDeposit
+        const diff = ((reqUSDC - balUSDC) * 1.005).toFixed(7);
         const ratio = parseFloat(amountXLM) / reqUSDC;
         const maxXLMSell = (parseFloat(diff) * ratio * 1.20).toFixed(7);
 
@@ -99,7 +101,7 @@ export default function LiquidityPage() {
         };
       }
 
-      await WalletFactory.depositLiquidity(
+      const result = await WalletFactory.depositLiquidity(
         activeAccount.stellar_public_key,
         assetA,
         assetB,
@@ -107,14 +109,16 @@ export default function LiquidityPage() {
         amountUSDC,
         { requiresTrustline: true, autoSwap: autoSwapParams }
       );
+      
+      if (result && result.hash) {
+        setTxHash(result.hash);
+      }
       setStatus('success');
       setAmountXLM('');
       setAmountUSDC('');
       await refreshAccounts();
-      alert('Liquidez depositada com sucesso!');
     } catch (err: any) {
       alert('Erro ao depositar: ' + err.message);
-    } finally {
       setStatus('idle');
     }
   };
@@ -125,14 +129,15 @@ export default function LiquidityPage() {
     try {
       const assetA = Asset.native();
       const assetB = new Asset('USDC', USDC_ISSUER);
-      await WalletFactory.withdrawLiquidity(activeAccount.stellar_public_key, assetA, assetB, sharesToWithdraw);
+      const result = await WalletFactory.withdrawLiquidity(activeAccount.stellar_public_key, assetA, assetB, sharesToWithdraw);
+      if (result && result.hash) {
+        setTxHash(result.hash);
+      }
       setStatus('success');
       setSharesToWithdraw('');
       await refreshAccounts();
-      alert('Saque efetuado com sucesso!');
     } catch (err: any) {
       alert('Erro ao sacar: ' + err.message);
-    } finally {
       setStatus('idle');
     }
   };
@@ -174,20 +179,46 @@ export default function LiquidityPage() {
             <button 
               className={`btn ${activeTab === 'deposit' ? 'btn-primary' : 'btn-ghost'}`} 
               style={{ flex: 1 }} 
-              onClick={() => setActiveTab('deposit')}
+              onClick={() => { setActiveTab('deposit'); setStatus('idle'); }}
             >
               <ArrowDown size={16} /> Depositar
             </button>
             <button 
               className={`btn ${activeTab === 'withdraw' ? 'btn-primary' : 'btn-ghost'}`} 
               style={{ flex: 1 }} 
-              onClick={() => setActiveTab('withdraw')}
+              onClick={() => { setActiveTab('withdraw'); setStatus('idle'); }}
             >
               <ArrowUp size={16} /> Sacar
             </button>
           </div>
 
-          {activeTab === 'deposit' && (
+          {status === 'success' ? (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '48px 0', animation: 'zoom-in 0.3s ease-out' }}>
+              <div style={{ width: 80, height: 80, background: 'rgba(56, 189, 248, 0.1)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+                <CheckCircle2 size={40} color="#38bdf8" />
+              </div>
+              <h3 style={{ fontSize: 24, fontWeight: 700, color: '#fff', marginBottom: 8 }}>Sucesso!</h3>
+              <p style={{ color: 'var(--text-secondary)', textAlign: 'center', marginBottom: 24 }}>
+                {activeTab === 'deposit' ? 'Sua liquidez foi depositada com sucesso.' : 'Seu saque de liquidez foi processado com sucesso.'}
+              </p>
+              {txHash && (
+                <a 
+                  href={`https://stellar.expert/explorer/testnet/tx/${txHash}`} 
+                  target="_blank" 
+                  rel="noreferrer" 
+                  className="btn btn-outline"
+                  style={{ marginBottom: 16 }}
+                >
+                  Ver no Stellar Expert
+                </a>
+              )}
+              <button className="btn btn-primary" onClick={() => setStatus('idle')}>
+                Nova Operação
+              </button>
+            </div>
+          ) : (
+            <>
+              {activeTab === 'deposit' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <div>
                 <label style={{ display: 'block', fontSize: 12, color: 'var(--text-tertiary)', marginBottom: 8 }}>XLM Deposit</label>
@@ -271,6 +302,8 @@ export default function LiquidityPage() {
                 {status === 'loading' ? 'Processando...' : 'Sacar Liquidez'}
               </button>
             </div>
+          )}
+          </>
           )}
         </div>
 

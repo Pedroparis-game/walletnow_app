@@ -1,14 +1,16 @@
 {
-  "name": "react-example",
+  "name": "walletnow-os",
   "private": true,
-  "version": "0.9.1",
+  "version": "0.1.0-alpha",
+  "description": "WalletNow OS — The Financial Operating System for Stellar",
   "type": "module",
   "packageManager": "npm@10.9.2",
   "workspaces": [
     "packages/*",
     "packages/plugins/*",
     "packages/providers/*",
-    "apps/*"
+    "apps/*",
+    "examples/*"
   ],
   "scripts": {
     "dev": "vite --port=3000 --host=0.0.0.0",
