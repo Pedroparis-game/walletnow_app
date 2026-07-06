@@ -53,6 +53,7 @@ export default function App() {
 
           {/* ─── Developer Portal ────────────────────────────────────────── */}
           <Route path="/docs" element={<DocsLayout />}>
+            <Route index element={<DocsRouter />} />
             <Route path="*" element={<DocsRouter />} />
           </Route>
 
