@@ -54,6 +54,25 @@ export const docsTranslations = {
       install: 'npm install @walletnow/sdk',
       badge: 'SDK v0.1.0-alpha · Testnet Ready',
       quickNavTitle: 'Explore',
+      manifestoTitle: 'The Abstraction Architecture',
+      manifestoText: 'Web3 is extremely powerful, but user onboarding is filled with complexity. Demanding seed phrases, wallet downloads, and gas fees leads to massive drop-offs. WalletNow abstracts all blockchain complexity, providing biometrics (Passkeys) and instant local rails (Pix to Stablecoin) in a non-custodial model.',
+      pillarsTitle: 'Core Technology Pillars',
+      pillars: {
+        passkeys: { title: 'Passkeys (FIDO2)', desc: 'Secure biometric authentication. Self-custody derived directly from FaceID/TouchID in 5 seconds.' },
+        gas: { title: 'Gas Abstraction (CAP-33)', desc: 'Trustlines and accounts are sponsored automatically. No native gas (XLM) needed by users.' },
+        vault: { title: 'DeviceVault Encryption', desc: 'Private keys are secured client-side using AES-GCM encryption. Zero trust on backend servers.' },
+        pix: { title: 'Pix Conciliation', desc: 'On-ramp/Off-ramp Pix settlement. Dynamic QR Codes mint/burn tokens on-chain in 3 seconds.' }
+      },
+      flowTitle: 'The 3-Layer Abstraction Flow',
+      flowDesc: 'How the Client SDK, Serverless Middleware, and Blockchain interact seamlessly.',
+      flowSteps: {
+        client: { title: '1. Client Layer (SDK)', desc: 'Generates secure keys in memory, manages biometric sessions, and signs transactions locally.' },
+        cloud: { title: '2. Middleware Layer (Cloud)', desc: 'Sponsors network fees (CAP-33), verifies auth signatures, and maps Pix Webhooks.' },
+        ledger: { title: '3. Ledger Layer (Stellar)', desc: 'Processes transactions in 3s, settles token mints/burns, and routes AMM DEX swaps.' }
+      },
+      testnetTitle: 'Real Sandbox Infrastructure (Testnet Kit)',
+      testnetDesc: 'Our Testnet Kit is not a mock. It is a live dashboard interacting directly with Stellar Horizon nodes.',
+      comparisonTitle: 'How we stack up',
     },
     why: {
       title: 'Why WalletNow?',
@@ -292,6 +311,25 @@ export const docsTranslations = {
       install: 'npm install @walletnow/sdk',
       badge: 'SDK v0.1.0-alpha · Testnet Pronto',
       quickNavTitle: 'Explorar',
+      manifestoTitle: 'A Arquitetura de Abstração',
+      manifestoText: 'A Web3 é extremamente poderosa, mas o onboarding tradicional é cheio de fricção. Exigir frases semente, instalações de extensões e taxas de gas causa taxas de desistência de 95%. A WalletNow abstrai toda a complexidade da blockchain, entregando biometria (Passkeys) e Pix instantâneo para stablecoins em um modelo de auto-custódia.',
+      pillarsTitle: 'Pilares Tecnológicos',
+      pillars: {
+        passkeys: { title: 'Passkeys (FIDO2)', desc: 'Autenticação biométrica segura. Auto-custódia gerada via FaceID/TouchID em 5 segundos.' },
+        gas: { title: 'Abstração de Gas (CAP-33)', desc: 'Saldos de reserva e trustlines patrocinados. O usuário transaciona sem precisar comprar XLM.' },
+        vault: { title: 'Criptografia DeviceVault', desc: 'Chaves privadas mantidas localmente com criptografia AES-GCM. Risco zero de vazamento no servidor.' },
+        pix: { title: 'Conciliação de Pix', desc: 'Entrada e saída (On/Off ramp) integradas. QR Codes dinâmicos que mintam/queimam tokens em 3s.' }
+      },
+      flowTitle: 'Fluxo de Abstração em 3 Camadas',
+      flowDesc: 'Veja como o SDK do Cliente, o Middleware Serverless e a Blockchain interagem de forma fluida.',
+      flowSteps: {
+        client: { title: '1. Camada Client (SDK)', desc: 'Gera chaves na memória, gerencia sessões biométricas e assina transações localmente.' },
+        cloud: { title: '2. Camada Middleware (Cloud)', desc: 'Patrocina taxas de rede (CAP-33), valida assinaturas JWT e gerencia webhooks do Pix.' },
+        ledger: { title: '3. Camada Ledger (Stellar)', desc: 'Processa transações em 3s, liquida emissão de tokens e executa swaps em pools AMM.' }
+      },
+      testnetTitle: 'Infraestrutura de Sandbox Real (Testnet Kit)',
+      testnetDesc: 'O nosso Testnet Kit não é uma simulação estática. É um painel real conectado aos nós do Horizon na Stellar Testnet.',
+      comparisonTitle: 'Diferencial Competitivo',
     },
     why: {
       title: 'Por que WalletNow?',
