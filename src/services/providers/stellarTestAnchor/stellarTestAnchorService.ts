@@ -114,7 +114,7 @@ export const StellarTestAnchorService = {
         user_xlm: userBalanceBefore,
       });
 
-      // --- CRIAÇÃO DA TRANSAÇÃO ---
+      // --- CRIAÇíO DA TRANSAÇíO ---
       // Memo X402 para rastreabilidade
       const x402Memo = Memo.text(`X402:${correlationID.slice(0, 22)}`);
 

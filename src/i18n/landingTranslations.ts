@@ -411,7 +411,7 @@ export const landingTranslations = {
         painCards: [
           { emoji: '🔑', title: 'Semanas de onboarding', desc: 'Seed phrases, setup de carteira, gestão de chaves' },
           { emoji: '⛽', title: 'Meses de abstração de gas', desc: 'Lógica de fees, regras de patrocínio, XDR' },
-          { emoji: '🛠️', title: 'Integration hell', desc: 'Signing flows, wallet adapters, edge cases' },
+          { emoji: '🛠️', title: 'Integração complexa', desc: 'Fluxos de assinatura, adaptadores de carteira, casos extremos' },
           { emoji: '🔄', title: 'Pesadelo de suporte', desc: 'Recuperação, chaves perdidas, troca de dispositivo' },
         ],
       },
@@ -671,7 +671,7 @@ export const landingTranslations = {
         painCards: [
           { emoji: '🔑', title: 'Semanas de onboarding', desc: 'Frases semilla, setup de billetera, gestión de claves' },
           { emoji: '⛽', title: 'Meses de abstracción', desc: 'Lógica de fees, reglas de patrocinio, XDR' },
-          { emoji: '🛠️', title: 'Integration hell', desc: 'Signing flows, wallet adapters, edge cases' },
+          { emoji: '🛠️', title: 'Integración compleja', desc: 'Flujos de firma, adaptadores de billetera, casos extremos' },
           { emoji: '🔄', title: 'Pesadilla de soporte', desc: 'Recuperación, claves perdidas, cambio de dispositivo' },
         ],
       },

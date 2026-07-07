@@ -17,7 +17,7 @@
  * COMPATIBILIDADE COM WALLETS LEGADAS:
  * - Wallets criadas antes desta feature (Keypair.random()) são "legadas"
  * - Wallets legadas continuam funcionando normalmente
- * - A seed phrase BIP39 NÃO pode ser gerada retroativamente para wallets legadas
+ * - A seed phrase BIP39 NíO pode ser gerada retroativamente para wallets legadas
  * - Usuários legados devem criar uma nova carteira para habilitar o Pro Mode
  *
  * @see https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki

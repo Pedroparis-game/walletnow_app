@@ -109,7 +109,7 @@ export const IdentityService = {
         try {
             // Sanitizado para Produção
 
-            // ATENÇÃO: Contas Emissoras (Issuers) custeiam as taxas.
+            // ATENÇíO: Contas Emissoras (Issuers) custeiam as taxas.
             // Esta seria a carteira MASTER da empresa, abastecida de Lúmens.
             // Para o teste rodar, você precisará gerar um par Mestre temporário e jogar na .env
             const ISSUER_PUBLIC = AppConfig.stellar.issuerPublicKey;

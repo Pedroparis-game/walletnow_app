@@ -9,14 +9,14 @@ import { IssuerService } from '../utils/issuerService';
  * A ISSUER_SECRET (VITE_STELLAR_ISSUER_SECRET) está exposta no bundle do browser.
  * QUALQUER PESSOA com DevTools pode lê-la e mintar BRW / drenar a treasury.
  *
- * PLANO DE MITIGAÇÃO (obrigatório antes do go-live mainnet):
+ * PLANO DE MITIGAÇíO (obrigatório antes do go-live mainnet):
  * 1. Criar Supabase Edge Function: `stellar-issuer` (mint, burn, sponsor)
  * 2. O frontend nunca mais recebe ou usa a ISSUER_SECRET
  * 3. Edge Function valida JWT do usuário + rate limit antes de assinar
  * 4. VITE_STELLAR_ISSUER_SECRET deve ser REMOVIDA do .env e do bundle
  *
  * STATUS ATUAL: Mantida apenas para preservar funcionamento do testnet.
- * NÃO FAZER DEPLOY EM MAINNET SEM RESOLVER ESTE BLOCKER.
+ * NíO FAZER DEPLOY EM MAINNET SEM RESOLVER ESTE BLOCKER.
  */
 
 /**

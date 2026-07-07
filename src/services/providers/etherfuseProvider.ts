@@ -5,7 +5,7 @@ import { BaseDepositProvider, ProviderStatus } from './depositProvider';
  *
  * Status: coming_soon (aguardando resolução de compliance sandbox e proxy account provisioning).
  * Mantido no registry para preservar o histórico arquitetural.
- * NÃO remover — pode ser reativado quando o compliance sandbox for resolvido.
+ * NíO remover — pode ser reativado quando o compliance sandbox for resolvido.
  */
 export class EtherfuseProvider extends BaseDepositProvider {
   id = 'etherfuse';

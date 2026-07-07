@@ -27,15 +27,15 @@ export interface KycSubmitResult {
 /**
  * @deprecated
  *
- * EtherfuseKycService — KYC PROGRAMÁTICO (NÃO UTILIZADO NO FLUXO PRINCIPAL)
+ * EtherfuseKycService — KYC PROGRAMÁTICO (NíO UTILIZADO NO FLUXO PRINCIPAL)
  *
- * DECISÃO ARQUITETURAL (Experimento KYC-First — 2026-05-19):
+ * DECISíO ARQUITETURAL (Experimento KYC-First — 2026-05-19):
  *   O fluxo de KYC programático via POST /ramp/customer/:id/kyc foi descontinuado
  *   como fluxo principal. O KYC e o cadastro bancário (proxy account) da Etherfuse
  *   são provisionados EXCLUSIVAMENTE via o fluxo hospedado (onboarding-url iframe).
  *
  * MOTIVO:
- *   - O KYC programático muda o status para "proposed"/"approved" mas NÃO
+ *   - O KYC programático muda o status para "proposed"/"approved" mas NíO
  *     provisiona o Proxy Account na Etherfuse.
  *   - Sem proxy account, POST /ramp/customer/:id/bank-accounts retorna { items: [] }.
  *   - Sem bankAccountId real, createOrder falha com "Proxy account not found".
@@ -51,7 +51,7 @@ export class EtherfuseKycService {
    * @deprecated Usar o fluxo hospedado Etherfuse (onboarding-url iframe) em vez deste método.
    *
    * Submete os dados de KYC diretamente para a API da Etherfuse.
-   * NÃO provisiona o proxy account — usar apenas para referência ou testes isolados.
+   * NíO provisiona o proxy account — usar apenas para referência ou testes isolados.
    */
   static async submitKyc(customerId: string, payload: KycPayload): Promise<KycSubmitResult> {
     logger.warn('[WalletNow][KYC]', `⚠️ DEPRECATED: submitKyc programático chamado para customer ${customerId}. Usar fluxo hospedado.`);

@@ -7,8 +7,8 @@
  * Design: badge pill com indicador colorido + clique para abrir dropdown.
  *
  * REGRAS:
- * - NÃO abre modais financeiros.
- * - NÃO altera WalletContext ou qualquer serviço de pagamento.
+ * - NíO abre modais financeiros.
+ * - NíO altera WalletContext ou qualquer serviço de pagamento.
  * - Ao trocar para MAINNET, exibe toast de aviso sobre bloqueio de On/Off Ramp.
  * - O dropdown fecha automaticamente ao clicar fora (useRef + useEffect).
  */

@@ -13,7 +13,7 @@ import { useNetwork } from '../../contexts/NetworkContext';
  * - TESTNET/DEV (env): banner LARANJA.
  *
  * IMPORTANTE: A detecção de Mainnet usa o hook useNetwork() (NetworkContext/localStorage),
- * e NÃO o AppConfig.isProduction estático, para refletir o toggle dinâmico em runtime.
+ * e NíO o AppConfig.isProduction estático, para refletir o toggle dinâmico em runtime.
  */
 export const EnvironmentBanner: React.FC = () => {
   const { isMainnet } = useNetwork();

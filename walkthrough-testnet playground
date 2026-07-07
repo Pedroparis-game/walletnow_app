@@ -1,0 +1,38 @@
+# Walkthrough: Integração Real com a Stellar Testnet no Playground
+
+Este documento apresenta o resumo das alterações de código realizadas para fazer com que o playground e o SDK do WalletNow se conectem de verdade na rede de testes **Stellar Testnet**, substituindo stubs estáticos e simulações artificiais de tempo.
+
+---
+
+## 1. Alterações Realizadas
+
+### [Componente: Docs / Playground]
+
+1. **`src/lib/docs/playgroundFakes.ts`** ([playgroundFakes.ts](file:///c:/Users/Usu%C3%A1rio/Documents/GitHub/walletnow_app/src/lib/docs/playgroundFakes.ts)):
+   - **Geração de Chaves Reais**: Substituição da chave fictícia por um par de chaves real gerado por `Keypair.random()` do `@stellar/stellar-sdk`. As chaves privadas são salvas temporariamente em um mapa seguro em RAM para assinatura de transações.
+   - **Horizon Server Integration**: Conexão real com a Horizon da Testnet (`https://horizon-testnet.stellar.org`) para buscar o estado de contas on-chain e checar existência.
+   - **Friendbot Integration**: Ativação das contas geradas de forma real e gratuita enviando requisição HTTP à API do Friendbot da Stellar (creditando 10.000 XLM de verdade).
+   - **Transação de Trustlines Reais**: O `sponsorTrustlines` agora monta uma transação real de `changeTrust` na rede Stellar para os ativos personalizados `BRW` e `USDW`, utilizando emissores válidos criados dinamicamente em memória. A transação é assinada usando a chave privada da conta do usuário em RAM e submetida via Horizon Server.
+   - **Faucet de Tokens Reais**: O Faucet (`fundTestTokens`) ativa a conta do emissor via Friendbot e realiza transações de `payment` reais na rede Stellar Testnet para creditar tokens nas carteiras dos usuários.
+
+2. **`src/lib/docs/playgroundEngine.ts`** ([playgroundEngine.ts](file:///c:/Users/Usu%C3%A1rio/Documents/GitHub/walletnow_app/src/lib/docs/playgroundEngine.ts)):
+   - **Reatividade Reativa**: Remoção de temporizadores manuais e `delay()` artificiais. O motor agora é 100% impulsionado por callbacks síncronos disparados pela execução real do SDK no blockchain da Stellar, fazendo com que o console pulse na velocidade de rede da testnet.
+
+---
+
+## 2. Validação e Resultados
+
+A validação foi feita localmente utilizando o agente de navegação do browser:
+- **Página de Teste**: `http://localhost:3000/walletnow/docs/playground`
+- **Endereço Gerado de Teste**: `GB43UQ62KDX2YZAKDAJNHIKXMNGWUQMUV3XO7ARPQQV333QRV7EPIC4Z`
+- **Tempo Médio de Execução**: **~12 segundos** (tempo real de tráfego de transações e mineração de blocos na Stellar Testnet).
+- **Console de Progresso**: Todas as 7 etapas (Boot, Identity, Wallet, Account status check, Gas Station sponsorship, Trustlines config e Session) apresentaram ícones verdes de conclusão bem-sucedida.
+
+### Evidência Visual da Execução
+
+Abaixo está o registro da execução bem-sucedida do playground com a testnet ativa:
+
+![Playground Onboarding Success](file:///C:/Users/Usu%C3%A1rio/.gemini/antigravity-ide/brain/c55fbd28-eacc-4ebe-a2b1-96eda59fdc5c/playground_onboarding_success_1783357718849.png)
+
+A gravação completa da interação do browser pode ser revisada em:
+[Gravação de Validação](file:///C:/Users/Usu%C3%A1rio/.gemini/antigravity-ide/brain/c55fbd28-eacc-4ebe-a2b1-96eda59fdc5c/playground_stellar_testnet_1783357129257.webp)

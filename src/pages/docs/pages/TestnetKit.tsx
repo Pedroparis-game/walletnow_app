@@ -36,12 +36,12 @@ import {
 } from '../../../lib/docs/playgroundFakes';
 import { Keypair, TransactionBuilder, Asset, Operation, LiquidityPoolAsset, Transaction, Networks } from '@stellar/stellar-sdk';
 
-// ConfiguraÃ§Ãµes do Faucet e Emissores
+// Configurações do Faucet e Emissores
 const NETWORKS = {
   TESTNET: 'Test SDF Network ; September 2015'
 };
 
-// Helper para instanciar LiquidityPoolAsset garantindo ordenaÃ§Ã£o lexicogrÃ¡fica
+// Helper para instanciar LiquidityPoolAsset garantindo ordenação lexicográfica
 function createLpAsset(assetA: Asset, assetB: Asset): LiquidityPoolAsset {
   if (assetA.isNative()) return new LiquidityPoolAsset(assetA, assetB, 30);
   if (assetB.isNative()) return new LiquidityPoolAsset(assetB, assetA, 30);
@@ -197,7 +197,7 @@ export default function TestnetKit() {
       addLog(`User account activated with 10,000 XLM! Tx Hash: ${friendbotData.hash.slice(0, 12)}...`, 'success');
       addLog('BRW & USDW Token Issuers are active on-chain!', 'success');
 
-      // Delay de propagaÃ§Ã£o do ledger
+      // Delay de propagação do ledger
       addLog('Waiting for ledger propagation (2.5s)...', 'info');
       await new Promise(resolve => setTimeout(resolve, 2500));
 
@@ -246,7 +246,7 @@ export default function TestnetKit() {
       const brwAccount = await server.loadAccount(BRW_ISSUER);
       const usdwAccount = await server.loadAccount(USDW_ISSUER);
 
-      // TransaÃ§Ã£o BRW Faucet
+      // Transação BRW Faucet
       const brwTx = new TransactionBuilder(brwAccount, {
         fee: '100',
         networkPassphrase: NETWORKS.TESTNET
@@ -257,7 +257,7 @@ export default function TestnetKit() {
       brwTx.sign(BRW_KEYPAIR);
       const brwFaucetRes = await server.submitTransaction(brwTx);
 
-      // TransaÃ§Ã£o USDW Faucet
+      // Transação USDW Faucet
       const usdwTx = new TransactionBuilder(usdwAccount, {
         fee: '100',
         networkPassphrase: NETWORKS.TESTNET
@@ -278,7 +278,7 @@ export default function TestnetKit() {
         faucetTxHash: usdwFaucetRes.hash
       });
 
-      // Atualiza o search input do Explorer para conveniÃªncia
+      // Atualiza o search input do Explorer para conveniência
       setSearchAddress(pubKey);
     } catch (err: any) {
       console.error('[Playground Error]', err);
@@ -324,7 +324,7 @@ export default function TestnetKit() {
         const issuerAccount = await server.loadAccount(issuerPub);
         const assetObj = new Asset(assetCode, issuerPub);
 
-        // TransferÃªncia PÃºblica ClÃ¡ssica
+        // Transferência Pública Clássica
         const tx = new TransactionBuilder(issuerAccount, {
           fee: '100',
           networkPassphrase: NETWORKS.TESTNET
@@ -408,7 +408,7 @@ export default function TestnetKit() {
             };
           }
         } catch (e) {
-          // A pool nÃ£o existe on-chain ainda
+          // A pool não existe on-chain ainda
         }
         return {
           ...pool,
@@ -425,7 +425,7 @@ export default function TestnetKit() {
     }
   };
 
-  // InicializaÃ§Ã£o das pools com IDs determinÃ­sticos na montagem
+  // Inicialização das pools com IDs determinísticos na montagem
   useEffect(() => {
     setPools(prev => prev.map(p => {
       try {
@@ -447,7 +447,7 @@ export default function TestnetKit() {
     }
   }, [activeTab]);
 
-  // AÃ§Ã£o de DepÃ³sito de Liquidez / Seed Pool
+  // Ação de Depósito de Liquidez / Seed Pool
   const handleDepositLiquidity = async (poolIndex: number, isQuickSeed = false) => {
     if (!envResult) {
       addLog('Error: Please initialize your 1-Click Test Environment first to have active keys and funds.', 'error');
@@ -467,12 +467,12 @@ export default function TestnetKit() {
       const userKeypair = Keypair.fromSecret(envResult.secretKey);
       const userAddress = userKeypair.publicKey();
 
-      // Carrega conta do usuÃ¡rio
+      // Carrega conta do usuário
       const account = await server.loadAccount(userAddress);
       const lpAsset = createLpAsset(pool.assetA, pool.assetB);
       const poolId = lpAsset.toString().split(':')[1];
 
-      // Determina a correspondÃªncia correta das quantias com os ativos ordenados lexicograficamente
+      // Determina a correspondência correta das quantias com os ativos ordenados lexicograficamente
       const isOrdered = pool.assetA.isNative() || (!pool.assetB.isNative() && pool.assetA.getCode() < pool.assetB.getCode());
       const finalDepA = isOrdered ? depA : depB;
       const finalDepB = isOrdered ? depB : depA;
@@ -482,7 +482,7 @@ export default function TestnetKit() {
         networkPassphrase: NETWORKS.TESTNET
       });
 
-      // Adiciona trustline do Liquidity Pool Share (LPS) se necessÃ¡rio
+      // Adiciona trustline do Liquidity Pool Share (LPS) se necessário
       const hasLpTrust = account.balances.some((b: any) => 
         b.asset_type === 'liquidity_pool_shares' && b.liquidity_pool_id === poolId
       );
@@ -492,7 +492,7 @@ export default function TestnetKit() {
         txBuilder = txBuilder.addOperation(Operation.changeTrust({ asset: lpAsset, limit: '1000000000' }));
       }
 
-      // Adiciona operaÃ§Ã£o de depÃ³sito
+      // Adiciona operação de depósito
       addLog(`Adding LiquidityPoolDeposit operation (A: ${finalDepA}, B: ${finalDepB})...`, 'info');
       txBuilder = txBuilder.addOperation(Operation.liquidityPoolDeposit({
         liquidityPoolId: poolId,
@@ -525,7 +525,7 @@ export default function TestnetKit() {
     }
   };
 
-  // AÃ§Ã£o de Retirada de Liquidez
+  // Ação de Retirada de Liquidez
   const handleWithdrawLiquidity = async (poolIndex: number) => {
     if (!envResult) {
       addLog('Error: Please initialize your 1-Click Test Environment first to have active keys and funds.', 'error');
@@ -544,7 +544,7 @@ export default function TestnetKit() {
       const userKeypair = Keypair.fromSecret(envResult.secretKey);
       const userAddress = userKeypair.publicKey();
 
-      // Carrega conta do usuÃ¡rio
+      // Carrega conta do usuário
       const account = await server.loadAccount(userAddress);
       const lpAsset = createLpAsset(pool.assetA, pool.assetB);
       const poolId = lpAsset.toString().split(':')[1];
@@ -554,7 +554,7 @@ export default function TestnetKit() {
         networkPassphrase: NETWORKS.TESTNET
       });
 
-      // Adiciona operaÃ§Ã£o de saque
+      // Adiciona operação de saque
       addLog(`Adding LiquidityPoolWithdraw operation (Shares: ${sharesToBurn})...`, 'info');
       txBuilder = txBuilder.addOperation(Operation.liquidityPoolWithdraw({
         liquidityPoolId: poolId,
@@ -586,7 +586,7 @@ export default function TestnetKit() {
     }
   };
 
-  // AÃ§Ã£o de Swap na Pool
+  // Ação de Swap na Pool
   const handleSwapLiquidity = async (poolIndex: number) => {
     if (!envResult) {
       addLog('Error: Please initialize your 1-Click Test Environment first to have active keys and funds.', 'error');
@@ -612,7 +612,7 @@ export default function TestnetKit() {
       
       const assetIn = direction === 'AtoB' ? pool.assetA : pool.assetB;
       const assetOut = direction === 'AtoB' ? pool.assetB : pool.assetA;
-      // CÃ¡lculo do AMM
+      // Cálculo do AMM
       const amountInNum = parseFloat(amountIn);
       const isAtoB = direction === 'AtoB';
       const reserveIn = isAtoB ? parseFloat(pool.reservesA) : parseFloat(pool.reservesB);
@@ -627,7 +627,7 @@ export default function TestnetKit() {
         networkPassphrase: NETWORKS.TESTNET
       });
 
-      // Se o asset de saÃ­da nÃ£o for nativo, verificar trustline
+      // Se o asset de saída não for nativo, verificar trustline
       if (!assetOut.isNative()) {
         const outCode = assetOut.getCode();
         const hasOutTrust = account.balances.some((b: any) => 
@@ -705,7 +705,7 @@ export default function TestnetKit() {
         <h1>{tk.title}</h1>
         <p className="doc-subtitle">{tk.subtitle}</p>
         <div className="tk-subtitle-desc">
-          O conjunto completo de infraestrutura para acelerar testes, automaÃ§Ã£o de liquidez e simulaÃ§Ãµes com privacidade na Stellar Testnet.
+          O conjunto completo de infraestrutura para acelerar testes, automação de liquidez e simulações com privacidade na Stellar Testnet.
         </div>
       </div>
 
@@ -740,7 +740,7 @@ export default function TestnetKit() {
                 <h3>One-Click Test Environment</h3>
               </div>
               <p className="tk-card-desc">
-                Crie um ambiente de testes completo em segundos. Isso gera uma nova carteira Stellar real na rede Testnet, solicita a ativaÃ§Ã£o via Friendbot (10.000 XLM), configura as trustlines para nossos ativos BRW e USDW e deposita saldos de teste iniciais em ambas as moedas.
+                Crie um ambiente de testes completo em segundos. Isso gera uma nova carteira Stellar real na rede Testnet, solicita a ativação via Friendbot (10.000 XLM), configura as trustlines para nossos ativos BRW e USDW e deposita saldos de teste iniciais em ambas as moedas.
               </p>
 
               <div className="tk-action-panel">
@@ -848,7 +848,7 @@ export default function TestnetKit() {
             <div className="tk-main-card">
               <h3>Faucet++ Multiativos</h3>
               <p className="tk-card-desc">
-                Adicione fundos a qualquer endereÃ§o de carteira ativo na Stellar Testnet. Distribua XLM, BRW ou USDW em um clique de forma imediata.
+                Adicione fundos a qualquer endereço de carteira ativo na Stellar Testnet. Distribua XLM, BRW ou USDW em um clique de forma imediata.
               </p>
 
               <form onSubmit={handleFaucetRequest} className="tk-form">
@@ -908,7 +908,7 @@ export default function TestnetKit() {
                   <div className="tk-ai-badge usdw">USDW</div>
                   <div>
                     <strong>WalletNow USD (USDW)</strong>
-                    <span>Moeda indexada ao DÃ³lar americano. Emissor:<br /><code className="tk-mini-mono">{USDW_ISSUER}</code></span>
+                    <span>Moeda indexada ao Dólar americano. Emissor:<br /><code className="tk-mini-mono">{USDW_ISSUER}</code></span>
                   </div>
                 </div>
               </div>
@@ -917,7 +917,7 @@ export default function TestnetKit() {
               {faucetError && (
                 <div className="tk-badge mt-6" style={{ borderColor: 'rgba(255,50,50,0.5)', color: '#ff6666', background: 'rgba(255,50,50,0.1)' }}>
                   Error: {faucetError}
-                  <div className="text-[10px] text-gray-400 mt-2">Dica: Verifique se vocÃª nÃ£o esqueceu de criar a Trustline na aba One-Click Env (op_no_trust) ou certifique-se de que o endereÃ§o Ã© vÃ¡lido e existe na rede!</div>
+                  <div className="text-[10px] text-gray-400 mt-2">Dica: Verifique se você não esqueceu de criar a Trustline na aba One-Click Env (op_no_trust) ou certifique-se de que o endereço é válido e existe na rede!</div>
                 </div>
               )}
               {faucetSuccess && (
@@ -945,7 +945,7 @@ export default function TestnetKit() {
           <div className="tk-main-card">
             <h3>Liquidity Pools de Teste (AMM)</h3>
             <p className="tk-card-desc">
-              Pools de liquidez nativas da Stellar para testes de Swap sem slippage. Essas pools rodam on-chain e vocÃª pode interagir com elas depositando e retirando liquidez.
+              Pools de liquidez nativas da Stellar para testes de Swap sem slippage. Essas pools rodam on-chain e você pode interagir com elas depositando e retirando liquidez.
             </p>
 
             <div className="tk-pools-list">
@@ -953,7 +953,7 @@ export default function TestnetKit() {
                 const inputs = poolInputs[index] || { amountA: '1000', amountB: '1000', withdrawShares: '100' };
                 const isLoading = poolsLoading[index] === true;
 
-                // CÃ¡lculo em tempo real do Swap
+                // Cálculo em tempo real do Swap
                 const amountInNum = parseFloat(inputs.swapAmount || '0');
                 let expectedOut = 0;
                 let executionPrice = 0;
@@ -991,7 +991,7 @@ export default function TestnetKit() {
                     <div className="tk-pool-id-box">
                       <span className="tk-result-lbl text-xs">Liquidity Pool ID (Hex)</span>
                       <div className="tk-copyable-value sm">
-                        <code className="tk-mono-text text-xs break-all">{pool.id || 'Carregando ID determinÃ­stico...'}</code>
+                        <code className="tk-mono-text text-xs break-all">{pool.id || 'Carregando ID determinístico...'}</code>
                         <button className="tk-icon-btn" onClick={() => copyToClipboard(pool.id, `${pool.name} Pool ID`)} title="Copy Pool ID">
                           {copiedText === `${pool.name} Pool ID` ? <Check size={12} color="#00ff99" /> : <Copy size={12} />}
                         </button>
@@ -1168,7 +1168,7 @@ export default function TestnetKit() {
           <div className="tk-main-card">
             <h3>Explorer Simplificado da Testnet</h3>
             <p className="tk-card-desc">
-              Consulte e valide o saldo on-chain da sua carteira ou qualquer outro endereÃ§o de testes diretamente na Horizon testnet.
+              Consulte e valide o saldo on-chain da sua carteira ou qualquer outro endereço de testes diretamente na Horizon testnet.
             </p>
 
             <div className="tk-search-bar">
@@ -1223,7 +1223,7 @@ export default function TestnetKit() {
           <div className="tk-main-card">
             <h3>Infrastructure Status & Health</h3>
             <p className="tk-card-desc">
-              Verificador em tempo real da integridade das conexÃµes e servidores da Stellar Testnet para garantir que o seu ambiente de desenvolvimento esteja totalmente operacional.
+              Verificador em tempo real da integridade das conexões e servidores da Stellar Testnet para garantir que o seu ambiente de desenvolvimento esteja totalmente operacional.
             </p>
 
             <div className="tk-health-list">
@@ -1250,7 +1250,7 @@ export default function TestnetKit() {
               <div className="tk-health-item">
                 <div className="tk-health-meta">
                   <span className="tk-hm-lbl">WalletNow Faucet Engine</span>
-                  <span className="tk-light-text">Cunhagem e distribuiÃ§Ã£o de BRW/USDW</span>
+                  <span className="tk-light-text">Cunhagem e distribuição de BRW/USDW</span>
                 </div>
                 <div className="tk-status-badge green">
                   {healthStatus.faucet}
@@ -1260,7 +1260,7 @@ export default function TestnetKit() {
               <div className="tk-health-item">
                 <div className="tk-health-meta">
                   <span className="tk-hm-lbl">Liquidity Pool Seeder</span>
-                  <span className="tk-light-text">ReposiÃ§Ã£o automÃ¡tica de AMMs a cada 5min</span>
+                  <span className="tk-light-text">Reposição automática de AMMs a cada 5min</span>
                 </div>
                 <div className="tk-status-badge green">
                   {healthStatus.rpc}

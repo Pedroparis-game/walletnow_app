@@ -45,7 +45,7 @@ function detectStellarNetwork(): StellarNetworkType {
   // Em ambiente de produção real, se a rede não for mainnet, logar aviso crítico
   if (detectEnvironment() === 'production' && envVar !== 'mainnet') {
     console.error(
-      '[WalletNow][Environment] 🚨 CONFIGURAÇÃO CRÍTICA: VITE_STELLAR_NETWORK não é "mainnet" em ambiente de produção!',
+      '[WalletNow][Environment] 🚨 CONFIGURAÇíO CRÍTICA: VITE_STELLAR_NETWORK não é "mainnet" em ambiente de produção!',
       'Valor atual:', envVar,
       'Nenhuma transação será processada corretamente.'
     );

@@ -26,7 +26,7 @@ export const StorageService = {
             return data;
         };
 
-        // CORREÇÃO RLS: A RLS do bucket exige `(storage.foldername(name))[1]` igual ao uid()
+        // CORREÇíO RLS: A RLS do bucket exige `(storage.foldername(name))[1]` igual ao uid()
         // O Supabase mapeia pastas através de barras (/). Portanto precisamos obrigatoriamente
         // iniciar o nome do arquivo com "id_do_usuario/".
         const docPath = `${userId}/document_${Date.now()}.jpg`;

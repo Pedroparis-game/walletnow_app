@@ -11,7 +11,7 @@
  *   - Fallback3: Valor conservador estático (0.80 BRL/XLM)
  *
  * IMPORTANTE:
- *   - NÃO altera WalletContext, DeviceVault, walletFactory, oracleService existente
+ *   - NíO altera WalletContext, DeviceVault, walletFactory, oracleService existente
  *   - Compatível com testnet e mainnet
  *   - Zero dependências além do fetch nativo
  */

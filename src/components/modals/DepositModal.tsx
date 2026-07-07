@@ -349,7 +349,7 @@ export default function DepositModal({ isOpen, onClose, onSuccess, initialProvid
       const email = (profile as Record<string, unknown>).email as string | undefined
         || `sandbox-${profile.id.substring(0, 8)}@walletnow.app`;
 
-      // ── VERIFICAÇÃO DE PERSISTÊNCIA ─────────────────────────────────────────
+      // ── VERIFICAÇíO DE PERSISTÊNCIA ─────────────────────────────────────────
       let activeCustomerId = '';
       let activeBankAccountId = '';
       let skipOnboarding = false;
@@ -616,7 +616,7 @@ export default function DepositModal({ isOpen, onClose, onSuccess, initialProvid
    *   - Para Woovi/BRW:         usa depositAmount (BRL em 1:1 → BRW)
    *   - Os dois valores são DISTINTOS e não devem ser trocados.
    *
-   * @param depositAmount   Valor em BRL cobrado no PIX (Woovi) — NÃO usar para XLM.
+   * @param depositAmount   Valor em BRL cobrado no PIX (Woovi) — NíO usar para XLM.
    * @param correlationID   ID da cobrança Woovi para Memo X402.
    */
   const triggerMinting = async (depositAmount: number, correlationID: string) => {
@@ -633,7 +633,7 @@ export default function DepositModal({ isOpen, onClose, onSuccess, initialProvid
         //
         // BUG CORRIGIDO: O valor enviado para settleXLM DEVE ser o quotedXlmAmount
         // (calculado em BRL/XLM via oráculo no momento da geração do PIX),
-        // NÃO o depositAmount (que é BRL e causava entrega de 100 XLM para R$100).
+        // NíO o depositAmount (que é BRL e causava entrega de 100 XLM para R$100).
         //
         const quotedXlmAmount = pixData?.quotedXlmAmount;
         if (!quotedXlmAmount || quotedXlmAmount <= 0) {

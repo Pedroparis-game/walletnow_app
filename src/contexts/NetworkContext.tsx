@@ -4,7 +4,7 @@
  * Contexto global de alternância de rede Stellar (TESTNET ↔ MAINNET).
  *
  * DESIGN DECISIONS:
- * - NÃO altera WalletContext, DeviceVault, walletFactory nem nenhum serviço financeiro.
+ * - NíO altera WalletContext, DeviceVault, walletFactory nem nenhum serviço financeiro.
  * - A rede padrão é SEMPRE testnet (segurança).
  * - A alternância persiste em localStorage sob a chave '@walletnow:network'.
  * - Emite um CustomEvent 'walletnow:network-change' para permitir que serviços

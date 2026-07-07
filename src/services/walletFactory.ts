@@ -15,13 +15,13 @@ import { generateMnemonic, deriveKeypairFromMnemonic, verifyMnemonicMatchesWalle
  * VITE_STELLAR_ISSUER_SECRET está sendo lida no bundle do frontend.
  * Isso expõe a chave privada do issuer ao browser (inspecionável via DevTools).
  *
- * PLANO DE MIGRAÇÃO:
+ * PLANO DE MIGRAÇíO:
  * 1. Criar Edge Function `stellar-issuer` no Supabase
  * 2. Mover activateAccount(), provisionWalletForUser() (ativação + trustline) para server-side
  * 3. O frontend passa apenas publicKey + userId, nunca recebe a issuer secret
  * 4. Remover VITE_STELLAR_ISSUER_SECRET do bundle completamente
  *
- * STATUS: Mantido para preservar fluxo atual de testnet. NÃO fazer deploy em mainnet sem resolver.
+ * STATUS: Mantido para preservar fluxo atual de testnet. NíO fazer deploy em mainnet sem resolver.
  */
 
 /**

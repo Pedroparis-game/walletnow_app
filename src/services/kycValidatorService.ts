@@ -5,7 +5,7 @@ import { Logger } from '../utils/productionLogger';
  * KycValidatorService
  *
  * Wrapper do frontend para a Edge Function `kyc-validator`.
- * O frontend NÃO conhece qual provider de KYC está ativo (Gemini, Etherfuse, Transfero).
+ * O frontend NíO conhece qual provider de KYC está ativo (Gemini, Etherfuse, Transfero).
  * A decisão é feita server-side via variável KYC_PROVIDER no Supabase Vault.
  *
  * SEGURANÇA:

@@ -8,7 +8,7 @@
  * 'Networks.TESTNET' espalhados pelos serviços. Qualquer mudança para mainnet
  * exigiria editar múltiplos arquivos com risco de regressão.
  *
- * SOLUÇÃO:
+ * SOLUÇíO:
  * Toda a configuração de rede Stellar vem deste único módulo.
  * Para migrar de testnet para mainnet, basta alterar VITE_STELLAR_NETWORK=mainnet.
  *
@@ -77,7 +77,7 @@ const MAINNET_CONFIG: StellarNetworkConfig = {
  * Issuers dos assets em MAINNET.
  *
  * IMPORTANTE: Estes issuers são os contratos reais verificados na rede principal.
- * NÃO use os issuers da testnet em produção — os tokens são diferentes.
+ * NíO use os issuers da testnet em produção — os tokens são diferentes.
  *
  * Fontes:
  * - USDC: https://stellar.expert/explorer/public/asset/USDC-GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN

@@ -180,7 +180,7 @@ export const EtherfuseOnRampService = {
    */
   async registerCustomer(publicKey: string): Promise<EtherfuseCustomerResult> {
     const customerId = crypto.randomUUID();
-    const bankAccountId = crypto.randomUUID(); // seed temporário — NÃO usar em createOrder
+    const bankAccountId = crypto.randomUUID(); // seed temporário — NíO usar em createOrder
 
     logExperiment({
       phase: 'etherfuse_customer_creation',
@@ -210,7 +210,7 @@ export const EtherfuseOnRampService = {
 
       return {
         customerId,
-        bankAccountId, // ATENÇÃO: seed temporário, NÃO é o bankAccountId real
+        bankAccountId, // ATENÇíO: seed temporário, NíO é o bankAccountId real
         kycUrl: result.presigned_url,
       };
 
@@ -450,7 +450,7 @@ export const EtherfuseOnRampService = {
       phase: 'etherfuse_order',
       orderId,
       customerId,       // ID completo — não truncado
-      bankAccountId,    // ID completo — validar que NÃO é UUID fake local
+      bankAccountId,    // ID completo — validar que NíO é UUID fake local
       quoteId,          // ID completo
       publicKey: publicKey.substring(0, 12) + '...',
     });

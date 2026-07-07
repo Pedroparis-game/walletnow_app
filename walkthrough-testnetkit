@@ -1,0 +1,51 @@
+# Walkthrough: Integração Real com a Stellar Testnet no Playground e Testnet Kit
+
+Este documento apresenta o resumo das alterações de código e validações realizadas para fazer com que o playground e o kit de infraestrutura de desenvolvedores (**Testnet Infrastructure Kit**) do WalletNow se conectem de verdade na rede de testes **Stellar Testnet**, substituindo stubs estáticos e simulações artificiais.
+
+---
+
+## 1. Alterações Realizadas
+
+### [Componente: Docs / Playground]
+
+1. **`src/lib/docs/playgroundFakes.ts`** ([playgroundFakes.ts](file:///c:/Users/Usu%C3%A1rio/Documents/GitHub/walletnow_app/src/lib/docs/playgroundFakes.ts)):
+   - **Geração de Chaves Reais**: Par de chaves real gerado por `Keypair.random()` do `@stellar/stellar-sdk`. As chaves privadas são salvas temporariamente em RAM para assinatura de transações.
+   - **Horizon Server Integration**: Conexão com a Horizon da Testnet (`https://horizon-testnet.stellar.org`) para buscar o estado de contas on-chain.
+   - **Friendbot Integration**: Ativação das contas geradas de forma real enviando requisição HTTP à API do Friendbot (creditando 10.000 XLM).
+   - **Transação de Trustlines Reais**: O `sponsorTrustlines` monta uma transação real de `changeTrust` na rede Stellar para os ativos personalizados `BRW` e `USDW`, utilizando emissores válidos ativados dinamicamente em memória.
+   - **Resiliência e Paralelização**: A função `ensureIssuerActive` garante que as contas emissoras estejam ativas on-chain via Friendbot com delay de 2.5s para propagação no Horizon.
+
+2. **`src/lib/docs/playgroundEngine.ts`** ([playgroundEngine.ts](file:///c:/Users/Usu%C3%A1rio/Documents/GitHub/walletnow_app/src/lib/docs/playgroundEngine.ts)):
+   - **Reatividade Real**: Remoção de delays artificiais. O motor agora responde na velocidade de rede da testnet impulsionado por callbacks síncronos da blockchain Stellar.
+
+### [Componente: Testnet Infrastructure Kit UI]
+
+3. **`src/pages/docs/pages/TestnetKit.tsx`** ([TestnetKit.tsx](file:///c:/Users/Usu%C3%A1rio/Documents/GitHub/walletnow_app/src/pages/docs/pages/TestnetKit.tsx)):
+   - **One-Click Environment**: Implementação de um fluxo robusto que gera um par de chaves, ativa via Friendbot, monta trustlines e faz o airdrop inicial de tokens em paralelo, exibindo logs em tempo de execução no console de infraestrutura.
+   - **Resiliência a Nível de Protocolo**: Mecanismo de retry (3 tentativas) e delays estratégicos de propagação do ledger implementados para evitar erros `op_no_issuer` ou `NotFoundError` quando a testnet está com oscilações.
+   - **Testnet Explorer**: Campo interativo para pesquisar chaves públicas e exibir uma tabela real com os saldos atuais da conta consultando o Horizon.
+   - **Faucet++ e AMM Pools**: Painéis dedicados explicando o Faucet e as Liquidity Pools do AMM com seeding alto para evitar slippage, incluindo o suporte educacional às funções de privacidade/confidencialidade da OpenZeppelin.
+   - **Health Monitor**: Testes automáticos em tempo real de latência e status do Horizon Server e da Friendbot da Stellar.
+
+---
+
+## 2. Validação e Resultados
+
+A validação foi feita localmente utilizando o agente de navegação do browser:
+- **Página de Teste**: `http://localhost:3000/docs/testnet-kit`
+- **Endereço Gerado de Teste**: `GDVYEPY7K45NQ3RQZB64ACJRZPSOD4C2EVO4Z4EGL2PMQC3LBII7WFCX`
+- **Tempo de Execução (Friendbot + Trustlines + Airdrop)**: **~14 segundos** (concluído com 100% de sucesso).
+- **Validação de Saldos**: A aba Explorer retornou `10.000 XLM`, `10.000 BRW` e `10.000 USDW` reais on-chain.
+
+### Evidências Visuais da Execução
+
+Abaixo está o registro do ambiente de testes inicializado com sucesso de ponta a ponta:
+
+![Testnet Kit Success Credentials](file:///C:/Users/Usu%C3%A1rio/.gemini/antigravity-ide/brain/c55fbd28-eacc-4ebe-a2b1-96eda59fdc5c/testnet_kit_success_credentials_1783359880689.png)
+
+Abaixo está a validação dos saldos reais on-chain da conta gerada na aba Testnet Explorer:
+
+![Testnet Explorer Balances](file:///C:/Users/Usu%C3%A1rio/.gemini/antigravity-ide/brain/c55fbd28-eacc-4ebe-a2b1-96eda59fdc5c/testnet_explorer_balances_1783359948850.png)
+
+A gravação completa da interação do browser pode ser revisada em:
+[Gravação de Validação](file:///C:/Users/Usu%C3%A1rio/.gemini/antigravity-ide/brain/c55fbd28-eacc-4ebe-a2b1-96eda59fdc5c/testnet_kit_complete_success_1783359827523.webp)

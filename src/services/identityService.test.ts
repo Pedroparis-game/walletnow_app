@@ -185,7 +185,7 @@ describe('IdentityService & Core Integrity Tests (Sprint 8)', () => {
             const { data, error } = await supabase.from('profiles').select('*').eq('email', googleAuthEmail).single();
 
             expect(error).toBeNull();
-            // 1. Garante que NÃO DEVE PERDER Endereço Criptográfico
+            // 1. Garante que NíO DEVE PERDER Endereço Criptográfico
             expect(data.stellar_address).toBe('GA_EXISTING_ADDRESS');
             // 2. Garante que o usuário preservou sua Identidade KYC
             expect(data.kyc_verified).toBe(true);
