@@ -118,6 +118,22 @@ export default function AIAgents() {
         Veja o WalletNow SDK em ação. Copie prompts para IAs de codificação e teste fluxos de autenticação (SEP-10) e depósito fiduciário (SEP-24) de forma silenciosa para o usuário final.
       </p>
 
+      <div className="doc-info-card" style={{ marginBottom: '32px' }}>
+        <strong>🤖 Explorando IAs na Rede Stellar?</strong>
+        <p style={{ marginTop: '8px', marginBottom: 0 }}>
+          Se você está construindo agentes autônomos ou integrações de IA, a própria Stellar fornece ferramentas poderosas.
+          Recomendamos fortemente a leitura da documentação oficial:{' '}
+          <a 
+            href="https://developers.stellar.org/docs/build/building-with-ai" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            style={{ fontWeight: 'bold', textDecoration: 'underline' }}
+          >
+            Building with AI on Stellar
+          </a>.
+        </p>
+      </div>
+
       <div className="tk-grid">
         <div className="tk-main-card">
           <div className="tk-card-header">
