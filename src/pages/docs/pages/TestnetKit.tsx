@@ -1109,8 +1109,8 @@ export default function TestnetKit() {
                             }))}
                             disabled={isLoading}
                           >
-                            <option value="AtoB">{pool.name.split(' / ')[0]} âž” {pool.name.split(' / ')[1]}</option>
-                            <option value="BtoA">{pool.name.split(' / ')[1]} âž” {pool.name.split(' / ')[0]}</option>
+                            <option value="AtoB">{pool.name.split(' / ')[0]} ➔ {pool.name.split(' / ')[1]}</option>
+                            <option value="BtoA">{pool.name.split(' / ')[1]} ➔ {pool.name.split(' / ')[0]}</option>
                           </select>
                           <input
                             type="number"
