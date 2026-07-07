@@ -1,0 +1,89 @@
+# WalletNow: Modular Architecture & Integration Evidence
+
+This document serves as technical evidence of the modular architecture implemented in the WalletNow application, specifically detailing how the system integrates with different asset providers (BRZ, USDC) and the Woovi Anchor Mock.
+
+## 1. System Modules Diagram
+
+The following diagram illustrates the core components of WalletNow's modular architecture. The `IntegrationEngine` acts as the orchestrator, abstracting the complexity of different providers from the frontend application.
+
+```mermaid
+graph TD
+    %% Frontend Layer
+    subgraph Frontend [Frontend Application]
+        UI[React UI Components]
+        WalletCtx[WalletContext]
+    end
+
+    %% Core Abstraction Layer
+    subgraph Core [WalletNow OS Core]
+        IE[Integration Engine]
+        KeyMgt[Key Management & Passkeys]
+        Sponsor[CAP-33 Fee Sponsorship]
+    end
+
+    %% Provider Interfaces
+    subgraph Interfaces [Shared Interfaces]
+        IProv[IProvider Interface]
+        IDep[IDepositProvider Interface]
+    end
+
+    %% Concrete Providers Layer
+    subgraph Providers [Modular Providers Layer]
+        BRZ[Etherfuse Provider<br/>BRZ / USDC]
+        StellarTest[Stellar Test Anchor<br/>Native XLM]
+        Woovi[Woovi Anchor PoC<br/>Simulated Provider]
+    end
+
+    %% External Networks
+    subgraph External [External Networks]
+        Stellar[(Stellar Network)]
+        WooviAPI[Woovi API / Pix]
+    end
+
+    %% Flow Connections
+    UI --> WalletCtx
+    WalletCtx --> IE
+    IE --> KeyMgt
+    IE --> Sponsor
+    IE --> IProv
+    IProv --> BRZ
+    IProv --> StellarTest
+    IProv --> Woovi
+
+    BRZ --> Stellar
+    StellarTest --> Stellar
+    Woovi -.->|Future Integration| WooviAPI
+    Woovi --> Stellar
+```
+
+## 2. Directory Structure & Modular Evidence
+
+WalletNow is designed as a modular monorepo, where the integration layer is isolated from the application business logic. The architecture relies on standard interfaces that any provider must implement.
+
+```text
+src/
+├── contexts/
+│   └── IntegrationEngineContext.tsx   # Manages the active provider dynamically
+├── services/
+│   ├── IntegrationEngine.ts           # Core engine that routes requests to providers
+│   ├── interfaces/
+│   │   ├── IProvider.ts               # Base interface for all providers
+│   │   └── IDepositProvider.ts        # Contract for On/Off-ramp operations
+│   └── providers/                     # Isolated provider implementations
+│       ├── index.ts                   # Provider registry
+│       ├── etherfuse/                 # BRZ / USDC integration via Etherfuse
+│       │   ├── etherfuseProvider.ts
+│       │   └── etherfuseOnRampService.ts
+│       ├── stellarTestAnchor/         # Native Stellar Testnet integration
+│       │   └── stellarTestAnchorProvider.ts
+│       └── wooviMock/                 # Woovi PoC Integration
+│           └── wooviMockProvider.ts
+```
+
+## 3. The Woovi Anchor (Proof of Concept)
+
+> [!NOTE]
+> **Important Note Regarding Woovi:**
+> Currently, Woovi does not possess an official, live Anchor on the Stellar Network. To prove the viability of a seamless "Pix to Stellar" flow without exposing users to gas fees or complex setups, we built a **Woovi Anchor Mock (Proof of Concept)**.
+
+This simulated provider implements the exact same `IDepositProvider` interface that a production-ready anchor would use. It simulates the generation of a Pix payload, the WebSocket payment confirmation, and the subsequent on-chain minting/transfer of the stablecoin, proving that the WalletNow architecture is 100% ready to plug into the official Woovi Anchor as soon as it is launched.

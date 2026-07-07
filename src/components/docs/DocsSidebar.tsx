@@ -36,6 +36,7 @@ const NAV_GROUPS: NavGroup[] = [
       { key: 'howItWorks', path: '/docs/how-it-works', icon: <Zap size={14} /> },
       { key: 'playground', path: '/docs/playground', icon: <FlaskConical size={14} />, badge: 'new' },
       { key: 'quickStart', path: '/docs/quick-start', icon: <BookOpen size={14} /> },
+      { key: 'tutorial', path: '/docs/tutorial', icon: <BookOpen size={14} />, badge: 'new' },
     ],
   },
   {

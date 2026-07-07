@@ -32,9 +32,7 @@ export default function DocsHeader({ onMenuToggle }: DocsHeaderProps) {
 
           {/* Logo */}
           <button className="dh-logo" onClick={() => navigate('/docs')} aria-label="WalletNow Docs Home">
-            <div className="dh-logo-mark">
-              <span className="dh-logo-w">W</span>
-            </div>
+            <img src={`${import.meta.env.BASE_URL}logo-walletnow.svg`} alt="WalletNow" className="dh-logo-img" />
             <span className="dh-logo-text">WalletNow</span>
             <span className="dh-logo-divider">/</span>
             <span className="dh-logo-section">docs</span>
@@ -134,16 +132,10 @@ export default function DocsHeader({ onMenuToggle }: DocsHeaderProps) {
           padding: 0;
           text-decoration: none;
         }
-        .dh-logo-mark {
-          width: 26px;
-          height: 26px;
-          border-radius: 6px;
-          background: linear-gradient(135deg, var(--accent), #00A86B);
-          display: flex;
-          align-items: center;
-          justify-content: center;
+        .dh-logo-img {
+          width: 24px;
+          height: 24px;
         }
-        .dh-logo-w { font-size: 13px; font-weight: 800; color: #000; font-family: 'Inter', sans-serif; }
         .dh-logo-text { font-size: 14px; font-weight: 700; color: var(--text-primary); font-family: 'Inter', sans-serif; }
         .dh-logo-divider { color: var(--text-disabled); font-size: 14px; }
         .dh-logo-section { font-size: 13px; color: var(--text-secondary); font-family: 'JetBrains Mono', monospace; }

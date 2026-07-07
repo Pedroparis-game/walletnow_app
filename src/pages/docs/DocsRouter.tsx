@@ -14,6 +14,7 @@ const WhyWalletNow = lazy(() => import('./pages/WhyWalletNow'));
 const HowItWorks = lazy(() => import('./pages/HowItWorks'));
 const Playground = lazy(() => import('./pages/Playground'));
 const QuickStart = lazy(() => import('./pages/QuickStart'));
+const Tutorial = lazy(() => import('./pages/Tutorial'));
 const SDKReference = lazy(() => import('./pages/SDKReference'));
 const CloudAPI = lazy(() => import('./pages/CloudAPI'));
 const Architecture = lazy(() => import('./pages/Architecture'));
@@ -68,6 +69,7 @@ export default function DocsRouter() {
         <Route path="how-it-works" element={<HowItWorks />} />
         <Route path="playground" element={<Playground />} />
         <Route path="quick-start" element={<QuickStart />} />
+        <Route path="tutorial" element={<Tutorial />} />
         <Route path="sdk" element={<SDKReference />} />
         <Route path="cloud-api" element={<CloudAPI />} />
         <Route path="architecture" element={<Architecture />} />
