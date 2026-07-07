@@ -62,24 +62,15 @@ export class FakeGasStation implements IGasStationPort {
     this.sponsoredAccounts.push(publicKey);
     return `fake_tx_account_${publicKey.slice(0, 8)}`;
   }
-
-  async sponsorTrustlines(
-    publicKey: string,
-    assets: string[],
+  async sponsorTransaction(
+    signedXdr: string,
     _network: StellarNetworkType,
-  ): Promise<{ txHash: string; configured: string[]; failed: Array<{ asset: string; reason: string }> }> {
+  ): Promise<{ txHash: string }> {
     if (this._shouldFailTrustlines) {
-      return {
-        txHash: '',
-        configured: [],
-        failed: assets.map((a) => ({ asset: a, reason: 'FakeGasStation: simulated failure' })),
-      };
+      throw new Error('FakeGasStation: simulated transaction failure');
     }
-    this.sponsoredTrustlines.push({ publicKey, assets });
     return {
-      txHash: `fake_tx_trustlines_${publicKey.slice(0, 8)}`,
-      configured: assets,
-      failed: [],
+      txHash: `fake_tx_sponsored_${Date.now()}`
     };
   }
 }

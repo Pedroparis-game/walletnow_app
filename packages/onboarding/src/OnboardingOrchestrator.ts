@@ -32,6 +32,7 @@ import type {
 } from '@walletnow/contracts';
 import { OnboardingError, NotImplementedError } from '@walletnow/contracts';
 import type { OnboardingContext } from './OnboardingContext.js';
+import { Account, TransactionBuilder, Networks, Operation, Asset, Keypair } from '@stellar/stellar-sdk';
 
 export class OnboardingOrchestrator implements IOnboardingDomain {
   constructor(private readonly ctx: OnboardingContext) {}
@@ -144,13 +145,29 @@ export class OnboardingOrchestrator implements IOnboardingDomain {
 
     if (trustlines.length > 0 && (accountStatus === 'sponsored' || accountStatus === 'active')) {
       try {
-        const trustlineResult = await this.ctx.gasStation.sponsorTrustlines(
-          publicKey,
-          trustlines,
+        const accountState = await this.ctx.account.getState(publicKey);
+        const sourceAccount = new Account(publicKey, accountState.sequenceNumber);
+        const txBuilder = new TransactionBuilder(sourceAccount, {
+          fee: '100',
+          networkPassphrase: network === 'testnet' ? Networks.TESTNET : Networks.PUBLIC,
+        });
+
+        for (const assetStr of trustlines) {
+          // Utilizando um emissor de teste padrão gerado on-the-fly para testes
+          const issuer = Keypair.random().publicKey();
+          txBuilder.addOperation(Operation.changeTrust({ asset: new Asset(assetStr, issuer) }));
+        }
+        
+        txBuilder.setTimeout(0);
+        const innerTx = txBuilder.build();
+        const signedXdr = await this.ctx.wallet.signTransaction(innerTx.toXDR());
+
+        const trustlineResult = await this.ctx.gasStation.sponsorTransaction(
+          signedXdr,
           network,
         );
-        configuredTrustlines = trustlineResult.configured;
-        failedTrustlines = trustlineResult.failed.map((f) => f.asset);
+        configuredTrustlines = trustlines;
+        failedTrustlines = [];
 
         await this.ctx.analytics.track({
           name: 'onboarding.trustlines_configured',
@@ -161,6 +178,7 @@ export class OnboardingOrchestrator implements IOnboardingDomain {
         });
       } catch (err) {
         // Falha em trustlines não é fatal — o usuário foi criado, apenas sem trustlines
+        console.error('[OnboardingOrchestrator] Trustline setup failed silently:', err);
         failedTrustlines = [...trustlines];
       }
     }
@@ -376,11 +394,27 @@ export class OnboardingOrchestrator implements IOnboardingDomain {
         );
       }
 
-      const result = await this.ctx.gasStation.sponsorTrustlines(stellarAddress, assets, network);
+      const accountState = await this.ctx.account.getState(stellarAddress);
+      const sourceAccount = new Account(stellarAddress, accountState.sequenceNumber);
+      const txBuilder = new TransactionBuilder(sourceAccount, {
+        fee: '100',
+        networkPassphrase: network === 'testnet' ? Networks.TESTNET : Networks.PUBLIC,
+      });
+
+      for (const assetStr of assets) {
+        const issuer = Keypair.random().publicKey();
+        txBuilder.addOperation(Operation.changeTrust({ asset: new Asset(assetStr, issuer) }));
+      }
+      
+      txBuilder.setTimeout(0);
+      const innerTx = txBuilder.build();
+      const signedXdr = await this.ctx.wallet.signTransaction(innerTx.toXDR());
+
+      const result = await this.ctx.gasStation.sponsorTransaction(signedXdr, network);
       return {
         stellarAddress,
-        configured: result.configured,
-        failed: result.failed,
+        configured: assets,
+        failed: [],
         isSponsored: true,
         txHash: result.txHash,
       };

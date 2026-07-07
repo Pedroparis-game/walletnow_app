@@ -3,6 +3,7 @@
  */
 
 export { IdentityEngine } from './IdentityEngine.js';
+export { KeypairAuthAdapter } from './KeypairAuthAdapter.js';
 
 // Re-exporta contratos de identity
 export type {

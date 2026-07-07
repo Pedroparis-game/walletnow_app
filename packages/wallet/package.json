@@ -25,7 +25,8 @@
   "dependencies": {
     "@walletnow/contracts": "*",
     "@walletnow/storage": "*",
-    "@walletnow/crypto": "*"
+    "@walletnow/crypto": "*",
+    "@stellar/stellar-sdk": "^12.0.0"
   },
   "devDependencies": {
     "tsup": "^8.0.0",

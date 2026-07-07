@@ -44,11 +44,32 @@ export class IdentityEngine implements IIdentityEngine {
     this._adapters.set(adapter.method, adapter);
   }
 
-  async create(_params: CreateIdentityParams): Promise<IdentityAuthResult> {
-    throw new NotImplementedError('IdentityEngine', 'create');
+  async create(params: CreateIdentityParams): Promise<IdentityAuthResult> {
+    const adapter = this._adapters.get(params.method);
+    if (!adapter) {
+      throw new Error(`[IdentityEngine] No adapter registered for auth method: ${params.method}`);
+    }
+
+    this._status = 'authenticating';
+    try {
+      const result = await adapter.create(params);
+      
+      this._session = result.session;
+      this._status = 'authenticated';
+      
+      // Store in secure storage
+      const encoder = new TextEncoder();
+      await this.secureStorage.set(`identity:${result.identity.id}`, encoder.encode(JSON.stringify(result.identity)));
+      await this.secureStorage.set('active_session', encoder.encode(JSON.stringify(result.session)));
+      
+      return result;
+    } catch (error) {
+      this._status = 'unauthenticated';
+      throw error;
+    }
   }
 
-  async authenticate(_identityId: string): Promise<IdentityAuthResult> {
+  async authenticate(identityId: string): Promise<IdentityAuthResult> {
     throw new NotImplementedError('IdentityEngine', 'authenticate');
   }
 
@@ -77,10 +98,21 @@ export class IdentityEngine implements IIdentityEngine {
   }
 
   async logout(): Promise<void> {
-    throw new NotImplementedError('IdentityEngine', 'logout');
+    this._session = null;
+    this._status = 'unauthenticated';
+    await this.secureStorage.remove('active_session');
   }
 
-  async sign(_payload: Uint8Array): Promise<Uint8Array> {
-    throw new NotImplementedError('IdentityEngine', 'sign');
+  async sign(payload: Uint8Array): Promise<Uint8Array> {
+    if (!this._session) {
+      throw new Error('[IdentityEngine] Cannot sign: no active session.');
+    }
+    
+    const adapter = this._adapters.get(this._session.method);
+    if (!adapter) {
+      throw new Error(`[IdentityEngine] Cannot sign: no adapter found for session method ${this._session.method}`);
+    }
+    
+    return await adapter.sign(this._session.identityId, payload);
   }
 }

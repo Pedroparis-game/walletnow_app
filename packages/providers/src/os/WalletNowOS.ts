@@ -12,7 +12,7 @@ import type {
   IWalletNowProvider,
   StellarNetworkType,
 } from '@walletnow/contracts';
-import { IdentityEngine } from '@walletnow/identity';
+import { IdentityEngine, KeypairAuthAdapter } from '@walletnow/identity';
 import { WalletEngine, AccountEngine } from '@walletnow/wallet';
 import { FakeSecureStorage, LocalStorageAdapter } from '@walletnow/storage';
 import { ProviderRegistry } from '../registry/ProviderRegistry.js';
@@ -39,6 +39,10 @@ export class WalletNowOS implements IWalletNowOS {
     const accountCache = new LocalStorageAdapter('account');
 
     this.identity = new IdentityEngine(secureStorage);
+    
+    // Register default test adapter
+    this.identity.use(new KeypairAuthAdapter());
+    
     this.wallet = new WalletEngine(secureStorage, this.identity);
     this.account = new AccountEngine('https://horizon-testnet.stellar.org', accountCache);
   }

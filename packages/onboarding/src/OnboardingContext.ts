@@ -37,18 +37,17 @@ export interface IGasStationPort {
   sponsorAccountCreation(publicKey: string, network: StellarNetworkType): Promise<string>;
 
   /**
-   * Solicita a configuração de trustlines patrocinadas.
+   * Recebe uma transação interna assinada pelo usuário, e paga as taxas 
+   * adicionando-a a uma FeeBumpTransaction assinada pelo Sponsor.
    *
-   * @param publicKey - Conta que receberá as trustlines
-   * @param assets - Códigos dos ativos (ex: ['USDC', 'BRL'])
+   * @param signedXdr - Transação base64 assinada pelo usuário
    * @param network - Rede alvo
-   * @returns Hash da transação de trustlines
+   * @returns Hash da transação submetida na rede
    */
-  sponsorTrustlines(
-    publicKey: string,
-    assets: string[],
+  sponsorTransaction(
+    signedXdr: string,
     network: StellarNetworkType,
-  ): Promise<{ txHash: string; configured: string[]; failed: Array<{ asset: string; reason: string }> }>;
+  ): Promise<{ txHash: string }>;
 
   /**
    * Verifica se o projeto ainda tem cota de patrocínio disponível.
