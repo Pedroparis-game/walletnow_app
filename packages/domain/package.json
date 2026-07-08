@@ -1,6 +1,6 @@
 {
   "name": "@walletnow/domain",
-  "version": "0.2.0-alpha-foundation",
+  "version": "0.2.1",
   "description": "WalletNow Protocol — Domain Capabilities (Wallet, Accounts, Transactions, Assets, Gas)",
   "license": "MIT",
   "type": "module",
@@ -15,7 +15,9 @@
       "types": "./dist/index.d.ts"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",

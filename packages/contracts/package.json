@@ -1,8 +1,14 @@
 {
   "name": "@walletnow/contracts",
-  "version": "0.1.0-alpha",
+  "version": "0.1.1",
   "description": "WalletNow OS — Canonical contracts (interfaces, types, errors). The single source of truth. Zero runtime dependencies.",
-  "keywords": ["stellar", "contracts", "interfaces", "types", "walletnow"],
+  "keywords": [
+    "stellar",
+    "contracts",
+    "interfaces",
+    "types",
+    "walletnow"
+  ],
   "license": "MIT",
   "type": "module",
   "sideEffects": false,
@@ -16,7 +22,9 @@
       "types": "./dist/index.d.ts"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",

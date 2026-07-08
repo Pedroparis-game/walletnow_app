@@ -71,8 +71,32 @@ export class WalletEngine implements IWalletEngine {
     return wallet;
   }
 
-  async import(_params: ImportWalletParams): Promise<StellarWallet> {
-    throw new NotImplementedError('WalletEngine', 'import');
+  async import(params: ImportWalletParams): Promise<StellarWallet> {
+    const keypair = Keypair.fromSecret(params.secretOrMnemonic);
+    const walletId = `wallet_${Date.now()}`;
+    const wallet: StellarWallet = {
+      id: walletId,
+      identityId: params.identityId,
+      publicKey: keypair.publicKey(),
+      network: params.network ?? 'testnet',
+      custodyType: 'self-custody',
+      createdAt: Date.now(),
+      isActive: true
+    };
+    
+    if (params.label) Object.assign(wallet, { label: params.label });
+    
+    const encoder = new TextEncoder();
+    await this.secureStorage.set(`wallet:${walletId}`, encoder.encode(JSON.stringify(wallet)));
+    await this.secureStorage.set(`wallet_secret:${walletId}`, encoder.encode(keypair.secret()));
+    
+    const identityWalletsStr = await this.secureStorage.get(`wallets_by_identity:${params.identityId}`);
+    const identityWallets: string[] = identityWalletsStr ? JSON.parse(new TextDecoder().decode(identityWalletsStr)) : [];
+    identityWallets.push(walletId);
+    await this.secureStorage.set(`wallets_by_identity:${params.identityId}`, encoder.encode(JSON.stringify(identityWallets)));
+    
+    this._active = wallet;
+    return wallet;
   }
 
   async list(identityId: IdentityId): Promise<StellarWallet[]> {
@@ -90,16 +114,37 @@ export class WalletEngine implements IWalletEngine {
     return wallets;
   }
 
-  async get(_walletId: WalletId): Promise<StellarWallet | null> {
-    throw new NotImplementedError('WalletEngine', 'get');
+  async get(walletId: WalletId): Promise<StellarWallet | null> {
+    const wStr = await this.secureStorage.get(`wallet:${walletId}`);
+    if (!wStr) return null;
+    return JSON.parse(new TextDecoder().decode(wStr));
   }
 
-  async setActive(_walletId: WalletId): Promise<StellarWallet> {
-    throw new NotImplementedError('WalletEngine', 'setActive');
+  async setActive(walletId: WalletId): Promise<StellarWallet> {
+    const wallet = await this.get(walletId);
+    if (!wallet) throw new Error(`Wallet ${walletId} not found`);
+    this._active = wallet;
+    return wallet;
   }
 
-  async remove(_walletId: WalletId): Promise<void> {
-    throw new NotImplementedError('WalletEngine', 'remove');
+  async remove(walletId: WalletId): Promise<void> {
+    const wallet = await this.get(walletId);
+    if (!wallet) return;
+    
+    const identityWalletsStr = await this.secureStorage.get(`wallets_by_identity:${wallet.identityId}`);
+    if (identityWalletsStr) {
+      let identityWallets: string[] = JSON.parse(new TextDecoder().decode(identityWalletsStr));
+      identityWallets = identityWallets.filter(id => id !== walletId);
+      const encoder = new TextEncoder();
+      await this.secureStorage.set(`wallets_by_identity:${wallet.identityId}`, encoder.encode(JSON.stringify(identityWallets)));
+    }
+    
+    await this.secureStorage.remove(`wallet:${walletId}`);
+    await this.secureStorage.remove(`wallet_secret:${walletId}`);
+    
+    if (this._active?.id === walletId) {
+      this._active = null;
+    }
   }
 
   async signTransaction(xdr: string): Promise<string> {

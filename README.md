@@ -666,6 +666,18 @@ O arquivo `.env` localizado na raiz do projeto deve ser preenchido com as seguin
 
 ---
 
+## 📦 Instalação NPM (SDK)
+
+A SDK oficial da WalletNow já está pública no NPM. Para integrar a WalletNow ao seu projeto:
+
+```bash
+npm install @walletnow/sdk
+```
+
+Para mais detalhes e guias de integração, acesse nosso **[Playground e Docs](https://nsdbr.com/walletnow/docs/quick-start)** no painel Web.
+
+---
+
 ## 🌍 Links Oficiais
 
 * **Deploy Produção**: [nsdbr.com/walletnow/](https://nsdbr.com/walletnow/)

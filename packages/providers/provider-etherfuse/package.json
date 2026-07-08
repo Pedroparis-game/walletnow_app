@@ -1,6 +1,6 @@
 {
   "name": "@walletnow/provider-etherfuse",
-  "version": "1.0.0-alpha-sprint-g",
+  "version": "1.0.1",
   "description": "WalletNow Etherfuse Provider — API, Persistence, Activity, Trustline services",
   "license": "MIT",
   "type": "module",
@@ -15,7 +15,9 @@
       "types": "./dist/index.d.ts"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",

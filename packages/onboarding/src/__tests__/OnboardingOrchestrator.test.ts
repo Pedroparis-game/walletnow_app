@@ -51,7 +51,8 @@ class FakeIdentityEngine implements IIdentityEngine {
 
   async create(params: CreateIdentityParams): Promise<IdentityAuthResult> {
     const id = `fake-identity-${++this._counter}`;
-    const publicKey = `GFAKE${id.toUpperCase().replace(/-/g, '').slice(0, 50)}`;
+    const { Keypair } = require('@stellar/stellar-sdk');
+    const publicKey = Keypair.random().publicKey();
     const label = 'label' in params ? params.label : undefined;
     const identity: Identity = {
       id,
@@ -69,7 +70,8 @@ class FakeIdentityEngine implements IIdentityEngine {
   async authenticate(identityId: string): Promise<IdentityAuthResult> {
     const identity = this._identities.get(identityId);
     if (!identity) throw new OnboardingError('USER_NOT_FOUND', `Identity ${identityId} not found`);
-    const publicKey = `GFAKE${identityId.toUpperCase().replace(/-/g, '').slice(0, 50)}`;
+    const { Keypair } = require('@stellar/stellar-sdk');
+    const publicKey = Keypair.random().publicKey();
     this._session = { identityId, publicKey, network: 'testnet', startedAt: Date.now(), expiresAt: null, method: identity.authMethod };
     return { identity, session: this._session, publicKey, authenticatedAt: Date.now() };
   }
@@ -96,11 +98,13 @@ class FakeWalletEngine implements IWalletEngine {
 
   async create(params: import('@walletnow/contracts').CreateWalletParams): Promise<StellarWallet> {
     const id = `fake-wallet-${++this._counter}`;
-    const publicKey = `GWALLET${id.toUpperCase().replace(/-/g, '').slice(0, 50)}`;
+    const { Keypair } = require('@stellar/stellar-sdk');
+    const validPublicKey = Keypair.random().publicKey();
+
     const wallet: StellarWallet = {
       id,
       identityId: params.identityId,
-      publicKey,
+      publicKey: validPublicKey,
       network: params.network ?? 'testnet',
       custodyType: params.custodyType,
       label: params.label,
@@ -229,7 +233,7 @@ describe('OnboardingOrchestrator', () => {
         displayName: 'Alice',
       });
 
-      expect(result.stellarAddress).toMatch(/^GWALLET/);
+      expect(result.stellarAddress).toMatch(/^G/);
       expect(result.externalId).toBe('alice@example.com');
       expect(result.userId).toBeTruthy();
       expect(result.network).toBe('testnet');

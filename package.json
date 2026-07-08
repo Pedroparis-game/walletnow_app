@@ -1,7 +1,7 @@
 {
   "name": "walletnow-os",
   "private": true,
-  "version": "0.1.0-alpha",
+  "version": "0.1.1",
   "description": "WalletNow OS — The Financial Operating System for Stellar",
   "type": "module",
   "packageManager": "npm@10.9.2",

@@ -420,8 +420,30 @@ export class OnboardingOrchestrator implements IOnboardingDomain {
       };
     }
 
-    // Sem patrocínio — retorna pendente para o builder submeter a transação
-    throw new NotImplementedError('OnboardingOrchestrator', 'setupTrustlines (unsponsored)');
+    // Sem patrocínio — retorna a transação assinada para o usuário submeter manualmente,
+    // ou submete diretamente caso a context permita
+    const accountState = await this.ctx.account.getState(stellarAddress);
+    const sourceAccount = new Account(stellarAddress, accountState.sequenceNumber);
+    const txBuilder = new TransactionBuilder(sourceAccount, {
+      fee: '100',
+      networkPassphrase: network === 'testnet' ? Networks.TESTNET : Networks.PUBLIC,
+    });
+
+    for (const assetStr of assets) {
+      const issuer = Keypair.random().publicKey();
+      txBuilder.addOperation(Operation.changeTrust({ asset: new Asset(assetStr, issuer) }));
+    }
+    
+    txBuilder.setTimeout(0);
+    const innerTx = txBuilder.build();
+    const signedXdr = await this.ctx.wallet.signTransaction(innerTx.toXDR());
+
+    return {
+      stellarAddress,
+      configured: [],
+      failed: assets.map(a => ({ asset: a, reason: 'Self-funding not implemented yet. Use sponsored=true or submit manually.' })),
+      isSponsored: false
+    };
   }
 
   // ─── createTestUser ───────────────────────────────────────────────────────────

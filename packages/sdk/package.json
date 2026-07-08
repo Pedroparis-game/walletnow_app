@@ -1,8 +1,14 @@
 {
   "name": "@walletnow/sdk",
-  "version": "0.1.0-alpha",
+  "version": "0.1.1",
   "description": "WalletNow SDK — The simplest way to put users inside Stellar",
-  "keywords": ["stellar", "sdk", "walletnow", "onboarding", "infrastructure"],
+  "keywords": [
+    "stellar",
+    "sdk",
+    "walletnow",
+    "onboarding",
+    "infrastructure"
+  ],
   "license": "MIT",
   "type": "module",
   "sideEffects": false,
@@ -16,7 +22,9 @@
       "types": "./dist/index.d.ts"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",

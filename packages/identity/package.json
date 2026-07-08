@@ -1,8 +1,14 @@
 {
   "name": "@walletnow/identity",
-  "version": "0.1.0-alpha",
+  "version": "0.1.1",
   "description": "WalletNow OS — Identity Engine (Passkeys, OAuth, Keypair Auth)",
-  "keywords": ["stellar", "identity", "auth", "passkeys", "walletnow"],
+  "keywords": [
+    "stellar",
+    "identity",
+    "auth",
+    "passkeys",
+    "walletnow"
+  ],
   "license": "MIT",
   "type": "module",
   "sideEffects": false,
@@ -16,7 +22,9 @@
       "types": "./dist/index.d.ts"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",

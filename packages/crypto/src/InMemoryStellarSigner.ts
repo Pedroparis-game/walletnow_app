@@ -1,55 +1,45 @@
-/**
- * @walletnow/crypto — InMemoryStellarSigner (Stub)
- *
- * Stub de implementação de assinatura de transações Stellar em memória.
- * Na Fase 2, este signer receberá a secret key decriptada do vault
- * e a usará para assinar XDRs de transação.
- *
- * Hierarchy de signers (Fase 2+):
- * - InMemoryStellarSigner: chave privada temporária em RAM (auto-limpeza no logout)
- * - PasskeyStellarSigner: assina via Secure Enclave (WebAuthn)
- * - FreighterStellarSigner: delega para extensão browser Freighter
- */
-
 import type { IStellarSigner } from '@walletnow/contracts';
-import { NotImplementedError } from '@walletnow/contracts';
+import { Keypair, TransactionBuilder } from '@stellar/stellar-sdk';
 
-/**
- * InMemoryStellarSigner — Signer de transações Stellar.
- *
- * STATUS: Stub — aguardando Fase 2.
- *
- * Na implementação concreta:
- * 1. Recebe a private key decriptada do vault
- * 2. Assina XDRs via stellar-sdk Keypair.sign()
- * 3. Limpa a chave da RAM via zeroize() no logout
- *
- * @example — Como será na Fase 2:
- * const signer = new InMemoryStellarSigner(keypair);
- * const signedXdr = await signer.signTransaction(unsignedXdr, passphrase);
- */
 export class InMemoryStellarSigner implements IStellarSigner {
-  readonly publicKey: string;
+  private keypair: Keypair | null = null;
 
-  constructor(publicKey: string) {
-    this.publicKey = publicKey;
+  constructor(secretKey?: string) {
+    if (secretKey) {
+      this.keypair = Keypair.fromSecret(secretKey);
+    }
   }
 
-  async signTransaction(_xdr: string, _networkPassphrase: string): Promise<string> {
-    throw new NotImplementedError('InMemoryStellarSigner', 'signTransaction');
+  get publicKey(): string {
+    this._ensureInitialized();
+    return this.keypair!.publicKey();
   }
 
-  async signPayload(_payload: Uint8Array): Promise<Uint8Array> {
-    throw new NotImplementedError('InMemoryStellarSigner', 'signPayload');
+  async signTransaction(xdrBase64: string, networkPassphrase: string): Promise<string> {
+    this._ensureInitialized();
+
+    const tx = TransactionBuilder.fromXDR(xdrBase64, networkPassphrase);
+    tx.sign(this.keypair!);
+    return tx.toXDR();
+  }
+
+  async signPayload(payload: Uint8Array): Promise<Uint8Array> {
+    this._ensureInitialized();
+    return this.keypair!.sign(Buffer.from(payload));
   }
 
   isReady(): boolean {
-    // Fase 2: retorna true apenas se a chave privada estiver carregada em RAM
-    return false;
+    return this.keypair !== null;
   }
 
   zeroize(): void {
-    // Fase 2: sobrescreve a chave privada em RAM com zeros
-    // e remove a referência
+    // There is no explicit memory zeroize in JS, but we drop the reference
+    this.keypair = null;
+  }
+
+  private _ensureInitialized(): void {
+    if (!this.keypair) {
+      throw new Error('Signer is not initialized with a secret key');
+    }
   }
 }

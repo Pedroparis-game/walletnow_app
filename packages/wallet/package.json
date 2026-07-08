@@ -1,8 +1,13 @@
 {
   "name": "@walletnow/wallet",
-  "version": "0.1.0-alpha",
+  "version": "0.1.1",
   "description": "WalletNow OS — Wallet Engine (Key Management) & Account Engine (On-Chain State)",
-  "keywords": ["stellar", "wallet", "account", "walletnow"],
+  "keywords": [
+    "stellar",
+    "wallet",
+    "account",
+    "walletnow"
+  ],
   "license": "MIT",
   "type": "module",
   "sideEffects": false,
@@ -16,7 +21,9 @@
       "types": "./dist/index.d.ts"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",

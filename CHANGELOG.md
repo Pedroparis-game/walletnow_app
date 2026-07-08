@@ -20,7 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 - Códigos mortos, TODOs sem escopo e arquivos vazios do repositório.
 
-## [0.1.0-alpha] - 2026-06-15
+## [0.1.0] - 2026-06-15
 ### Added
 - Blueprint Arquitetural (ADR-000).
 - Estruturas base do WalletNow Protocol.

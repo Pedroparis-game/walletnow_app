@@ -1,8 +1,15 @@
 {
   "name": "@walletnow/storage",
-  "version": "0.1.0-alpha",
+  "version": "0.1.1",
   "description": "WalletNow OS — Storage implementations (LocalStorage, IndexedDB, InMemory, SecureStorage adapters)",
-  "keywords": ["stellar", "storage", "localstorage", "indexeddb", "secure-storage", "walletnow"],
+  "keywords": [
+    "stellar",
+    "storage",
+    "localstorage",
+    "indexeddb",
+    "secure-storage",
+    "walletnow"
+  ],
   "license": "MIT",
   "type": "module",
   "sideEffects": false,
@@ -16,7 +23,9 @@
       "types": "./dist/index.d.ts"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",

@@ -1,8 +1,17 @@
 {
   "name": "@walletnow/crypto",
-  "version": "0.1.0-alpha",
+  "version": "0.1.1",
   "description": "WalletNow OS — Cryptographic operations (key derivation, signing, encryption, hashing) for Stellar",
-  "keywords": ["stellar", "crypto", "ed25519", "aes-gcm", "pbkdf2", "bip39", "web-crypto", "walletnow"],
+  "keywords": [
+    "stellar",
+    "crypto",
+    "ed25519",
+    "aes-gcm",
+    "pbkdf2",
+    "bip39",
+    "web-crypto",
+    "walletnow"
+  ],
   "license": "MIT",
   "type": "module",
   "sideEffects": false,
@@ -16,14 +25,18 @@
       "types": "./dist/index.d.ts"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@walletnow/contracts": "*"
+    "@walletnow/contracts": "*",
+    "@stellar/stellar-sdk": "^12.1.0",
+    "@scure/bip39": "^1.3.0"
   },
   "devDependencies": {
     "tsup": "^8.0.0",

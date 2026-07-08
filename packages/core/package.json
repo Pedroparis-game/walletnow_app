@@ -1,8 +1,14 @@
 {
   "name": "@walletnow/core",
-  "version": "0.2.0-alpha-foundation",
+  "version": "0.2.1",
   "description": "WalletNow Protocol — Core Kernel, Contracts, Events, Plugins and Types",
-  "keywords": ["stellar", "wallet", "sdk", "protocol", "web3"],
+  "keywords": [
+    "stellar",
+    "wallet",
+    "sdk",
+    "protocol",
+    "web3"
+  ],
   "license": "MIT",
   "type": "module",
   "sideEffects": false,
@@ -16,7 +22,9 @@
       "types": "./dist/index.d.ts"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",

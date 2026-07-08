@@ -1,6 +1,6 @@
 {
   "name": "@walletnow/plugin-defindex",
-  "version": "0.1.0-alpha-sprint-f",
+  "version": "0.1.0",
   "description": "WalletNow Defindex Integration Plugin — Yield Vaults via Defindex API",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -13,7 +13,9 @@
       "types": "./dist/index.d.ts"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",

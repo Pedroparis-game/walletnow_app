@@ -1,8 +1,14 @@
 {
   "name": "@walletnow/providers",
-  "version": "0.1.0-alpha",
+  "version": "0.1.1",
   "description": "WalletNow OS — Provider Registry, EventBus, and OS Entrypoint",
-  "keywords": ["stellar", "providers", "registry", "os", "walletnow"],
+  "keywords": [
+    "stellar",
+    "providers",
+    "registry",
+    "os",
+    "walletnow"
+  ],
   "license": "MIT",
   "type": "module",
   "sideEffects": false,
@@ -16,7 +22,9 @@
       "types": "./dist/index.d.ts"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",

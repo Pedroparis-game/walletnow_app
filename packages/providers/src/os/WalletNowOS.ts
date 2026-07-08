@@ -23,7 +23,7 @@ export class WalletNowOS implements IWalletNowOS {
   private _config: WalletNowOSConfig | null = null;
   private _network: StellarNetworkType | null = null;
 
-  readonly version = '0.1.0-alpha';
+  readonly version = '0.1.0';
   readonly events = new WalletNowEventBus();
   readonly providers = new ProviderRegistry(this.events);
   

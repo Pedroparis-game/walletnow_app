@@ -1,8 +1,16 @@
 {
   "name": "@walletnow/testing",
-  "version": "0.1.0-alpha",
+  "version": "0.1.1",
   "description": "WalletNow OS — Testing utilities: Fake engines, mock providers, builders and test helpers for isolated unit testing",
-  "keywords": ["stellar", "testing", "mocks", "fakes", "vitest", "jest", "walletnow"],
+  "keywords": [
+    "stellar",
+    "testing",
+    "mocks",
+    "fakes",
+    "vitest",
+    "jest",
+    "walletnow"
+  ],
   "license": "MIT",
   "type": "module",
   "sideEffects": false,
@@ -16,7 +24,9 @@
       "types": "./dist/index.d.ts"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
