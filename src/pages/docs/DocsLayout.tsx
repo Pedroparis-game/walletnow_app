@@ -48,12 +48,17 @@ export default function DocsLayout() {
           background: var(--bg-base);
           color: var(--text-primary);
           font-family: 'Inter', sans-serif;
+          overflow-x: hidden;
+          width: 100%;
+          position: relative;
         }
 
         .dl-main {
           padding-top: var(--docs-header-h);
           padding-left: var(--docs-sidebar-width);
           min-height: 100vh;
+          width: 100%;
+          box-sizing: border-box;
         }
         @media (max-width: 768px) {
           .dl-main {

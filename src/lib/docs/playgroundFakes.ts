@@ -22,6 +22,12 @@ export const USDW_KEYPAIR = Keypair.fromSecret('SBALCQUATVXGHPPMXUIE3HHKTCGELQZI
 export const BRW_ISSUER = 'GCJIRFZQJAO6JSYS4YFXFHLVJ6R4WWWB2VTREMRK7WXNNLMGIAXBBNC6';
 export const USDW_ISSUER = 'GDKZT3AXAOMMYVVG3TKFVUYDJODAIAL2ADHNJYQLK2PJQ6CE2U6KKFLQ';
 
+// Chave determinística fixa para a conta do DeFi Vault na Testnet
+const vaultSeed = new Uint8Array(32);
+vaultSeed.set([119, 97, 108, 108, 101, 116, 110, 111, 119, 45, 118, 97, 117, 108, 116]); // "walletnow-vault"
+export const VAULT_KEYPAIR = Keypair.fromRawEd25519Seed(vaultSeed);
+export const VAULT_ADDRESS = VAULT_KEYPAIR.publicKey();
+
 let brwIssuerActivated = false;
 let usdwIssuerActivated = false;
 

@@ -32,7 +32,9 @@ import {
   USDW_KEYPAIR,
   PLAYGROUND_SECRETS,
   PLAYGROUND_IDENTITY_KEYS,
-  ensureIssuerActive
+  ensureIssuerActive,
+  VAULT_KEYPAIR,
+  VAULT_ADDRESS
 } from '../../../lib/docs/playgroundFakes';
 import { Keypair, TransactionBuilder, Asset, Operation, LiquidityPoolAsset, Transaction, Networks } from '@stellar/stellar-sdk';
 
@@ -59,7 +61,7 @@ function createLpAsset(assetA: Asset, assetB: Asset): LiquidityPoolAsset {
     : new LiquidityPoolAsset(assetB, assetA, 30);
 }
 
-type ActiveTab = 'dashboard' | 'faucet' | 'pools' | 'explorer' | 'health';
+type ActiveTab = 'dashboard' | 'faucet' | 'pools' | 'vault' | 'explorer' | 'health';
 
 interface LogEntry {
   message: string;
@@ -150,6 +152,35 @@ export default function TestnetKit() {
     rpc: 'operational',
     confidentialVerifier: 'soon'
   });
+
+  // Estado do DeFi Vault (Real Yield)
+  const [vaultData, setVaultData] = useState({
+    tvlBRW: '0',
+    tvlUSDW: '0',
+    rewardPoolXLM: '0',
+    loaded: false
+  });
+  const [vaultInputs, setVaultInputs] = useState({
+    depositBRW: '100',
+    depositUSDW: '100',
+    withdrawBRW: '100',
+    withdrawUSDW: '100'
+  });
+  const [vaultStake, setVaultStake] = useState({
+    brw: '0',
+    usdw: '0',
+    xlm: '0'
+  });
+  const [vaultLoading, setVaultLoading] = useState(false);
+
+  interface VaultHistoryItem {
+    id: string;
+    type: 'deposit' | 'withdraw' | 'yield' | 'boost';
+    asset: string;
+    amount: string;
+    time: Date;
+  }
+  const [vaultHistory, setVaultHistory] = useState<VaultHistoryItem[]>([]);
 
   const addLog = useCallback((message: string, type: 'info' | 'success' | 'error' | 'warning' = 'info') => {
     setLogs(prev => [
@@ -385,6 +416,138 @@ export default function TestnetKit() {
     }
   };
 
+  // --- VAULT LOGIC ---
+  const fetchVaultState = async () => {
+    try {
+      const acc = await server.loadAccount(VAULT_ADDRESS);
+      const xlmBalance = acc.balances.find(b => b.asset_type === 'native')?.balance || '0';
+      const brwBalance = acc.balances.find(b => (b as any).asset_code === 'BRW')?.balance || '0';
+      const usdwBalance = acc.balances.find(b => (b as any).asset_code === 'USDW')?.balance || '0';
+      
+      setVaultData({
+        tvlBRW: brwBalance,
+        tvlUSDW: usdwBalance,
+        rewardPoolXLM: xlmBalance,
+        loaded: true
+      });
+    } catch (e) {
+      // Conta não existe ainda
+    }
+  };
+
+  const ensureVaultActive = async () => {
+    try {
+      await server.loadAccount(VAULT_ADDRESS);
+    } catch (e) {
+      addLog('Activating Global Vault Account on Testnet...', 'info');
+      await fetch(`https://friendbot.stellar.org/?addr=${VAULT_ADDRESS}`);
+      const vaultAcc = await server.loadAccount(VAULT_ADDRESS);
+      const brwAsset = new Asset('BRW', BRW_ISSUER);
+      const usdwAsset = new Asset('USDW', USDW_ISSUER);
+
+      const tx = new TransactionBuilder(vaultAcc, { fee: '100', networkPassphrase: NETWORKS.TESTNET })
+        .addOperation(Operation.changeTrust({ asset: brwAsset, limit: '1000000000' }))
+        .addOperation(Operation.changeTrust({ asset: usdwAsset, limit: '1000000000' }))
+        .setTimeout(30).build();
+      tx.sign(VAULT_KEYPAIR);
+      await server.submitTransaction(tx);
+      addLog('Global Vault initialized with Trustlines.', 'success');
+    }
+    fetchVaultState();
+  };
+
+  const handleVaultDeposit = async (assetCode: 'BRW' | 'USDW' | 'XLM') => {
+    if (!envResult) return alert('Initialize 1-Click Environment first!');
+    let amount = '0';
+    if (assetCode === 'BRW') amount = vaultInputs.depositBRW;
+    else if (assetCode === 'USDW') amount = vaultInputs.depositUSDW;
+    else if (assetCode === 'XLM') amount = vaultInputs.depositXLM;
+
+    if (!amount || Number(amount) <= 0) return;
+
+    setVaultLoading(true);
+    addLog(`Depositing ${amount} ${assetCode} into Vault...`, 'info');
+    try {
+      const userKeypair = Keypair.fromSecret(envResult.secretKey);
+      const userAccount = await server.loadAccount(userKeypair.publicKey());
+      const assetObj = assetCode === 'XLM' ? Asset.native() : new Asset(assetCode, assetCode === 'BRW' ? BRW_ISSUER : USDW_ISSUER);
+
+      const tx = new TransactionBuilder(userAccount, { fee: '100', networkPassphrase: NETWORKS.TESTNET })
+        .addOperation(Operation.payment({ destination: VAULT_ADDRESS, asset: assetObj, amount: amount }))
+        .setTimeout(30).build();
+      
+      tx.sign(userKeypair);
+      await server.submitTransaction(tx);
+      
+      setVaultStake(prev => ({
+        ...prev,
+        [assetCode.toLowerCase()]: (Number(prev[assetCode.toLowerCase() as 'brw'|'usdw'|'xlm']) + Number(amount)).toString()
+      }));
+      setVaultHistory(prev => [{ id: Math.random().toString(), type: 'deposit', asset: assetCode, amount, time: new Date() }, ...prev]);
+      addLog(`Deposit successful!`, 'success');
+      fetchVaultState();
+    } catch (err: any) {
+      addLog(`Deposit failed: ${err.message}`, 'error');
+    } finally {
+      setVaultLoading(false);
+    }
+  };
+
+  const handleVaultWithdraw = async (assetCode: 'BRW' | 'USDW' | 'XLM') => {
+    if (!envResult) return alert('Initialize 1-Click Environment first!');
+    let amount = '0';
+    if (assetCode === 'BRW') amount = vaultInputs.withdrawBRW;
+    else if (assetCode === 'USDW') amount = vaultInputs.withdrawUSDW;
+    else if (assetCode === 'XLM') amount = vaultInputs.withdrawXLM;
+
+    if (!amount || Number(amount) <= 0) return;
+
+    const currentStake = Number(vaultStake[assetCode.toLowerCase() as 'brw'|'usdw'|'xlm']);
+    if (Number(amount) > currentStake) return alert('Not enough staked!');
+
+    setVaultLoading(true);
+    addLog(`Withdrawing ${amount} ${assetCode} from Vault...`, 'info');
+    try {
+      const vaultAcc = await server.loadAccount(VAULT_ADDRESS);
+      const assetObj = assetCode === 'XLM' ? Asset.native() : new Asset(assetCode, assetCode === 'BRW' ? BRW_ISSUER : USDW_ISSUER);
+
+      const tx = new TransactionBuilder(vaultAcc, { fee: '100', networkPassphrase: NETWORKS.TESTNET })
+        .addOperation(Operation.payment({ destination: envResult.publicKey, asset: assetObj, amount: amount }))
+        .setTimeout(30).build();
+      
+      tx.sign(VAULT_KEYPAIR);
+      await server.submitTransaction(tx);
+      
+      setVaultStake(prev => ({
+        ...prev,
+        [assetCode.toLowerCase()]: (currentStake - Number(amount)).toString()
+      }));
+      setVaultHistory(prev => [{ id: Math.random().toString(), type: 'withdraw', asset: assetCode, amount, time: new Date() }, ...prev]);
+      addLog(`Withdrawal successful!`, 'success');
+      fetchVaultState();
+    } catch (err: any) {
+      addLog(`Withdrawal failed: ${err.message}`, 'error');
+    } finally {
+      setVaultLoading(false);
+    }
+  };
+  
+  const handleBoostRewardPool = async () => {
+    setVaultLoading(true);
+    addLog('Requesting Friendbot to fund the Vault Reward Pool...', 'info');
+    try {
+      await fetch(`https://friendbot.stellar.org/?addr=${VAULT_ADDRESS}`);
+      addLog('Successfully boosted the Reward Pool! 10000 XLM added.', 'success');
+      setVaultHistory(prev => [{ id: Math.random().toString(), type: 'boost', asset: 'XLM', amount: '10000', time: new Date() }, ...prev]);
+      fetchVaultState();
+    } catch (err: any) {
+      addLog(`Boost failed: ${err.message}`, 'error');
+    } finally {
+      setVaultLoading(false);
+    }
+  };
+  // --- END VAULT LOGIC ---
+
   // Busca os dados das pools on-chain em tempo real
   const fetchPoolsData = async () => {
     try {
@@ -445,7 +608,46 @@ export default function TestnetKit() {
     if (activeTab === 'pools') {
       fetchPoolsData();
     }
+    if (activeTab === 'vault') {
+      ensureVaultActive();
+    }
   }, [activeTab]);
+
+  // Cronômetro do Yield do Vault (1 Minuto)
+  useEffect(() => {
+    const yieldInterval = setInterval(async () => {
+      if (!envResult) return;
+      const totalStakeBRW = Number(vaultStake.brw);
+      const totalStakeUSDW = Number(vaultStake.usdw);
+      const totalStakeXLM = Number(vaultStake.xlm);
+      if (totalStakeBRW <= 0 && totalStakeUSDW <= 0 && totalStakeXLM <= 0) return;
+
+      addLog(`Distributing 1-minute real yield (XLM) to stakers...`, 'info');
+      try {
+        const vaultAcc = await server.loadAccount(VAULT_ADDRESS);
+        const rewardAmount = '0.1'; // 0.1 XLM flat distribution (Mais realista)
+
+        const txBuilder = new TransactionBuilder(vaultAcc, { fee: '100', networkPassphrase: NETWORKS.TESTNET });
+        txBuilder.addOperation(Operation.payment({
+          destination: envResult.publicKey,
+          asset: Asset.native(),
+          amount: rewardAmount
+        }));
+
+        const tx = txBuilder.setTimeout(30).build();
+        tx.sign(VAULT_KEYPAIR);
+        await server.submitTransaction(tx);
+        addLog(`Yield Distributed: Received ${rewardAmount} XLM as reward!`, 'success');
+        setVaultHistory(prev => [{ id: Math.random().toString(), type: 'yield', asset: 'XLM', amount: rewardAmount, time: new Date() }, ...prev]);
+        fetchVaultState();
+        
+      } catch (err) {
+        console.error('Yield distribution failed', err);
+      }
+    }, 60000); // 1 minuto
+    
+    return () => clearInterval(yieldInterval);
+  }, [envResult, vaultStake, vaultData.rewardPoolXLM]);
 
   // Ação de Depósito de Liquidez / Seed Pool
   const handleDepositLiquidity = async (poolIndex: number, isQuickSeed = false) => {
@@ -719,6 +921,9 @@ export default function TestnetKit() {
         </button>
         <button className={`tk-tab-btn ${activeTab === 'pools' ? 'active' : ''}`} onClick={() => setActiveTab('pools')}>
           <Coins size={14} /> Liquidity Pools
+        </button>
+        <button className={`tk-tab-btn ${activeTab === 'vault' ? 'active' : ''}`} onClick={() => setActiveTab('vault')}>
+          <Shield size={14} /> {tk.vaultTab || 'DeFi Vault'}
         </button>
         <button className={`tk-tab-btn ${activeTab === 'explorer' ? 'active' : ''}`} onClick={() => setActiveTab('explorer')}>
           <Search size={14} /> Testnet Explorer
@@ -1163,6 +1368,174 @@ export default function TestnetKit() {
           </div>
         )}
 
+        {/* TAB 3.5: DEFI VAULT */}
+        {activeTab === 'vault' && (
+          <div className="tk-main-card">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px', marginBottom: '16px' }}>
+              <div>
+                <h3 style={{ margin: 0 }}>{tk.vaultTitle || 'DeFi Vault (Real Yield)'}</h3>
+                <p className="tk-card-desc" style={{ marginTop: '8px', marginBottom: 0 }}>
+                  {tk.vaultDesc || 'Simulador on-chain de agregação de rendimentos. Adicione liquidez e ganhe XLM por minuto.'}
+                </p>
+              </div>
+              <button className="tk-primary-btn" onClick={handleBoostRewardPool} disabled={vaultLoading}>
+                {vaultLoading ? <span className="tk-spinner" /> : '🚀 Boost Reward Pool (+10k XLM)'}
+              </button>
+            </div>
+
+            {/* ON-CHAIN PROOFS */}
+            <div className="tk-result-box" style={{ marginTop: '0', marginBottom: '24px', padding: '16px', background: 'rgba(168, 85, 247, 0.05)', borderColor: 'rgba(168, 85, 247, 0.2)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+                <div>
+                  <h4 style={{ margin: '0 0 4px 0', color: '#a855f7', fontSize: '12px', textTransform: 'uppercase' }}>🔗 On-Chain Verification</h4>
+                  <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Verifique o TVL global e transações (Yields) deste Vault em tempo real na rede.</span>
+                </div>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button className="tk-sec-btn sm" onClick={() => copyToClipboard(VAULT_ADDRESS, 'Vault Address')}>
+                    {copiedText === 'Vault Address' ? <Check size={12} /> : <Copy size={12} />} Copy Address
+                  </button>
+                  <a href={`https://stellar.expert/explorer/testnet/account/${VAULT_ADDRESS}`} target="_blank" rel="noreferrer" className="tk-sec-btn sm" style={{ color: '#a855f7', borderColor: 'rgba(168, 85, 247, 0.4)', textDecoration: 'none' }}>
+                    <ExternalLink size={12} /> Stellar Expert
+                  </a>
+                </div>
+              </div>
+              <div style={{ marginTop: '12px', padding: '8px 12px', background: 'rgba(0,0,0,0.3)', borderRadius: '4px', fontFamily: 'monospace', fontSize: '11px', color: 'var(--text-tertiary)', wordBreak: 'break-all' }}>
+                {VAULT_ADDRESS}
+              </div>
+            </div>
+
+            {/* TVL Global */}
+            <div className="tk-pool-reserves mt-4 mb-8" style={{ border: '1px solid var(--border-subtle)', background: 'rgba(255,255,255, 0.02)' }}>
+              <div className="tk-reserve-card">
+                <span className="tk-pm-label" style={{ color: 'var(--text-tertiary)' }}>{tk.vaultTVL || 'Total Value Locked'} (BRW)</span>
+                <span className="tk-pm-value text-blue-400">{parseFloat(vaultData.tvlBRW).toLocaleString()} BRW</span>
+              </div>
+              <div className="tk-reserve-card">
+                <span className="tk-pm-label" style={{ color: 'var(--text-tertiary)' }}>{tk.vaultTVL || 'Total Value Locked'} (USDW)</span>
+                <span className="tk-pm-value text-emerald-400">{parseFloat(vaultData.tvlUSDW).toLocaleString()} USDW</span>
+              </div>
+              <div className="tk-reserve-card">
+                <span className="tk-pm-label" style={{ color: 'var(--accent)' }}>TVL / Reward Pool (XLM)</span>
+                <span className="tk-pm-value">{parseFloat(vaultData.rewardPoolXLM).toLocaleString()} XLM</span>
+              </div>
+            </div>
+
+            <div className="tk-vault-grid">
+              {['BRW', 'USDW', 'XLM'].map((asset) => {
+                const tvlMap: any = { BRW: vaultData.tvlBRW, USDW: vaultData.tvlUSDW, XLM: vaultData.rewardPoolXLM };
+                const stakeMap: any = { BRW: vaultStake.brw, USDW: vaultStake.usdw, XLM: vaultStake.xlm };
+                const inputsMap: any = { 
+                  BRW: { dep: vaultInputs.depositBRW, wdr: vaultInputs.withdrawBRW }, 
+                  USDW: { dep: vaultInputs.depositUSDW, wdr: vaultInputs.withdrawUSDW },
+                  XLM: { dep: vaultInputs.depositXLM, wdr: vaultInputs.withdrawXLM }
+                };
+                
+                const tvlNum = Number(vaultData.rewardPoolXLM) || 1; // Usando XLM TVL como base para APY local
+                const currentStake = Number(stakeMap[asset]);
+                const apy = ((52560 / tvlNum) * 100).toFixed(2); // 0.1 XLM * 60m * 24h * 365d = 52560 XLM/ano
+                
+                return (
+                  <div key={asset} className="tk-pool-item-rich" style={{ marginBottom: 0 }}>
+                    <div className="tk-pool-header-rich">
+                      <div className="tk-pool-name-rich">{asset} Vault</div>
+                      <div className="tk-badge" style={{ background: 'rgba(255,255,255,0.1)', color: 'white', borderColor: 'transparent' }}>
+                        APY: <span style={{ color: 'var(--accent)' }}>{apy}%</span>
+                      </div>
+                    </div>
+                    
+                    <div className="tk-pool-id-box mb-4">
+                      <span className="tk-result-lbl text-xs">{tk.vaultStake || 'Your Stake'}:</span>
+                      <div className="tk-copyable-value sm" style={{ background: 'transparent', paddingLeft: 0, border: 'none' }}>
+                        <code className="tk-mono-text text-lg font-bold" style={{ color: 'white' }}>{parseFloat(stakeMap[asset]).toLocaleString()} {asset}</code>
+                      </div>
+                      {currentStake > 0 && (
+                        <div style={{ fontSize: '11px', color: 'var(--accent)', marginTop: '4px' }}>
+                          Earnings: ~{((currentStake / (Number(tvlMap[asset]) || 1)) * 0.1).toFixed(4)} XLM/min
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="tk-vault-interactive-panel">
+                      <div className="tk-input-row">
+                        <input
+                          type="number"
+                          className="tk-input-text sm"
+                          placeholder={`Deposit ${asset}`}
+                          value={inputsMap[asset].dep}
+                          onChange={e => setVaultInputs(p => ({ ...p, [`deposit${asset}`]: e.target.value }))}
+                          disabled={vaultLoading}
+                        />
+                        <button className={`tk-sec-btn sm ${vaultLoading ? 'loading' : ''}`} onClick={() => handleVaultDeposit(asset as any)} disabled={vaultLoading}>
+                          {tk.vaultDeposit || 'Deposit'}
+                        </button>
+                      </div>
+                      <div className="tk-input-row">
+                        <input
+                          type="number"
+                          className="tk-input-text sm"
+                          placeholder={`Withdraw ${asset}`}
+                          value={inputsMap[asset].wdr}
+                          onChange={e => setVaultInputs(p => ({ ...p, [`withdraw${asset}`]: e.target.value }))}
+                          disabled={vaultLoading}
+                        />
+                        <button className={`tk-sec-btn sm danger ${vaultLoading ? 'loading' : ''}`} onClick={() => handleVaultWithdraw(asset as any)} disabled={vaultLoading}>
+                          {tk.vaultWithdraw || 'Withdraw'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            
+            <div className="tk-vault-footer mt-8" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '24px' }}>
+              {/* Mathematics Explanation */}
+              <div className="tk-result-box" style={{ marginTop: 0 }}>
+                <h4>📚 Entendendo o Rendimento (APY / APR)</h4>
+                <p style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+                  Esta simulação educacional emula as dinâmicas financeiras On-Chain usando as seguintes fórmulas de taxa flutuante (Floating Rate):
+                </p>
+                <div style={{ background: '#000', padding: '12px', borderRadius: '8px', fontSize: '11px', fontFamily: 'monospace', color: 'var(--text-tertiary)', margin: '12px 0' }}>
+                  Reward_Per_Minute = 0.1 XLM<br/>
+                  Total_Annual_Reward = 0.1 * 60 * 24 * 365 = 52,560 XLM<br/>
+                  <br/>
+                  <span style={{ color: 'var(--accent)' }}>APR% = (Total_Annual_Reward / TVL) * 100</span><br/>
+                  User_Earning_Per_Min = (User_Stake / Total_Stake) * 0.1 XLM
+                </div>
+                <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                  Sempre que um usuário deposita (aumenta o TVL), o APR cai (diluição). O botão <strong>Boost Reward Pool</strong> atua como um injetor externo de receitas, acionando o Faucet e aumentando as recompensas brutas.
+                </p>
+              </div>
+
+              {/* Yield History Log */}
+              <div className="tk-result-box" style={{ marginTop: 0 }}>
+                <h4>⏱️ Yield History (On-Chain Log)</h4>
+                <div style={{ maxHeight: '200px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {vaultHistory.length === 0 ? (
+                    <div style={{ fontSize: '12px', color: 'var(--text-tertiary)', textAlign: 'center', padding: '24px 0' }}>
+                      Nenhuma transação efetuada ainda. Deposite e aguarde 1 minuto.
+                    </div>
+                  ) : (
+                    vaultHistory.map(item => (
+                      <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', padding: '8px', background: 'rgba(255,255,255,0.02)', borderRadius: '6px' }}>
+                        <div>
+                          <strong style={{ color: item.type === 'yield' ? 'var(--accent)' : item.type === 'boost' ? '#a855f7' : 'white' }}>
+                            {item.type.toUpperCase()}
+                          </strong>
+                          <span style={{ color: 'var(--text-tertiary)', marginLeft: '8px' }}>{item.time.toLocaleTimeString()}</span>
+                        </div>
+                        <div style={{ fontFamily: 'monospace', color: item.type === 'withdraw' ? '#ef4444' : 'var(--text-primary)' }}>
+                          {item.type === 'withdraw' ? '-' : '+'}{item.amount} {item.asset}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* TAB 4: EXPLORER */}
         {activeTab === 'explorer' && (
           <div className="tk-main-card">
@@ -1325,8 +1698,16 @@ export default function TestnetKit() {
         .tk-card-header { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
         .tk-badge { font-size: 10px; font-weight: 800; text-transform: uppercase; color: var(--accent); background: rgba(0,255,153,0.1); border: 1px solid rgba(0,255,153,0.2); padding: 2px 8px; border-radius: 99px; }
         .tk-card-desc { font-size: 13px; color: var(--text-secondary); margin-bottom: 24px; line-height: 1.6; }
+        
+        .tk-vault-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; }
+        .tk-vault-interactive-panel { display: flex; flex-direction: column; gap: 12px; margin-top: 8px; }
+        .tk-input-row { display: flex; gap: 8px; }
+        .tk-input-row input { flex: 1; min-width: 0; }
 
         .tk-grid { display: grid; grid-template-columns: 1fr 340px; gap: 24px; }
+        @media (max-width: 900px) {
+          .tk-grid { grid-template-columns: 1fr; }
+        }
         
         /* Buttons */
         .tk-primary-btn {

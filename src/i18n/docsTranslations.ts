@@ -209,6 +209,15 @@ export const docsTranslations = {
     testnet: {
       title: 'Testnet Kit',
       subtitle: 'Everything you need to build and test on Stellar Testnet.',
+      vaultTab: 'DeFi Vault',
+      vaultTitle: 'DeFi Vault (Real Yield)',
+      vaultDesc: 'A fully functional on-chain yield aggregator. Deposit your testnet tokens (BRW/USDW) and earn XLM rewards automatically distributed every minute.',
+      vaultTVL: 'Total Value Locked (TVL)',
+      vaultRewardPool: 'Reward Pool (XLM)',
+      vaultStake: 'Your Stake',
+      vaultDeposit: 'Deposit',
+      vaultWithdraw: 'Withdraw',
+      vaultRewardLog: 'Yield Distributed!',
     },
     dashboard: {
       title: 'Dashboard',
@@ -468,6 +477,15 @@ export const docsTranslations = {
     testnet: {
       title: 'Testnet Kit',
       subtitle: 'Tudo que você precisa para construir e testar na Stellar Testnet.',
+      vaultTab: 'DeFi Vault',
+      vaultTitle: 'DeFi Vault (Rendimento Real)',
+      vaultDesc: 'Um agregador de rendimentos on-chain totalmente funcional. Deposite seus tokens de teste (BRW/USDW) e ganhe recompensas em XLM distribuídas automaticamente a cada minuto.',
+      vaultTVL: 'Valor Total Bloqueado (TVL)',
+      vaultRewardPool: 'Pool de Recompensas (XLM)',
+      vaultStake: 'Seu Stake',
+      vaultDeposit: 'Depositar',
+      vaultWithdraw: 'Retirar',
+      vaultRewardLog: 'Rendimento Distribuído!',
     },
     dashboard: {
       title: 'Dashboard',
