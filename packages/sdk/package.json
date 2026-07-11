@@ -1,6 +1,6 @@
 {
   "name": "@walletnow/sdk",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "WalletNow SDK — The simplest way to put users inside Stellar",
   "keywords": [
     "stellar",
@@ -11,7 +11,9 @@
   ],
   "license": "MIT",
   "type": "module",
-  "sideEffects": ["*.css"],
+  "sideEffects": [
+    "*.css"
+  ],
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",

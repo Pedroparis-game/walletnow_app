@@ -118,7 +118,9 @@ await wn.onboarding.createUser({ externalId: 'user@email.com' });`}
             <CodeBlock
               lang="tsx"
               filename="App.tsx"
-              code={`import { WalletNowConnect } from '@walletnow/react';
+              code={`import { WalletNowConnect } from '@walletnow/sdk/react';
+// Ou se quiser o ambiente de simulação inteiro: 
+// import TestnetKit from '@walletnow/sdk/testnetkit';
 
 export function Header() {
   return (

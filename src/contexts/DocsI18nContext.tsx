@@ -25,7 +25,11 @@ export function DocsI18nProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const toggleLang = useCallback(() => {
-    setLangState((prev) => (prev === 'en' ? 'pt' : 'en'));
+    setLangState((prev) => {
+      if (prev === 'en') return 'pt';
+      if (prev === 'pt') return 'es';
+      return 'en';
+    });
   }, []);
 
   const t = docsTranslations[lang] as DocsTranslations;
