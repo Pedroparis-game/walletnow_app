@@ -183,8 +183,8 @@ export const landingTranslations = {
         // Timeline 3 fases
         timeline: [
           { phase: 'Now', label: 'Stellar Testnet', sub: 'Open core live, builders onboarding', active: true },
-          { phase: 'Q4 2025', label: 'Mainnet Launch', sub: 'Production infrastructure, enterprise SLAs', active: false },
-          { phase: '2026', label: 'Commercial Layer', sub: 'Managed services, checkout infra, revenue share', active: false },
+          { phase: 'Q4 2026', label: 'Mainnet Launch', sub: 'Production infrastructure, enterprise SLAs', active: false },
+          { phase: '2027', label: 'Commercial Layer', sub: 'Managed services, checkout infra, revenue share', active: false },
         ],
       },
       // AbstractionFeaturesSection
@@ -446,8 +446,8 @@ export const landingTranslations = {
         ],
         timeline: [
           { phase: 'Agora', label: 'Stellar Testnet', sub: 'Core aberto, builders onboarding', active: true },
-          { phase: 'T4 2025', label: 'Mainnet Launch', sub: 'Infraestrutura de produção, SLAs enterprise', active: false },
-          { phase: '2026', label: 'Camada Comercial', sub: 'Serviços gerenciados, checkout, revenue share', active: false },
+          { phase: 'T4 2026', label: 'Mainnet Launch', sub: 'Infraestrutura de produção, SLAs enterprise', active: false },
+          { phase: '2027', label: 'Camada Comercial', sub: 'Serviços gerenciados, infraestrutura de checkout, compartilhamento de receita', active: false },
         ],
       },
       // AbstractionFeaturesSection
@@ -644,7 +644,7 @@ export const landingTranslations = {
         { q: '¿Cómo funciona el login con Passkey?', a: 'Usamos WebAuthn / FIDO2 — tu biometría (huella, Face ID) firma un desafío en tu hardware. Sin contraseña ni frase semilla. La clave nunca sale del dispositivo.' },
         { q: '¿Qué pasa si cambio de dispositivo?', a: 'Actualmente, la clave está vinculada al dispositivo. Una capa de recuperación está en el roadmap del MVP 1.0 vía multi-sig y sincronización de Passkey.' },
         { q: '¿Qué stablecoins son compatibles?', a: 'BRZ (Real Brasileño en Stellar) y BRW (stablecoin nativa de WalletNow) están disponibles en Testnet. Soporte de USDC y ARZ planificado para Mainnet.' },
-        { q: '¿Por qué Stellar?', a: 'Stellar ofrece finalidad rápida (~5s), comisiones mínimas, emisión nativa de activos y patrocinio de tarifas vía CAP-33 — ideal para onboarding fiat sin gas.' },
+        { q: '¿Por qué Stellar?', a: 'Stellar ofrece finalidad rápida (~5s), comisiones mínimas, emisión nativa de ativos y patrocinio de tarifas vía CAP-33 — ideal para onboarding fiat sin gas.' },
         { q: '¿Se requiere KYC?', a: 'Nuestra capa de KYC Zero-Knowledge valida identidad sin almacenar PII. Es opcional para uso básico — requerido para límites mayores en Mainnet.' },
       ],
     },
@@ -689,7 +689,7 @@ export const landingTranslations = {
       },
       businessModel: {
         label: 'Business Model',
-        headlinePlain: 'Infraestructura abierta.',
+        headlinePlain: 'Infraestrutura abierta.',
         headlineGreen: 'Futuro comercial.',
         body: 'El core abierto genera confianza. La capa comercial genera ingresos. No es una contradicción — es el plan.',
         todayLabel: 'WalletNow Hoy',
@@ -699,15 +699,15 @@ export const landingTranslations = {
         todayItems: [
           { icon: '📦', text: '@walletnow/core — SDK open source' },
           { icon: '⚛️', text: '@walletnow/react — componentes listos' },
-          { icon: '⚡', text: 'Infraestructura gasless nativa Stellar' },
+          { icon: '⚡', text: 'Infraestrutura gasless nativa Stellar' },
           { icon: '🔑', text: 'Capa de autenticación Passkey' },
           { icon: '🧑‍💻', text: 'Gratis para siempre para builders' },
         ],
         tomorrowItems: [
-          { icon: '🏛️', text: 'Infraestructura Gestionada (SLAs)' },
-          { icon: '🏪', text: 'Infraestructura de Checkout' },
+          { icon: '🏛️', text: 'Infraestrutura Gestionada (SLAs)' },
+          { icon: '🏪', text: 'Infraestrutura de Checkout' },
           { icon: '📈', text: 'Wallet-as-a-Service' },
-          { icon: '🏠', text: 'Camada de Tokenización RWA' },
+          { icon: '🏠', text: 'Capa de Tokenización RWA' },
           { icon: '🤝', text: 'Revenue Share para Builders' },
         ],
         tomorrowUseCases: [
@@ -717,8 +717,8 @@ export const landingTranslations = {
         ],
         timeline: [
           { phase: 'Ahora', label: 'Stellar Testnet', sub: 'Core abierto, builders onboarding', active: true },
-          { phase: 'Q4 2025', label: 'Mainnet Launch', sub: 'Infraestructura de producción, SLAs enterprise', active: false },
-          { phase: '2026', label: 'Capa Comercial', sub: 'Servicios gestionados, checkout, revenue share', active: false },
+          { phase: 'Q4 2026', label: 'Mainnet Launch', sub: 'Infraestructura de producción, SLAs enterprise', active: false },
+          { phase: '2027', label: 'Capa Comercial', sub: 'Servicios gestionados, infraestructura de checkout, distribución de ingresos', active: false },
         ],
       },
       publicGoods: {
