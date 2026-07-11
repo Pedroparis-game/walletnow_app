@@ -86,7 +86,7 @@ export default function BottomCTASection() {
             {bc.ctaDocs}
             <ArrowRight size={16} />
           </a>
-
+        </div>
 
         {/* Footer nav */}
         <div style={{
