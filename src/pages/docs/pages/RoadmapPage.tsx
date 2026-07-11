@@ -75,7 +75,7 @@ export default function RoadmapPage() {
 
       <div className="rm-footnote">
         <p>Roadmap is subject to change. Last updated: July 2026.</p>
-        <p>Have a feature request? <a href="https://github.com/nsdBRoficial/walletnow_app/issues" target="_blank" rel="noopener noreferrer">Open an issue on GitHub →</a></p>
+
       </div>
 
       <style>{`

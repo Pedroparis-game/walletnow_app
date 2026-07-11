@@ -86,21 +86,7 @@ export default function BottomCTASection() {
             {bc.ctaDocs}
             <ArrowRight size={16} />
           </a>
-          <a href="https://github.com/nsdBRoficial/walletnow_app"
-            target="_blank" rel="noopener noreferrer"
-            className="bottom-cta-secondary" style={{
-              display: 'inline-flex', alignItems: 'center', gap: 10,
-              padding: '14px 28px', borderRadius: 12,
-              background: 'transparent',
-              border: '1px solid var(--border-subtle)',
-              color: 'var(--text-secondary)', fontWeight: 700, fontSize: 15,
-              textDecoration: 'none', cursor: 'pointer',
-              transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
-            }}>
-            <Github size={16} />
-            {bc.ctaGitHub}
-          </a>
-        </div>
+
 
         {/* Footer nav */}
         <div style={{

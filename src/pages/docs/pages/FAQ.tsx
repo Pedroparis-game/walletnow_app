@@ -42,7 +42,7 @@ const FAQ_ITEMS: FAQItem[] = [
   },
   {
     q: 'How do I report a bug or request a feature?',
-    a: 'Open an issue on our GitHub repository at github.com/nsdBRoficial/walletnow_app. We\'re a builder-first team and we read every issue.',
+    a: 'We\'re a builder-first team and we listen to our community. Send us a message directly via our contact channels.',
   },
 ];
 
@@ -83,13 +83,6 @@ export default function FAQ() {
             )}
           </div>
         ))}
-      </div>
-
-      <div className="faq-footer">
-        <p>Still have questions?</p>
-        <a href="https://github.com/nsdBRoficial/walletnow_app/issues" target="_blank" rel="noopener noreferrer" className="faq-gh-link">
-          Open an issue on GitHub →
-        </a>
       </div>
 
       <style>{`

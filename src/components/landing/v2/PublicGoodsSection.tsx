@@ -90,31 +90,6 @@ export default function PublicGoodsSection() {
             </div>
           ))}
         </div>
-
-        {/* GitHub CTA */}
-        <div style={{ textAlign: 'center' }}>
-          <a href="https://github.com/nsdBRoficial/walletnow_app"
-            target="_blank" rel="noopener noreferrer"
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 10,
-              padding: '14px 28px', borderRadius: 12,
-              background: 'var(--bg-surface)',
-              border: '1px solid var(--border-subtle)',
-              color: 'var(--text-primary)', fontWeight: 600, fontSize: 14,
-              textDecoration: 'none', cursor: 'pointer',
-              transition: 'all 0.2s',
-            }}
-            onMouseEnter={e => {
-              (e.currentTarget as HTMLElement).style.borderColor = 'rgba(0,168,107,0.3)';
-            }}
-            onMouseLeave={e => {
-              (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-subtle)';
-            }}
-          >
-            <Github size={17} />
-            {pg.githubCTA}
-          </a>
-        </div>
       </div>
     </section>
   );

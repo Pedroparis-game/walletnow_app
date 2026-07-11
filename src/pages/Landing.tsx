@@ -206,24 +206,7 @@ function LandingNavbar() {
           {isDark ? <Sun size={14} /> : <Moon size={14} />}
         </button>
 
-        {/* GitHub */}
-        <a
-          href="https://github.com/nsdBRoficial/walletnow_app"
-          target="_blank" rel="noopener noreferrer"
-          className="nav-btn-ghost"
-          style={{
-            display: 'flex', alignItems: 'center', gap: 6,
-            padding: '6px 12px', borderRadius: 8,
-            border: '1px solid var(--navbar-border)',
-            background: 'transparent',
-            color: 'var(--text-secondary)', fontSize: 12, fontWeight: 600,
-            textDecoration: 'none', cursor: 'pointer',
-            transition: 'all 0.2s',
-          }}
-        >
-          <Github size={13} />
-          {t.nav.viewGitHub}
-        </a>
+
 
         {/* Launch Demo App */}
         <button

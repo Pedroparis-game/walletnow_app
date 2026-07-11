@@ -356,23 +356,7 @@ export default function HeroSection() {
               {h.ctaDocs}
               <ArrowRight size={16} />
             </button>
-            <a
-              href="https://github.com/nsdBRoficial/walletnow_app"
-              target="_blank" rel="noopener noreferrer"
-              className="hero-cta-secondary"
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: 8,
-                padding: '13px 24px', borderRadius: 12,
-                background: 'transparent',
-                border: '1px solid rgba(255,255,255,0.1)',
-                color: 'var(--text-secondary)', fontWeight: 600, fontSize: 14,
-                textDecoration: 'none', cursor: 'pointer',
-                transition: 'all 0.25s',
-              }}
-            >
-              <Github size={15} />
-              {h.ctaGitHub}
-            </a>
+
           </div>
 
           {/* Stats row */}
