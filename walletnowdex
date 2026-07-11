@@ -1,0 +1,92 @@
+# Plano de Implementação: DeFi Vault (walletnowDex) no TestnetKit
+
+Este plano descreve o design técnico e a implementação de uma nova aba **DeFi Vault (walletnowDex)** dentro do **Testnet Infrastructure Kit** (`docs/testnet-kit`). O objetivo é oferecer aos desenvolvedores uma interface real e educativa para interagir com um Vault DeFi na Stellar Testnet, realizando depósitos, retiradas e acompanhando a distribuição automática de rendimentos a cada 1 minuto.
+
+---
+
+## 🛠️ Arquitetura e Fluxo de Dados
+
+A arquitetura utiliza a Stellar Testnet real e as contas emissoras persistentes do sandbox da WalletNow (`BRW` e `USDW`) para simular o comportamento de um protocolo de Real Yield.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Dev as Desenvolvedor (Usuário)
+    participant UI as Testnet Kit Frontend
+    participant VT as Conta do Vault (Stellar)
+    participant HZ as Stellar Horizon (Testnet)
+    participant FB as SDF Friendbot (Airdrop)
+    participant IS as Emissor BRW (Stellar)
+
+    Note over UI, VT: Inicialização Automática (Lazy Init)
+    UI->>HZ: Verifica se a conta do Vault existe
+    alt Conta não existe
+        UI->>FB: Requisita ativação da conta do Vault (Friendbot)
+        UI->>HZ: Cria trustline para BRW e USDW assinada pelo Vault
+        UI->>IS: Deposita fundos iniciais (ex: 1,000,000 BRW) para pagar rendimentos
+    end
+
+    Note over Dev, HZ: Fluxo de Depósito (Stake)
+    Dev->>UI: Digita quantia de BRW e clica em "Depositar"
+    UI->>HZ: Envia transação de pagamento BRW do usuário para o Vault
+    UI->>UI: Rastreia stake no localStorage (e monitora on-chain)
+
+    Note over UI, HZ: Rendimento Automático (A cada 1min)
+    loop A cada 60 segundos (aba ativa)
+        UI->>UI: Calcula rendimento proporcional (ex: 0.5% do stake)
+        UI->>HZ: Executa transação de pagamento de BRW da conta do Vault para o Usuário
+        UI->>UI: Registra transação no Console de Infraestrutura
+    end
+
+    Note over Dev, HZ: Fluxo de Retirada (Unstake)
+    Dev->>UI: Clica em "Retirar"
+    UI->>HZ: Transação de pagamento BRW assinada pela chave do Vault para o Usuário
+    UI->>UI: Atualiza o saldo de stake
+```
+
+---
+
+## 📋 Proposta de Alterações
+
+### 1. Inicialização da Conta do Vault
+
+A conta do Vault será gerada de forma determinística no frontend para que seu endereço seja persistente na testnet.
+
+* **Semente do Vault (Raw Seed)**: Gerada a partir de uma string única para que a chave pública/privada seja constante.
+* **Auto-ativação**:
+  * Ao carregar a aba, verificamos no Horizon a existência da conta do Vault.
+  * Se inativa, solicitamos a ativação automática via Friendbot, configuramos as trustlines (`BRW` e `USDW`) e financiamos o cofre com saldo inicial proveniente das chaves emissoras do sandbox para poder distribuir rendimentos.
+
+### 2. Painel Interativo no Frontend
+
+Modificações no arquivo [TestnetKit.tsx](file:///c:/Users/Usuário/Documents/GitHub/walletnow_app/src/pages/docs/pages/TestnetKit.tsx):
+
+* **Menu de Abas**: Adicionar a aba `vault` ("walletnowDex Vault").
+* **Ações do Vault**:
+  * **Depósito (Stake)**: Campo numérico de BRW. Transação real enviando BRW do usuário para o Vault.
+  * **Retirada (Unstake)**: Campo para retirar o valor total ou parcial de volta do cofre do Vault para a carteira.
+  * **Rendimento Real Automático (A cada 1min)**:
+    * `setInterval` que funciona como cron no React (quando a aba está ativa).
+    * Atualiza um timer visual de 60 segundos na tela.
+    * Quando atinge zero, aciona `distributeYield()` que faz transações de pagamento on-chain reais de rendimento (ex: 0.5% do stake atual) enviando BRW da conta do Vault para o usuário.
+* **Mural Educativo**:
+  * Explicação intuitiva com estilo premium sobre o que é um DeFi Vault, o que é Real Yield (rendimento sustentável em oposição a emissões inflacionárias) e como o `walletnowDex` interage on-chain.
+
+---
+
+## 🛡️ Segurança e Boas Práticas
+
+* **Chaves de Testnet**: A semente do Vault é gerada para a testnet Stellar e, assim como as outras chaves do sandbox, é exposta apenas para fins educativos no ambiente de testes.
+* **Resiliência do Ledger**: Empregar tentativas de leitura (retries) e tratamento de erros apropriados para transações da Horizon (ex: lidar com timeouts de ledger).
+* **SOLID e DRY**: A lógica do Vault reutilizará as funções utilitárias e estilos do arquivo [TestnetKit.tsx](file:///c:/Users/Usuário/Documents/GitHub/walletnow_app/src/pages/docs/pages/TestnetKit.tsx).
+
+---
+
+## 🧪 Plano de Verificação
+
+### Verificação Manual
+1. **Inicialização do Ambiente**: Criar uma carteira de testes na aba "One-Click Env" e coletar saldos de teste de BRW e USDW.
+2. **Ativação do Vault**: Acessar a aba "walletnowDex Vault" e certificar-se de que a conta do Vault se auto-inicializa (ativação via Friendbot + configuração de trustlines + depósito de reserva de rendimentos).
+3. **Depósito**: Efetuar um depósito de 1.000 BRW no Vault e validar se a transação é criada e o saldo de stake atualiza.
+4. **Distribuição de Rendimentos**: Aguardar 1 minuto e acompanhar o console e a UI atualizando o saldo conforme o rendimento real é pago na blockchain.
+5. **Retirada**: Realizar uma retirada total e certificar-se de que os fundos retornam para a carteira principal do usuário na testnet.
