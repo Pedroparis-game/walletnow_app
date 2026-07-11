@@ -57,11 +57,11 @@ const CODE_SNIPPET = [
   { tokens: [{ text: '// user.wallet.publicKey → Stellar address, ready to use', color: '#546E7A' }]},
 ];
 
-const STATS = [
-  { value: '53', label: 'Tests Passing', icon: <Shield size={14} /> },
-  { value: '3s', label: 'Onboard Time', icon: <Zap size={14} /> },
-  { value: 'MIT', label: 'Open Source', icon: <Lock size={14} /> },
-  { value: 'SEP-10/24', label: 'Standards Ready', icon: <FlaskConical size={14} /> },
+const STATS_ICONS = [
+  <Shield size={14} />,
+  <Zap size={14} />,
+  <Lock size={14} />,
+  <FlaskConical size={14} />
 ];
 
 function AnimatedCode() {
@@ -334,7 +334,7 @@ export default function HeroSection() {
             margin: 0,
             maxWidth: 480,
           }}>
-            SDK não-custodial para Stellar. Abstrai passkeys, gas, trustlines e SEPs em uma única chamada — seus usuários nunca veem blockchain.
+            {h.description}
           </p>
 
           {/* CTAs */}
@@ -353,7 +353,7 @@ export default function HeroSection() {
                 boxShadow: '0 4px 24px rgba(0,255,153,0.08)',
               }}
             >
-              Ler a Documentação
+              {h.ctaDocs}
               <ArrowRight size={16} />
             </button>
             <a
@@ -371,13 +371,13 @@ export default function HeroSection() {
               }}
             >
               <Github size={15} />
-              Ver no GitHub
+              {h.ctaGitHub}
             </a>
           </div>
 
           {/* Stats row */}
           <div className="hero-stats-row" style={{ display: 'flex', gap: 12, marginTop: 8, flexWrap: 'wrap' }}>
-            {STATS.map(stat => (
+            {h.stats && h.stats.map((stat, i) => (
               <div
                 key={stat.label}
                 className="hero-stat-card"
@@ -391,7 +391,7 @@ export default function HeroSection() {
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span style={{ color: 'var(--color-wn-green)', opacity: 0.7 }}>{stat.icon}</span>
+                  <span style={{ color: 'var(--color-wn-green)', opacity: 0.7 }}>{STATS_ICONS[i]}</span>
                   <span style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.03em' }}>
                     {stat.value}
                   </span>
@@ -425,7 +425,7 @@ export default function HeroSection() {
 
           {/* Feature chips below code */}
           <div style={{ display: 'flex', gap: 8, marginTop: 16, flexWrap: 'wrap' }}>
-            {['Passkeys (FIDO2)', 'Gas Abstraction CAP-33', 'SEP-10 Auth', 'SEP-24 On-ramp', 'AES-GCM DeviceVault'].map(chip => (
+            {h.chips && h.chips.map(chip => (
               <span key={chip} style={{
                 fontSize: 11, fontWeight: 600,
                 padding: '4px 10px', borderRadius: 999,

@@ -34,9 +34,13 @@ export const landingTranslations = {
       description: 'The abstraction layer that handles wallets, gasless transactions, and onboarding — so you can focus entirely on your product.',
       ctaDocs: 'Read the Docs',
       ctaGitHub: 'View on GitHub',
-      statStellar: 'Stellar Native',
-      statOpenSource: 'Open Core',
-      statSetup: 'Setup Time',
+      stats: [
+        { value: '53+', label: 'Test Suites Passing' },
+        { value: '< 3s', label: 'Biometric Onboard' },
+        { value: 'SDK', label: 'Testnet Ready' },
+        { value: 'SEP-10/24', label: 'Stellar Standards' }
+      ],
+      chips: ['Passkeys (WebAuthn)', 'CAP-33 Gas Abstraction', 'SEP-10 Auth Layer', 'SEP-24 Anchor Ready', 'AES-GCM DeviceVault'],
     },
     problem: {
       badge: 'Why WalletNow',
@@ -294,12 +298,16 @@ export const landingTranslations = {
       headlinePlain1: 'Faça aplicações Stellar',
       headlineGreen: 'parecerem apps modernos.',
       headlinePlain2: '',
-      description: 'A camada de abstração que gerencia carteiras, transações sem gas e onboarding — para que você foque completamente no seu produto.',
+      description: 'A camada de infraestrutura que abstrai carteiras, transações gasless e onboarding — para você focar inteiramente no seu produto.',
       ctaDocs: 'Ler a Documentação',
       ctaGitHub: 'Ver no GitHub',
-      statStellar: 'Nativo Stellar',
-      statOpenSource: 'Open Core',
-      statSetup: 'Tempo de Setup',
+      stats: [
+        { value: '53+', label: 'Testes Passando' },
+        { value: '< 3s', label: 'Onboard Biométrico' },
+        { value: 'SDK', label: 'Pronto p/ Testnet' },
+        { value: 'SEP-10/24', label: 'Padrões Stellar' }
+      ],
+      chips: ['Passkeys (WebAuthn)', 'Abstração de Gas CAP-33', 'Camada Auth SEP-10', 'Pronto para Âncoras SEP-24', 'AES-GCM DeviceVault'],
     },
     problem: {
       badge: 'Por que WalletNow',
@@ -556,12 +564,16 @@ export const landingTranslations = {
       headlinePlain1: 'Deja de construir',
       headlineGreen: 'infraestructura Web3.',
       headlinePlain2: 'Empieza a construir productos.',
-      description: 'La capa de abstracción open-source que hace que las aplicaciones Stellar parezcan apps modernas.',
+      description: 'La capa de infraestructura que abstrae billeteras, transacciones sin comisiones y onboarding — para que puedas enfocarte completamente en tu producto.',
       ctaDocs: 'Leer Documentación',
       ctaGitHub: 'Ver en GitHub',
-      statStellar: 'Nativo Stellar',
-      statOpenSource: 'Código Abierto',
-      statSetup: 'Tiempo de Setup',
+      stats: [
+        { value: '53+', label: 'Pruebas Exitosas' },
+        { value: '< 3s', label: 'Onboard Biométrico' },
+        { value: 'SDK', label: 'Listo p/ Testnet' },
+        { value: 'SEP-10/24', label: 'Estándares Stellar' }
+      ],
+      chips: ['Passkeys (WebAuthn)', 'Abstracción de Gas CAP-33', 'Capa Auth SEP-10', 'Listo para Anclas SEP-24', 'AES-GCM DeviceVault'],
     },
     problem: {
       badge: 'Por qué WalletNow',
