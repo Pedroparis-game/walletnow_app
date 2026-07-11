@@ -92,36 +92,64 @@ export default function HeroSection({ t }: { t: LandingT }) {
           {/* Central Glow Orb */}
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] rounded-full bg-[var(--glow-primary)] blur-[100px] animate-glow-pulse pointer-events-none" />
 
-          {/* 3D Orbiting System */}
-          <div className="relative w-full h-full flex justify-center items-center">
+          {/* 3D Code Parallax / Floating Editor */}
+          <div className="relative w-full h-full flex justify-center items-center perspective-1000">
             
-            {/* Main Center Node (Stellar) */}
-            <div className="absolute z-30 w-32 h-32 rounded-3xl glass-card-solid flex items-center justify-center animate-float-orb shadow-[0_20px_60px_-10px_rgba(0,0,0,0.2)]">
-               <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-[var(--color-wn-green)] to-transparent opacity-10" />
-               <img src={`${import.meta.env.BASE_URL}stellar-logo.svg`} alt="Stellar" style={{ width: 42, height: 42, position: 'relative', zIndex: 10 }} />
-            </div>
-
-            {/* Orbiting Element 1 (Pix) */}
-            <div className="absolute z-20 left-[10%] top-[25%] animate-float">
-              <div className="w-24 h-24 rounded-2xl glass-card flex flex-col items-center justify-center gap-2">
-                <img src={`${import.meta.env.BASE_URL}pix-icon.svg`} alt="Pix" style={{ width: 42, height: 42 }} />
-                <span className="text-[10px] font-bold text-[var(--text-primary)]">PIX IN</span>
+            <div 
+              className="relative z-30 w-full max-w-[500px] rounded-2xl overflow-hidden shadow-[0_20px_60px_-10px_rgba(0,0,0,0.5)] border border-[var(--border-subtle)]"
+              style={{
+                transform: 'rotateY(-15deg) rotateX(5deg)',
+                transformStyle: 'preserve-3d',
+                background: 'rgba(10, 10, 12, 0.85)',
+                backdropFilter: 'blur(16px)',
+              }}
+            >
+              {/* Window Header */}
+              <div className="flex items-center gap-2 px-4 py-3 bg-[rgba(255,255,255,0.03)] border-b border-[var(--border-subtle)]">
+                <div className="flex gap-1.5">
+                  <div className="w-3 h-3 rounded-full bg-red-500/80" />
+                  <div className="w-3 h-3 rounded-full bg-yellow-500/80" />
+                  <div className="w-3 h-3 rounded-full bg-green-500/80" />
+                </div>
+                <div className="mx-auto text-[10px] font-mono text-[var(--text-tertiary)] flex items-center gap-2">
+                  <Fingerprint size={12} className="text-[var(--color-wn-green)]" />
+                  onboarding.ts
+                </div>
+              </div>
+              
+              {/* Code Content */}
+              <div className="p-6 text-sm font-mono overflow-hidden whitespace-pre" style={{ color: '#abb2bf', lineHeight: '1.6' }}>
+                <span style={{ color: '#c678dd' }}>import</span> {'{ WalletNow, WalletNowConnect }'} <span style={{ color: '#c678dd' }}>from</span> <span style={{ color: '#98c379' }}>'@walletnow/sdk'</span>;
+                <br /><br />
+                <span style={{ color: '#5c6370', fontStyle: 'italic' }}>// 1. Initialize the Invisible Wallet OS</span><br />
+                <span style={{ color: '#c678dd' }}>const</span> wn = <span style={{ color: '#c678dd' }}>await</span> WalletNow.<span style={{ color: '#61afef' }}>init</span>({'{'} <br />
+                &nbsp;&nbsp;network: <span style={{ color: '#98c379' }}>'testnet'</span>,<br />
+                &nbsp;&nbsp;apiKey: <span style={{ color: '#98c379' }}>'wn_test_*****************'</span><br />
+                {'}'});
+                <br /><br />
+                <span style={{ color: '#5c6370', fontStyle: 'italic' }}>// 2. FaceID creates account & Sponsors Gas</span><br />
+                <span style={{ color: '#c678dd' }}>const</span> user = <span style={{ color: '#c678dd' }}>await</span> wn.onboarding.<span style={{ color: '#61afef' }}>createUser</span>({'{'}<br />
+                &nbsp;&nbsp;externalId: <span style={{ color: '#98c379' }}>'user@company.com'</span>,<br />
+                &nbsp;&nbsp;trustlines: [<span style={{ color: '#98c379' }}>'USDC'</span>, <span style={{ color: '#98c379' }}>'BRW'</span>],<br />
+                &nbsp;&nbsp;sponsored: <span style={{ color: '#d19a66' }}>true</span> <span style={{ color: '#5c6370', fontStyle: 'italic' }}>// Gasless UX</span><br />
+                {'}'});
+                <br /><br />
+                <span style={{ color: '#e5c07b' }}>console</span>.<span style={{ color: '#56b6c2' }}>log</span>(<span style={{ color: '#98c379' }}>'Welcome to Web3, invisibly.'</span>);
               </div>
             </div>
 
-            {/* Orbiting Element 2 (USDC) */}
-            <div className="absolute z-20 right-[10%] bottom-[25%] animate-float-delayed">
-              <div className="w-24 h-24 rounded-2xl glass-card flex flex-col items-center justify-center gap-2">
-                <img src={`${import.meta.env.BASE_URL}usdc-icon.svg`} alt="USDC" style={{ width: 42, height: 42 }} />
-                <span className="text-[10px] font-bold text-[var(--text-primary)]">USDC OUT</span>
+            {/* Floating Assets around the code editor */}
+            <div className="absolute z-40 right-[-10%] top-[10%] animate-float-delayed">
+              <div className="w-16 h-16 rounded-xl glass-card-solid flex items-center justify-center shadow-[0_0_20px_rgba(0,255,153,0.3)]">
+                <img src={`${import.meta.env.BASE_URL}pix-icon.svg`} alt="Pix" style={{ width: 32, height: 32 }} />
               </div>
             </div>
-
-            {/* Decorative Connecting Lines (SVG) */}
-            <svg className="absolute inset-0 w-full h-full z-10 pointer-events-none" style={{ filter: 'drop-shadow(0 0 8px var(--glow-primary))' }}>
-              <path d="M 150 200 Q 250 300 350 300" fill="none" stroke="var(--border-subtle)" strokeWidth="2" strokeDasharray="6 6" className="animate-pulse" />
-              <path d="M 450 300 Q 550 300 600 400" fill="none" stroke="var(--border-subtle)" strokeWidth="2" strokeDasharray="6 6" className="animate-pulse" style={{ animationDelay: '1s' }} />
-            </svg>
+            
+            <div className="absolute z-20 left-[-5%] bottom-[15%] animate-float">
+              <div className="w-16 h-16 rounded-xl glass-card flex items-center justify-center">
+                <img src={`${import.meta.env.BASE_URL}stellar-logo.svg`} alt="Stellar" style={{ width: 32, height: 32 }} />
+              </div>
+            </div>
 
           </div>
         </div>

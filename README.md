@@ -246,7 +246,7 @@ By combining native mobile biometrics, the unparalleled speed of Stellar, and th
 
 ---
 
-## 💻 Local Development
+## 💻 Local Development (TestnetKit & SDK)
 
 Prerequisites: `Node.js >= 20`, `npm` or `yarn`.
 
@@ -255,7 +255,8 @@ Prerequisites: `Node.js >= 20`, `npm` or `yarn`.
 git clone https://github.com/nsdBRoficial/walletnow_app.git
 cd walletnow_app
 
-# 2. Install development and production dependencies
+# 2. Install the Official WalletNow SDK and local dependencies
+npm install @walletnow/sdk@0.2.0
 npm install
 
 # 3. Create your local environment configuration file
