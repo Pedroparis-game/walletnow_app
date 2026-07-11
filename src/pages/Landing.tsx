@@ -156,12 +156,12 @@ function LandingNavbar() {
           borderRadius: 999, padding: '2px',
           border: '1px solid var(--navbar-border)',
         }}>
-          {(['en', 'pt'] as const).map(l => (
+          {(['en', 'pt', 'es'] as const).map(l => (
             <button
               key={l}
               id={`lang-${l}`}
               onClick={() => setLang(l)}
-              title={l === 'en' ? 'English' : 'Português'}
+              title={l === 'en' ? 'English' : l === 'pt' ? 'Português' : 'Español'}
               style={{
                 padding: '4px 10px', borderRadius: 999, border: 'none',
                 cursor: 'pointer', fontSize: 11, fontWeight: 700,

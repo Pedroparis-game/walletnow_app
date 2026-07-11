@@ -10,7 +10,7 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { landingTranslations } from '../i18n/landingTranslations';
 
-export type Lang = 'en' | 'pt';
+export type Lang = 'en' | 'pt' | 'es';
 export type Theme = 'dark' | 'light';
 
 interface LandingContextValue {
@@ -30,7 +30,8 @@ const LS_THEME_KEY = 'wn_landing_theme';
 export function LandingProvider({ children }: { children: React.ReactNode }) {
   const [lang, setLangState] = useState<Lang>(() => {
     const stored = localStorage.getItem(LS_LANG_KEY);
-    return (stored === 'pt' ? 'pt' : 'en') as Lang;
+    if (stored === 'pt' || stored === 'es') return stored as Lang;
+    return 'en';
   });
 
   const [theme, setThemeState] = useState<Theme>(() => {
