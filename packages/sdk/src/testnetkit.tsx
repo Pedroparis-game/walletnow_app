@@ -173,6 +173,11 @@ export default function TestnetKit() {
     usdw: '0',
     xlm: '0'
   });
+  const [vaultShares, setVaultShares] = useState({
+    brw: '0',
+    usdw: '0',
+    xlm: '0'
+  });
   const [vaultLoading, setVaultLoading] = useState(false);
 
   interface VaultHistoryItem {
@@ -186,6 +191,7 @@ export default function TestnetKit() {
 
   const envResultRef = useRef<any>(null);
   const vaultStakeRef = useRef<any>(null);
+  const vaultSharesRef = useRef<any>(null);
 
   useEffect(() => {
     envResultRef.current = envResult;
@@ -194,6 +200,10 @@ export default function TestnetKit() {
   useEffect(() => {
     vaultStakeRef.current = vaultStake;
   }, [vaultStake]);
+
+  useEffect(() => {
+    vaultSharesRef.current = vaultShares;
+  }, [vaultShares]);
 
   const addLog = useCallback((message: string, type: 'info' | 'success' | 'error' | 'warning' = 'info') => {
     setLogs(prev => [
@@ -497,6 +507,10 @@ export default function TestnetKit() {
         ...prev,
         [assetCode.toLowerCase()]: (Number(prev[assetCode.toLowerCase() as 'brw'|'usdw'|'xlm']) + Number(amount)).toString()
       }));
+      setVaultShares(prev => ({
+        ...prev,
+        [assetCode.toLowerCase()]: (Number(prev[assetCode.toLowerCase() as 'brw'|'usdw'|'xlm']) + Number(amount)).toString()
+      }));
       setVaultHistory(prev => [{ id: Math.random().toString(), type: 'deposit', asset: assetCode, amount, time: new Date() }, ...prev]);
       addLog(`Deposit successful!`, 'success');
       fetchVaultState();
@@ -535,6 +549,10 @@ export default function TestnetKit() {
       setVaultStake(prev => ({
         ...prev,
         [assetCode.toLowerCase()]: (currentStake - Number(amount)).toString()
+      }));
+      setVaultShares(prev => ({
+        ...prev,
+        [assetCode.toLowerCase()]: (Number(prev[assetCode.toLowerCase() as 'brw'|'usdw'|'xlm']) - Number(amount)).toString()
       }));
       setVaultHistory(prev => [{ id: Math.random().toString(), type: 'withdraw', asset: assetCode, amount, time: new Date() }, ...prev]);
       addLog(`Withdrawal successful!`, 'success');
@@ -627,39 +645,54 @@ export default function TestnetKit() {
     }
   }, [activeTab]);
 
-  // Cronômetro do Yield do Vault (Aumentado para 10 Minutos com Refs resilientes)
+  // Cronômetro do Yield do Vault (Aumentado para 10 Minutos com calculo de Shares e proporcionalidade real)
   useEffect(() => {
     if (!envResult) return;
 
-    addLog('Yield Distribution Engine started. Rewards will be calculated and paid every 10 minutes.', 'info');
+    addLog('Yield Distribution Engine started. Rewards will be calculated and paid proportionally every 10 minutes.', 'info');
 
     const yieldInterval = setInterval(async () => {
       const currentEnv = envResultRef.current;
-      const currentStake = vaultStakeRef.current;
+      const currentShares = vaultSharesRef.current;
 
-      if (!currentEnv) return;
-      const totalStakeBRW = Number(currentStake.brw);
-      const totalStakeUSDW = Number(currentStake.usdw);
-      const totalStakeXLM = Number(currentStake.xlm);
-      if (totalStakeBRW <= 0 && totalStakeUSDW <= 0 && totalStakeXLM <= 0) return;
+      if (!currentEnv || !currentShares) return;
+      
+      // Cálculo de pesos (AUM em USD equivalente) para simular Shares reais:
+      // 1 BRW = $0.20 | 1 USDW = $1.00 | 1 XLM = $0.05
+      const userBRWVal = Number(currentShares.brw) * 0.2;
+      const userUSDWVal = Number(currentShares.usdw) * 1.0;
+      const userXLMVal = Number(currentShares.xlm) * 0.05;
+      const userPower = userBRWVal + userUSDWVal + userXLMVal;
 
-      addLog(`Distributing 10-minute real yield (XLM) to stakers...`, 'info');
+      if (userPower <= 0) return;
+
+      // TVL Virtual concorrente de outros stakers ($2,000 USD) para simular diluição de pool
+      const virtualStakersPower = 2000.0; 
+      const totalPower = userPower + virtualStakersPower;
+      const userShareFraction = userPower / totalPower;
+
+      const globalReward = 1.0; // 1.0 XLM total de recompensa a cada 10 min
+      const userRewardAmount = (globalReward * userShareFraction).toFixed(7);
+      const virtualStakersReward = (globalReward * (1 - userShareFraction)).toFixed(7);
+
+      addLog(`[Vault AUM] User Stake: $${userPower.toFixed(2)} | Total Pool AUM: $${totalPower.toFixed(2)} (User Share: ${(userShareFraction * 100).toFixed(2)}%)`, 'info');
+      addLog(`Distributing real yield (XLM) proportionally to stakers...`, 'info');
       try {
         const vaultAcc = await server.loadAccount(VAULT_ADDRESS);
-        const rewardAmount = '1.0'; // Recompensa proporcional de 1.0 XLM a cada 10 minutos
 
         const txBuilder = new TransactionBuilder(vaultAcc, { fee: '100', networkPassphrase: NETWORKS.TESTNET });
         txBuilder.addOperation(Operation.payment({
           destination: currentEnv.publicKey,
           asset: Asset.native(),
-          amount: rewardAmount
+          amount: userRewardAmount
         }));
 
         const tx = txBuilder.setTimeout(30).build();
         tx.sign(VAULT_KEYPAIR);
         await server.submitTransaction(tx);
-        addLog(`Yield Distributed: Received ${rewardAmount} XLM as reward!`, 'success');
-        setVaultHistory(prev => [{ id: Math.random().toString(), type: 'yield', asset: 'XLM', amount: rewardAmount, time: new Date() }, ...prev]);
+        
+        addLog(`[Vault Yield] Successfully paid ${userRewardAmount} XLM to User and distributed ${virtualStakersReward} XLM to virtual stakers.`, 'success');
+        setVaultHistory(prev => [{ id: Math.random().toString(), type: 'yield', asset: 'XLM', amount: userRewardAmount, time: new Date() }, ...prev]);
         fetchVaultState();
       } catch (err) {
         console.error('Yield distribution failed', err);
@@ -1675,15 +1708,29 @@ export default function TestnetKit() {
                     </div>
                     
                     <div className="tk-pool-id-box mb-4">
-                      <span className="tk-result-lbl text-xs">{tk.vaultStake || 'Your Stake'}:</span>
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="tk-result-lbl text-xs">{tk.vaultStake || 'Your Stake'}:</span>
+                        <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>
+                          Shares: <strong>{Number(vaultShares[asset.toLowerCase() as 'brw'|'usdw'|'xlm']).toLocaleString()}</strong>
+                        </span>
+                      </div>
                       <div className="tk-copyable-value sm" style={{ background: 'transparent', paddingLeft: 0, border: 'none' }}>
                         <code className="tk-mono-text text-lg font-bold" style={{ color: 'white' }}>{parseFloat(stakeMap[asset]).toLocaleString()} {asset}</code>
                       </div>
-                      {currentStake > 0 && (
-                        <div style={{ fontSize: '11px', color: 'var(--accent)', marginTop: '4px' }}>
-                          Earnings: ~{((currentStake / (Number(tvlMap[asset]) || 1)) * 0.1).toFixed(4)} XLM/min
-                        </div>
-                      )}
+                      {currentStake > 0 && (() => {
+                        const userAssetAUM = currentStake * (asset === 'BRW' ? 0.2 : asset === 'USDW' ? 1.0 : 0.05);
+                        const totalUserAUM = (Number(vaultShares.brw) * 0.2) + (Number(vaultShares.usdw) * 1.0) + (Number(vaultShares.xlm) * 0.05);
+                        const globalAUM = totalUserAUM + 2000;
+                        const shareFraction = userAssetAUM / globalAUM;
+                        const minEarnings = shareFraction * 0.1; // 0.1 XLM/min global reward pool share
+                        
+                        return (
+                          <div style={{ fontSize: '11px', color: 'var(--accent)', marginTop: '4px', display: 'flex', justifyContent: 'space-between' }}>
+                            <span>Participação do AUM: <strong>{(shareFraction * 100).toFixed(4)}%</strong></span>
+                            <span>Ganhos: ~{minEarnings.toFixed(6)} XLM/min</span>
+                          </div>
+                        );
+                      })()}
                     </div>
 
                     <div className="tk-vault-interactive-panel">
