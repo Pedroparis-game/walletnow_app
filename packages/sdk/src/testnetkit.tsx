@@ -1286,6 +1286,15 @@ export default function TestnetKit() {
                   {faucetLoading ? <span className="tk-spinner" /> : <Droplets size={14} />} Request Airdrop (10,000 {faucetAsset})
                 </button>
               </form>
+
+              {/* Próximo Passo na Trilha */}
+              <div className="tk-developer-track-footer" style={{ marginTop: '32px', borderTop: '1px solid var(--border-subtle)', paddingTop: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+                <div>
+                  <strong style={{ fontSize: '13px', display: 'block', color: 'var(--accent)' }}>Próximo Passo Recomendado:</strong>
+                  <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>Agora que você recarregou sua carteira, gerencie ou interaja com Liquidity Pools do AMM.</span>
+                </div>
+                <button className="tk-sec-btn sm" onClick={() => setActiveTab('pools')} style={{ cursor: 'pointer' }}>Ir para AMM Pools →</button>
+              </div>
             </div>
 
             <div className="tk-side-card">
@@ -1561,6 +1570,15 @@ export default function TestnetKit() {
                 );
               })}
             </div>
+
+            {/* Próximo Passo na Trilha */}
+            <div className="tk-developer-track-footer" style={{ marginTop: '32px', borderTop: '1px solid var(--border-subtle)', paddingTop: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+              <div>
+                <strong style={{ fontSize: '13px', display: 'block', color: 'var(--accent)' }}>Próximo Passo Recomendado:</strong>
+                <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>Teste a simulação do DeFi Yield Vault para depositar liquidez e obter rendimentos em XLM.</span>
+              </div>
+              <button className="tk-sec-btn sm" onClick={() => setActiveTab('vault')} style={{ cursor: 'pointer' }}>Ir para o DeFi Vault →</button>
+            </div>
           </div>
         )}
 
@@ -1729,6 +1747,15 @@ export default function TestnetKit() {
                 </div>
               </div>
             </div>
+
+            {/* Próximo Passo na Trilha */}
+            <div className="tk-developer-track-footer" style={{ marginTop: '32px', borderTop: '1px solid var(--border-subtle)', paddingTop: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+              <div>
+                <strong style={{ fontSize: '13px', display: 'block', color: 'var(--accent)' }}>Próximo Passo Recomendado:</strong>
+                <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>Integre e faça deploy de contratos Soroban interativos reais usando o Caatinga.</span>
+              </div>
+              <button className="tk-sec-btn sm" onClick={() => setActiveTab('caatinga')} style={{ cursor: 'pointer' }}>Ir para Soroban & Caatinga →</button>
+            </div>
           </div>
         )}
 
@@ -1883,7 +1910,7 @@ export default function TestnetKit() {
             </div>
 
             {/* Grid Principal do Caatinga */}
-            <div className="tk-grid" style={{ gridTemplateColumns: '1.2fr 0.8fr', gap: '20px', marginTop: '24px' }}>
+            <div className="tk-grid-caatinga" style={{ marginTop: '24px' }}>
               
               {/* Painel Interativo de Simulação do CLI */}
               <div className="tk-main-card" style={{ background: 'rgba(0,0,0,0.2)', borderColor: 'rgba(255,255,255,0.05)', margin: 0 }}>
@@ -1999,6 +2026,15 @@ export default function TestnetKit() {
                 </div>
               </div>
 
+            </div>
+
+            {/* Próximo Passo na Trilha (Final) */}
+            <div className="tk-developer-track-footer" style={{ marginTop: '32px', borderTop: '1px solid var(--border-subtle)', paddingTop: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', width: '100%' }}>
+              <div>
+                <strong style={{ fontSize: '13px', display: 'block', color: 'var(--accent)' }}>🎉 Parabéns! Trilha Concluída:</strong>
+                <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>Você cobriu todo o fluxo de onboarding, AMM, yields do Vault e deploy Soroban com Caatinga.</span>
+              </div>
+              <button className="tk-sec-btn sm" onClick={() => setActiveTab('hub')} style={{ cursor: 'pointer' }}>Voltar ao Hub Central</button>
             </div>
           </div>
         )}
