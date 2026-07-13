@@ -76,17 +76,6 @@ export default function TestnetKit() {
   const tk: any = {};
 
   const [activeTab, setActiveTab] = useState<ActiveTab>('hub');
-
-  const envResultRef = useRef<any>(null);
-  const vaultStakeRef = useRef<any>(null);
-
-  useEffect(() => {
-    envResultRef.current = envResult;
-  }, [envResult]);
-
-  useEffect(() => {
-    vaultStakeRef.current = vaultStake;
-  }, [vaultStake]);
   
   // Estado do One-Click Environment
   const [envLoading, setEnvLoading] = useState(false);
@@ -194,6 +183,17 @@ export default function TestnetKit() {
     time: Date;
   }
   const [vaultHistory, setVaultHistory] = useState<VaultHistoryItem[]>([]);
+
+  const envResultRef = useRef<any>(null);
+  const vaultStakeRef = useRef<any>(null);
+
+  useEffect(() => {
+    envResultRef.current = envResult;
+  }, [envResult]);
+
+  useEffect(() => {
+    vaultStakeRef.current = vaultStake;
+  }, [vaultStake]);
 
   const addLog = useCallback((message: string, type: 'info' | 'success' | 'error' | 'warning' = 'info') => {
     setLogs(prev => [
