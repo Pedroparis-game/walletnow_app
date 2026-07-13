@@ -7,7 +7,7 @@ import './TestnetKit.css';
  * ambientes de desenvolvimento e ativos confidenciais na Stellar Testnet.
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Copy,
   Check,
@@ -76,6 +76,17 @@ export default function TestnetKit() {
   const tk: any = {};
 
   const [activeTab, setActiveTab] = useState<ActiveTab>('hub');
+
+  const envResultRef = useRef<any>(null);
+  const vaultStakeRef = useRef<any>(null);
+
+  useEffect(() => {
+    envResultRef.current = envResult;
+  }, [envResult]);
+
+  useEffect(() => {
+    vaultStakeRef.current = vaultStake;
+  }, [vaultStake]);
   
   // Estado do One-Click Environment
   const [envLoading, setEnvLoading] = useState(false);
@@ -616,23 +627,30 @@ export default function TestnetKit() {
     }
   }, [activeTab]);
 
-  // Cronômetro do Yield do Vault (1 Minuto)
+  // Cronômetro do Yield do Vault (Aumentado para 10 Minutos com Refs resilientes)
   useEffect(() => {
+    if (!envResult) return;
+
+    addLog('Yield Distribution Engine started. Rewards will be calculated and paid every 10 minutes.', 'info');
+
     const yieldInterval = setInterval(async () => {
-      if (!envResult) return;
-      const totalStakeBRW = Number(vaultStake.brw);
-      const totalStakeUSDW = Number(vaultStake.usdw);
-      const totalStakeXLM = Number(vaultStake.xlm);
+      const currentEnv = envResultRef.current;
+      const currentStake = vaultStakeRef.current;
+
+      if (!currentEnv) return;
+      const totalStakeBRW = Number(currentStake.brw);
+      const totalStakeUSDW = Number(currentStake.usdw);
+      const totalStakeXLM = Number(currentStake.xlm);
       if (totalStakeBRW <= 0 && totalStakeUSDW <= 0 && totalStakeXLM <= 0) return;
 
-      addLog(`Distributing 1-minute real yield (XLM) to stakers...`, 'info');
+      addLog(`Distributing 10-minute real yield (XLM) to stakers...`, 'info');
       try {
         const vaultAcc = await server.loadAccount(VAULT_ADDRESS);
-        const rewardAmount = '0.1'; // 0.1 XLM flat distribution (Mais realista)
+        const rewardAmount = '1.0'; // Recompensa proporcional de 1.0 XLM a cada 10 minutos
 
         const txBuilder = new TransactionBuilder(vaultAcc, { fee: '100', networkPassphrase: NETWORKS.TESTNET });
         txBuilder.addOperation(Operation.payment({
-          destination: envResult.publicKey,
+          destination: currentEnv.publicKey,
           asset: Asset.native(),
           amount: rewardAmount
         }));
@@ -643,14 +661,13 @@ export default function TestnetKit() {
         addLog(`Yield Distributed: Received ${rewardAmount} XLM as reward!`, 'success');
         setVaultHistory(prev => [{ id: Math.random().toString(), type: 'yield', asset: 'XLM', amount: rewardAmount, time: new Date() }, ...prev]);
         fetchVaultState();
-        
       } catch (err) {
         console.error('Yield distribution failed', err);
       }
-    }, 60000); // 1 minuto
+    }, 600000); // 10 minutos
     
     return () => clearInterval(yieldInterval);
-  }, [envResult, vaultStake, vaultData.rewardPoolXLM]);
+  }, [envResult]);
 
   // Ação de Depósito de Liquidez / Seed Pool
   const handleDepositLiquidity = async (poolIndex: number, isQuickSeed = false) => {
