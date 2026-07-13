@@ -311,8 +311,9 @@ export default function TestnetKit() {
         faucetTxHash: usdwFaucetRes.hash
       });
 
-      // Atualiza o search input do Explorer para conveniência
+      // Atualiza o search input do Explorer e do Faucet para conveniência
       setSearchAddress(pubKey);
+      setFaucetAddress(pubKey);
     } catch (err: any) {
       console.error('[Playground Error]', err);
       let detail = err.message;
@@ -1166,6 +1167,62 @@ export default function TestnetKit() {
                           Faucet Funding Tx <ExternalLink size={12} />
                         </a>
                       )}
+                    </div>
+                  </div>
+
+                  {/* Trilha do Desenvolvedor */}
+                  <div className="tk-developer-track" style={{ marginTop: '24px', borderTop: '1px solid var(--border-subtle)', paddingTop: '20px' }}>
+                    <h4 style={{ color: 'var(--accent)', margin: '0 0 16px 0', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <Zap size={16} fill="currentColor" /> Sua Trilha de Testes e Próximos Passos
+                    </h4>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      {/* Passo 2: Faucet */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.01)', padding: '12px 16px', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
+                        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                          <span style={{ background: 'rgba(0, 255, 153, 0.1)', color: 'var(--accent)', borderRadius: '50%', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 'bold' }}>2</span>
+                          <div style={{ textAlign: 'left' }}>
+                            <strong style={{ fontSize: '13px', display: 'block' }}>Pedir mais Airdrop (Faucet++)</strong>
+                            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>Seu endereço já está pré-configurado no Faucet. Adicione mais XLM, BRW ou USDW.</span>
+                          </div>
+                        </div>
+                        <button className="tk-sec-btn sm" onClick={() => setActiveTab('faucet')} style={{ cursor: 'pointer' }}>Conectar Faucet</button>
+                      </div>
+
+                      {/* Passo 3: Pools */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.01)', padding: '12px 16px', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
+                        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                          <span style={{ background: 'rgba(255, 255, 255, 0.05)', color: 'var(--text-secondary)', borderRadius: '50%', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 'bold' }}>3</span>
+                          <div style={{ textAlign: 'left' }}>
+                            <strong style={{ fontSize: '13px', display: 'block' }}>Prover Liquidez e Fazer Swaps (AMM)</strong>
+                            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>Deposite seus tokens na Pool XLM/BRW ou USDW e teste Swaps reais sem slippage.</span>
+                          </div>
+                        </div>
+                        <button className="tk-sec-btn sm" onClick={() => setActiveTab('pools')} style={{ cursor: 'pointer' }}>Interagir na AMM</button>
+                      </div>
+
+                      {/* Passo 4: Vault */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.01)', padding: '12px 16px', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
+                        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                          <span style={{ background: 'rgba(255, 255, 255, 0.05)', color: 'var(--text-secondary)', borderRadius: '50%', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 'bold' }}>4</span>
+                          <div style={{ textAlign: 'left' }}>
+                            <strong style={{ fontSize: '13px', display: 'block' }}>Depositar no DeFi Vault (Yields)</strong>
+                            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>Gere rendimentos on-chain de XLM enviando seus tokens BRW e USDW para o cofre.</span>
+                          </div>
+                        </div>
+                        <button className="tk-sec-btn sm" onClick={() => setActiveTab('vault')} style={{ cursor: 'pointer' }}>Acessar Vault</button>
+                      </div>
+
+                      {/* Passo 5: Caatinga */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.01)', padding: '12px 16px', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
+                        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                          <span style={{ background: 'rgba(255, 255, 255, 0.05)', color: 'var(--text-secondary)', borderRadius: '50%', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 'bold' }}>5</span>
+                          <div style={{ textAlign: 'left' }}>
+                            <strong style={{ fontSize: '13px', display: 'block' }}>Integrar Contratos Rust com Caatinga</strong>
+                            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>Escreva seu caatinga.config.ts e faça deploy de contratos Soroban interativos.</span>
+                          </div>
+                        </div>
+                        <button className="tk-sec-btn sm" onClick={() => setActiveTab('caatinga')} style={{ cursor: 'pointer' }}>Ver Integração</button>
+                      </div>
                     </div>
                   </div>
                 </div>
