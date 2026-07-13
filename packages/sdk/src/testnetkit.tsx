@@ -1715,10 +1715,12 @@ export default function TestnetKit() {
                     <span className="tk-balance-val">{parseFloat(accountData.xlm).toLocaleString()} XLM</span>
                   </div>
                   {accountData.balances.map((b: any) => (
-                    <div key={b.code} className="tk-exp-row">
-                      <span className="tk-mono-text font-bold">{b.code}</span>
-                      <span className="tk-light-text text-xs truncate" title={b.issuer}>{b.issuer.slice(0, 15)}...</span>
-                      <span className="tk-balance-val">{parseFloat(b.balance).toLocaleString()} {b.code}</span>
+                    <div key={b.code || b.liquidity_pool_id || Math.random().toString()} className="tk-exp-row">
+                      <span className="tk-mono-text font-bold">{b.code || 'LPS'}</span>
+                      <span className="tk-light-text text-xs truncate" title={b.issuer || 'Liquidity Pool Shares'}>
+                        {b.issuer ? `${b.issuer.slice(0, 15)}...` : 'Pool Shares'}
+                      </span>
+                      <span className="tk-balance-val">{parseFloat(b.balance).toLocaleString()} {b.code || 'Shares'}</span>
                     </div>
                   ))}
                   {accountData.balances.length === 0 && (
