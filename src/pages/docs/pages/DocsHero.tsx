@@ -204,18 +204,26 @@ export default function DocsHero() {
           </div>
           <p>{h.testnetDesc}</p>
           
-          <div className="testnet-features-list">
+          <div className="testnet-features-list" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px', marginTop: '20px' }}>
             <div className="testnet-feature-item">
               <CheckCircle size={16} className="text-accent" />
-              <span><strong>One-Click Env</strong>: {lang === 'pt' ? 'Geração de chaves bip39 e trustlines atomizadas' : 'BIP39 keys and atomic trustline provisioning'}</span>
+              <span><strong>Control Hub</strong>: {lang === 'pt' ? 'Painel central responsivo estilo dashboard para navegação fluida em celulares e computadores' : 'Central dashboard-style hub for seamless mobile and desktop navigation'}</span>
             </div>
             <div className="testnet-feature-item">
               <CheckCircle size={16} className="text-accent" />
-              <span><strong>Faucet++</strong>: {lang === 'pt' ? 'Emissão e transferência real de tokens de teste BRW & USDW' : 'Real Testnet minting & payments of BRW & USDW'}</span>
+              <span><strong>One-Click Env</strong>: {lang === 'pt' ? 'Geração de chaves bip39 e trustlines atomizadas instantaneamente' : 'BIP39 keys and atomic trustline provisioning in one click'}</span>
             </div>
             <div className="testnet-feature-item">
               <CheckCircle size={16} className="text-accent" />
-              <span><strong>DEX AMM Pools</strong>: {lang === 'pt' ? 'Depósito, saque e swap instantâneo real na testnet (X*Y=K)' : 'Real constant product liquidity pool deposit, withdraw & swaps'}</span>
+              <span><strong>Faucet & Yield Vault</strong>: {lang === 'pt' ? 'Airdrop de XLM, BRW, USDW e simulação de rendimento real on-chain' : 'Faucet airdrops and real floating yield vault simulator'}</span>
+            </div>
+            <div className="testnet-feature-item">
+              <CheckCircle size={16} className="text-accent" />
+              <span><strong>DEX AMM Pools</strong>: {lang === 'pt' ? 'Depósito, saque e swaps reais nas pools de liquidez da rede' : 'Real constant product liquidity pool deposit, withdraw & swaps'}</span>
+            </div>
+            <div className="testnet-feature-item">
+              <CheckCircle size={16} className="text-accent" />
+              <span><strong>Caatinga Partner</strong>: {lang === 'pt' ? 'Deploy de contratos Soroban e bindings nativos TypeScript automatizados' : 'Automated Soroban contract deployment and TypeScript bindings'}</span>
             </div>
           </div>
 
