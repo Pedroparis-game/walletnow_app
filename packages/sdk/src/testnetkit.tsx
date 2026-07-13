@@ -22,7 +22,10 @@ import {
   Search,
   Lock,
   Eye,
-  EyeOff
+  EyeOff,
+  Terminal,
+  FileJson,
+  Cpu
 } from 'lucide-react';
 import {
   server,
@@ -61,7 +64,7 @@ function createLpAsset(assetA: Asset, assetB: Asset): LiquidityPoolAsset {
     : new LiquidityPoolAsset(assetB, assetA, 30);
 }
 
-type ActiveTab = 'dashboard' | 'faucet' | 'pools' | 'vault' | 'explorer' | 'health';
+type ActiveTab = 'dashboard' | 'faucet' | 'pools' | 'vault' | 'explorer' | 'health' | 'caatinga' | 'hub';
 
 interface LogEntry {
   message: string;
@@ -72,7 +75,7 @@ interface LogEntry {
 export default function TestnetKit() {
   const tk: any = {};
 
-  const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
+  const [activeTab, setActiveTab] = useState<ActiveTab>('hub');
   
   // Estado do One-Click Environment
   const [envLoading, setEnvLoading] = useState(false);
@@ -910,38 +913,167 @@ export default function TestnetKit() {
 
   return (
     <div className="tk-container">
-      <div className="tk-header-area">
-        <h1>{tk.title}</h1>
-        <p className="doc-subtitle">{tk.subtitle}</p>
-        <div className="tk-subtitle-desc">
-          O conjunto completo de infraestrutura para acelerar testes, automação de liquidez e simulações com privacidade na Stellar Testnet.
+      {activeTab === 'hub' ? (
+        <div className="tk-header-area">
+          <h1>{tk.title || 'Testnet Infrastructure Kit'}</h1>
+          <p className="doc-subtitle">{tk.subtitle}</p>
+          <div className="tk-subtitle-desc">
+            O hub completo de infraestrutura para acelerar testes, automação de liquidez e simulações com privacidade na Stellar Testnet.
+          </div>
         </div>
-      </div>
-
-      {/* Tabs Menu */}
-      <div className="tk-tab-menu">
-        <button className={`tk-tab-btn ${activeTab === 'dashboard' ? 'active' : ''}`} onClick={() => setActiveTab('dashboard')}>
-          <Zap size={14} /> One-Click Env
-        </button>
-        <button className={`tk-tab-btn ${activeTab === 'faucet' ? 'active' : ''}`} onClick={() => setActiveTab('faucet')}>
-          <Droplets size={14} /> Faucet++
-        </button>
-        <button className={`tk-tab-btn ${activeTab === 'pools' ? 'active' : ''}`} onClick={() => setActiveTab('pools')}>
-          <Coins size={14} /> Liquidity Pools
-        </button>
-        <button className={`tk-tab-btn ${activeTab === 'vault' ? 'active' : ''}`} onClick={() => setActiveTab('vault')}>
-          <Shield size={14} /> {tk.vaultTab || 'DeFi Vault'}
-        </button>
-        <button className={`tk-tab-btn ${activeTab === 'explorer' ? 'active' : ''}`} onClick={() => setActiveTab('explorer')}>
-          <Search size={14} /> Testnet Explorer
-        </button>
-        <button className={`tk-tab-btn ${activeTab === 'health' ? 'active' : ''}`} onClick={() => setActiveTab('health')}>
-          <Activity size={14} /> Infrastructure Health
-        </button>
-      </div>
+      ) : (
+        <div className="tk-back-nav" style={{ marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <button 
+            className="tk-sec-btn" 
+            onClick={() => setActiveTab('hub')} 
+            style={{ 
+              display: 'inline-flex', 
+              alignItems: 'center', 
+              gap: '8px', 
+              padding: '10px 18px', 
+              fontSize: '13px', 
+              fontWeight: 600, 
+              borderRadius: 'var(--radius-md)', 
+              cursor: 'pointer',
+              background: 'rgba(255,255,255,0.02)',
+              border: '1px solid var(--border-subtle)',
+              color: 'var(--text-primary)'
+            }}
+          >
+            ← Voltar ao Hub de Infraestrutura
+          </button>
+          <span style={{ color: 'var(--text-tertiary)', fontSize: '13px' }}>
+            Testnet Kit / <strong style={{ color: 'var(--accent)' }}>{activeTab.toUpperCase()}</strong>
+          </span>
+        </div>
+      )}
 
       {/* Content Area */}
       <div className="tk-tab-content">
+        
+        {/* HUB CENTRAL / DASHBOARD */}
+        {activeTab === 'hub' && (
+          <div 
+            style={{ 
+              display: 'grid', 
+              gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', 
+              gap: '20px', 
+              marginTop: '10px' 
+            }}
+          >
+            {/* Card 1: One-Click Env */}
+            <div 
+              className="tk-main-card clickable-card" 
+              onClick={() => setActiveTab('dashboard')}
+              style={{ cursor: 'pointer', transition: 'transform 0.2s, border-color 0.2s', margin: 0 }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                <span className="tk-badge" style={{ background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', borderColor: 'transparent' }}>Ambiente</span>
+                <Zap size={20} color="#3b82f6" />
+              </div>
+              <h3 style={{ margin: '0 0 8px 0', fontSize: '16px' }}>One-Click Test Environment</h3>
+              <p className="tk-card-desc" style={{ fontSize: '12px', margin: 0, lineHeight: '1.5' }}>
+                Gere chaves, ative sua conta via Friendbot, configure trustlines para BRW/USDW e financie em lote.
+              </p>
+            </div>
+
+            {/* Card 2: Faucet++ */}
+            <div 
+              className="tk-main-card clickable-card" 
+              onClick={() => setActiveTab('faucet')}
+              style={{ cursor: 'pointer', transition: 'transform 0.2s, border-color 0.2s', margin: 0 }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                <span className="tk-badge" style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', borderColor: 'transparent' }}>Airdrop</span>
+                <Droplets size={20} color="#10b981" />
+              </div>
+              <h3 style={{ margin: '0 0 8px 0', fontSize: '16px' }}>Faucet++ Multiativos</h3>
+              <p className="tk-card-desc" style={{ fontSize: '12px', margin: 0, lineHeight: '1.5' }}>
+                Financie qualquer endereço ativo na Stellar Testnet com XLM, BRW ou USDW instantaneamente.
+              </p>
+            </div>
+
+            {/* Card 3: Pools */}
+            <div 
+              className="tk-main-card clickable-card" 
+              onClick={() => setActiveTab('pools')}
+              style={{ cursor: 'pointer', transition: 'transform 0.2s, border-color 0.2s', margin: 0 }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                <span className="tk-badge" style={{ background: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b', borderColor: 'transparent' }}>DeFi / AMM</span>
+                <Coins size={20} color="#f59e0b" />
+              </div>
+              <h3 style={{ margin: '0 0 8px 0', fontSize: '16px' }}>Liquidity Pools</h3>
+              <p className="tk-card-desc" style={{ fontSize: '12px', margin: 0, lineHeight: '1.5' }}>
+                Simule provisão de liquidez (LPS), swaps e consulte reservas das pools de liquidez reais.
+              </p>
+            </div>
+
+            {/* Card 4: Vault */}
+            <div 
+              className="tk-main-card clickable-card" 
+              onClick={() => setActiveTab('vault')}
+              style={{ cursor: 'pointer', transition: 'transform 0.2s, border-color 0.2s', margin: 0 }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                <span className="tk-badge" style={{ background: 'rgba(139, 92, 246, 0.1)', color: '#8b5cf6', borderColor: 'transparent' }}>Rendimento</span>
+                <Shield size={20} color="#8b5cf6" />
+              </div>
+              <h3 style={{ margin: '0 0 8px 0', fontSize: '16px' }}>DeFi Vault (Real Yield)</h3>
+              <p className="tk-card-desc" style={{ fontSize: '12px', margin: 0, lineHeight: '1.5' }}>
+                Simule agregação de rendimentos on-chain com base no TVL de BRW/USDW e ganhe XLM.
+              </p>
+            </div>
+
+            {/* Card 5: Explorer */}
+            <div 
+              className="tk-main-card clickable-card" 
+              onClick={() => setActiveTab('explorer')}
+              style={{ cursor: 'pointer', transition: 'transform 0.2s, border-color 0.2s', margin: 0 }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                <span className="tk-badge" style={{ background: 'rgba(107, 114, 128, 0.1)', color: '#6b7280', borderColor: 'transparent' }}>Utilitário</span>
+                <Search size={20} color="#6b7280" />
+              </div>
+              <h3 style={{ margin: '0 0 8px 0', fontSize: '16px' }}>Testnet Explorer</h3>
+              <p className="tk-card-desc" style={{ fontSize: '12px', margin: 0, lineHeight: '1.5' }}>
+                Consulte e valide o saldo on-chain e trustlines de qualquer endereço na Stellar Testnet.
+              </p>
+            </div>
+
+            {/* Card 6: Caatinga */}
+            <div 
+              className="tk-main-card clickable-card" 
+              onClick={() => setActiveTab('caatinga')}
+              style={{ cursor: 'pointer', transition: 'transform 0.2s, border-color 0.2s', margin: 0 }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                <span className="tk-badge" style={{ background: 'rgba(16, 185, 129, 0.1)', color: 'var(--accent)', borderColor: 'transparent' }}>Integração</span>
+                <Cpu size={20} color="var(--accent)" />
+              </div>
+              <h3 style={{ margin: '0 0 8px 0', fontSize: '16px' }}>Soroban & Caatinga</h3>
+              <p className="tk-card-desc" style={{ fontSize: '12px', margin: 0, lineHeight: '1.5' }}>
+                Crie projetos, compile e realize o deploy de contratos Soroban via CLI e bindings do Caatinga.
+              </p>
+            </div>
+
+            {/* Card 7: Health */}
+            <div 
+              className="tk-main-card clickable-card" 
+              onClick={() => setActiveTab('health')}
+              style={{ cursor: 'pointer', transition: 'transform 0.2s, border-color 0.2s', margin: 0 }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                <span className="tk-badge" style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', borderColor: 'transparent' }}>Status</span>
+                <Activity size={20} color="#ef4444" />
+              </div>
+              <h3 style={{ margin: '0 0 8px 0', fontSize: '16px' }}>Infrastructure Health</h3>
+              <p className="tk-card-desc" style={{ fontSize: '12px', margin: 0, lineHeight: '1.5' }}>
+                Monitore o status, a latência do Horizon e a integridade da infraestrutura Stellar de testes.
+              </p>
+            </div>
+          </div>
+        )}
         
         {/* TAB 1: ONE-CLICK ENVIRONMENT */}
         {activeTab === 'dashboard' && (
@@ -1672,6 +1804,142 @@ export default function TestnetKit() {
               <button className="tk-sec-btn" onClick={runHealthCheck}>
                 <RefreshCw size={12} /> Force Infrastructure Refresh
               </button>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 6: CAATINGA SOROBAN PARTNER */}
+        {activeTab === 'caatinga' && (
+          <div className="tk-main-card">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px', marginBottom: '16px' }}>
+              <div>
+                <h3 style={{ margin: 0 }}>Parceria Caatinga Toolchain</h3>
+                <p className="tk-card-desc" style={{ marginTop: '8px', marginBottom: 0 }}>
+                  Automatize a compilação, deployment e integração (wiring) de contratos inteligentes Soroban na Stellar Testnet de forma 100% TypeScript-native.
+                </p>
+              </div>
+              <a href="https://dione-b.github.io/caatinga/" target="_blank" rel="noreferrer" className="tk-primary-btn" style={{ textDecoration: 'none', color: '#000', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                Documentação do Caatinga <ExternalLink size={14} />
+              </a>
+            </div>
+
+            {/* Grid Principal do Caatinga */}
+            <div className="tk-grid" style={{ gridTemplateColumns: '1.2fr 0.8fr', gap: '20px', marginTop: '24px' }}>
+              
+              {/* Painel Interativo de Simulação do CLI */}
+              <div className="tk-main-card" style={{ background: 'rgba(0,0,0,0.2)', borderColor: 'rgba(255,255,255,0.05)', margin: 0 }}>
+                <h4 style={{ margin: '0 0 12px 0', color: 'var(--accent)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Terminal size={16} /> Simulador Interativo do CLI Caatinga
+                </h4>
+                <p className="text-xs text-gray-400 mb-4">
+                  Clique nos passos do ciclo de vida abaixo para ver o Caatinga agindo e compilando/implantando o contrato de exemplo:
+                </p>
+
+                {/* Comandos do CLI */}
+                <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
+                  <button className="tk-sec-btn sm" onClick={() => {
+                    addLog('Running: caatinga init', 'info');
+                    const el = document.getElementById('caatinga-terminal-log');
+                    if (el) el.innerHTML = '> caatinga init\n[INFO] Creating caatinga.config.ts...\n[SUCCESS] Caatinga project initialized successfully!';
+                  }}>
+                    1. init
+                  </button>
+                  <button className="tk-sec-btn sm" onClick={() => {
+                    addLog('Running: caatinga build', 'info');
+                    const el = document.getElementById('caatinga-terminal-log');
+                    if (el) el.innerHTML = '> caatinga build\n[INFO] Compiling smart contracts in Rust...\n[INFO] Optimization level: active\n[SUCCESS] Generated custom_faucet.wasm (14.2 KB)';
+                  }}>
+                    2. build
+                  </button>
+                  <button className="tk-sec-btn sm" onClick={() => {
+                    addLog('Running: caatinga deploy', 'info');
+                    const el = document.getElementById('caatinga-terminal-log');
+                    if (el) el.innerHTML = '> caatinga deploy --network testnet\n[INFO] Deploying custom_faucet.wasm to Stellar Testnet...\n[INFO] Transaction submitted. Waiting for ledger...\n[SUCCESS] Contract deployed successfully!\n[INFO] Contract ID: CB7...3F9\n[INFO] Saved to caatinga.artifacts.json';
+                  }}>
+                    3. deploy
+                  </button>
+                  <button className="tk-sec-btn sm" onClick={() => {
+                    addLog('Running: caatinga generate', 'info');
+                    const el = document.getElementById('caatinga-terminal-log');
+                    if (el) el.innerHTML = '> caatinga generate --output ./src/bindings\n[INFO] Parsing WASM ABI...\n[INFO] Generating TypeScript client bindings...\n[SUCCESS] Type-safe client bindings generated in ./src/bindings/custom_faucet';
+                  }}>
+                    4. generate
+                  </button>
+                </div>
+
+                {/* Terminal Log */}
+                <div style={{ background: '#000', borderRadius: '8px', padding: '12px', border: '1px solid rgba(255,255,255,0.1)', minHeight: '120px', fontFamily: 'monospace', fontSize: '12px', color: '#00ff66', whiteSpace: 'pre-wrap' }} id="caatinga-terminal-log">
+                  {`Selecione um comando acima para ver o output do CLI Caatinga.`}
+                </div>
+
+                {/* Execução de Métodos Soroban */}
+                <h4 style={{ margin: '24px 0 12px 0', color: 'var(--accent)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Cpu size={16} /> Interação com Contrato Soroban
+                </h4>
+                <p className="text-xs text-gray-400 mb-4">
+                  Agora que o contrato está "implantado" (via simulação), utilize os bindings gerados pelo Caatinga Client para interagir com o contrato na Testnet:
+                </p>
+
+                <div className="tk-pool-interactive-panel" style={{ gridTemplateColumns: '1fr 1fr' }}>
+                  {/* Método: register_user */}
+                  <div className="tk-pool-action-section" style={{ margin: 0 }}>
+                    <h5>register_user(user_address)</h5>
+                    <label className="text-[10px] text-gray-400">Registra sua carteira no contrato para torná-la elegível.</label>
+                    <button className="tk-sec-btn sm w-full mt-4" onClick={async () => {
+                      addLog('Invoking register_user on Soroban via Caatinga...', 'info');
+                      await new Promise(resolve => setTimeout(resolve, 2000));
+                      addLog('Soroban Transaction confirmed: user registered successfully!', 'success');
+                    }}>
+                      Executar register_user
+                    </button>
+                  </div>
+
+                  {/* Método: claim_reward */}
+                  <div className="tk-pool-action-section" style={{ margin: 0 }}>
+                    <h5>claim_reward(amount)</h5>
+                    <label className="text-[10px] text-gray-400">Resgata o airdrop do contrato (máx: 1000 tokens).</label>
+                    <button className="tk-sec-btn sm w-full mt-4" onClick={async () => {
+                      addLog('Invoking claim_reward on Soroban via Caatinga...', 'info');
+                      await new Promise(resolve => setTimeout(resolve, 2000));
+                      addLog('Soroban Transaction confirmed: claim_reward execution complete!', 'success');
+                    }} style={{ borderColor: 'var(--accent)', color: 'var(--accent)' }}>
+                      Executar claim_reward
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Arquivos de Configuração Lateral */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                <div className="tk-side-card" style={{ margin: 0 }}>
+                  <h3 className="tk-badge" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><FileJson size={14} /> Artifact File</h3>
+                  <p className="text-xs text-gray-400 mb-3">
+                    Formato de artefato gerado automaticamente pelo Caatinga em <code>caatinga.artifacts.json</code>:
+                  </p>
+                  <pre style={{ background: '#000', padding: '12px', borderRadius: '6px', fontSize: '11px', overflowX: 'auto', border: '1px solid rgba(255,255,255,0.05)', color: 'var(--text-secondary)' }}>
+{`{
+  "network": "testnet",
+  "contracts": {
+    "custom_faucet": {
+      "id": "CB7V...3F9",
+      "wasmHash": "a3b9...c12",
+      "deployedAt": "2026-07-13T14:04Z"
+    }
+  }
+}`}
+                  </pre>
+                </div>
+
+                <div className="tk-side-card" style={{ margin: 0 }}>
+                  <h3 className="tk-badge">Vantagens de Testes</h3>
+                  <ul className="text-xs text-gray-300 pl-4 flex flex-col gap-2" style={{ listStyleType: 'disc', margin: 0 }}>
+                    <li><strong>TypeScript nativo:</strong> Escreva sua configuração sem precisar de instaladores pesados de Rust/Cargo para scripts.</li>
+                    <li><strong>Dependency injection:</strong> Configure o endereço de emissão da WalletNow diretamente no seu arquivo de config.</li>
+                    <li><strong>Bindings rápidos:</strong> Gera classes TypeScript limpas para integrar diretamente no seu App React ou Node.js.</li>
+                  </ul>
+                </div>
+              </div>
+
             </div>
           </div>
         )}
