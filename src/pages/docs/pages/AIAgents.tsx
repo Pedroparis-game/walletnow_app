@@ -112,7 +112,7 @@ export default function AIAgents() {
   };
 
   return (
-    <div>
+    <div className="ai-agents-wrapper">
       <h1 className="mb-4">IA & SEP Integration</h1>
       <p className="doc-subtitle">
         Veja o WalletNow SDK em ação. Copie prompts para IAs de codificação e teste fluxos de autenticação (SEP-10) e depósito fiduciário (SEP-24) de forma silenciosa para o usuário final.
@@ -246,7 +246,7 @@ Ao gerar códigos para integração de carteiras e onboarding:
           </div>
         </div>
 
-        <div className="flex flex-col gap-6" style={{ width: '340px' }}>
+        <div className="ai-agents-sidebar" style={{ flex: '0 0 320px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: '24px' }}>
           <div className="tk-side-card">
             <h4 className="tk-card-title-small">📄 SEP-01: stellar.toml do Emissor</h4>
             <div className="text-xs text-gray-400 mb-3">
@@ -290,21 +290,23 @@ status = "live"`}
       </div>
 
       <style>{`
-        /* Reusing some tk classes */
-        .tk-grid { display: flex; gap: 24px; align-items: flex-start; }
-        @media (max-width: 900px) { .tk-grid { flex-direction: column; } .tk-grid > div { width: 100% !important; } }
-        .tk-main-card { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 12px; padding: 32px; flex: 1; }
-        .tk-side-card { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 12px; padding: 24px; }
+        .ai-agents-wrapper { max-width: 1200px; margin: 0 auto; }
+        .tk-grid { display: grid; grid-template-columns: 1fr 320px; gap: 24px; align-items: flex-start; }
+        @media (max-width: 900px) { .tk-grid { grid-template-columns: 1fr; } .ai-agents-sidebar { flex: unset !important; width: 100% !important; } }
+        .tk-main-card { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 12px; padding: 32px; min-width: 0; }
+        @media (max-width: 600px) { .tk-main-card { padding: 16px; } }
+        .tk-side-card { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 12px; padding: 24px; position: sticky; top: 24px; }
+        @media (max-width: 900px) { .tk-side-card { position: static; } }
         .tk-card-header { display: flex; flex-direction: column; gap: 12px; margin-bottom: 24px; }
         .tk-badge { align-self: flex-start; background: rgba(0, 255, 153, 0.1); color: var(--accent); padding: 4px 10px; border-radius: 100px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; border: 1px solid rgba(0, 255, 153, 0.2); }
         .tk-card-header h3 { font-size: 20px; font-weight: 600; color: var(--text-primary); margin: 0; }
         .tk-pool-action-section { background: rgba(255,255,255,0.02); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 20px; margin-top: 24px; }
         .tk-form { display: flex; flex-direction: column; gap: 16px; margin-top: 20px; }
         .tk-form-group { display: flex; flex-direction: column; gap: 6px; }
-        .tk-input-row { display: flex; gap: 16px; }
-        .tk-input-col { display: flex; flex-direction: column; gap: 6px; flex: 1; }
+        .tk-input-row { display: flex; gap: 16px; flex-wrap: wrap; }
+        .tk-input-col { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 140px; }
         .tk-lbl { font-size: 12px; font-weight: 500; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; }
-        .tk-input-text { background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; padding: 10px 12px; color: var(--text-primary); font-size: 14px; transition: all 0.2s; }
+        .tk-input-text { background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; padding: 10px 12px; color: var(--text-primary); font-size: 14px; transition: all 0.2s; width: 100%; box-sizing: border-box; }
         .tk-input-text:focus { outline: none; border-color: var(--accent); background: rgba(0, 255, 153, 0.05); }
         .tk-primary-btn { background: var(--accent); color: #000; border: none; border-radius: 6px; padding: 12px 24px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px; }
         .tk-primary-btn:hover { background: #00cc7a; transform: translateY(-1px); }
@@ -319,6 +321,8 @@ status = "live"`}
         .tk-console-line.error { color: #ff4d4d; }
         .tk-console-time { color: rgba(255,255,255,0.3); margin-right: 8px; }
         .tk-result-box { background: rgba(0, 255, 153, 0.05); border: 1px dashed var(--border-subtle); border-radius: 8px; padding: 16px; margin-top: 16px; display: flex; flex-direction: column; gap: 8px; }
+        .tk-copyable-value { display: flex; align-items: flex-start; gap: 8px; overflow: hidden; }
+        textarea.bg-transparent { overflow-wrap: break-word; word-break: break-word; }
       `}</style>
     </div>
   );

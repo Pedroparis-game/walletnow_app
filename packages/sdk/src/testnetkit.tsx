@@ -2030,7 +2030,7 @@ export default function TestnetKit() {
                   Agora que o contrato está "implantado" (via simulação), utilize os bindings gerados pelo Caatinga Client para interagir com o contrato na Testnet:
                 </p>
 
-                <div className="tk-pool-interactive-panel" style={{ gridTemplateColumns: '1fr 1fr' }}>
+                <div className="tk-pool-interactive-panel" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
                   {/* Método: register_user */}
                   <div className="tk-pool-action-section" style={{ margin: 0 }}>
                     <h5>register_user(user_address)</h5>
