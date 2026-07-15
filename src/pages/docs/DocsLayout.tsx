@@ -6,13 +6,17 @@
  */
 
 import React, { useState } from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import DocsHeader from '../../components/docs/DocsHeader';
 import DocsSidebar from '../../components/docs/DocsSidebar';
 import { DocsI18nProvider } from '../../contexts/DocsI18nContext';
 
 export default function DocsLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const location = useLocation();
+
+  // Rotas com layout wide (interativas, sem restrição de max-width de prosa)
+  const isWide = /\/(testnet-kit|ai-agents|playground)/.test(location.pathname);
 
   return (
     <DocsI18nProvider>
@@ -28,7 +32,7 @@ export default function DocsLayout() {
         />
 
         <main className="dl-main">
-          <div className="dl-content">
+          <div className={`dl-content${isWide ? ' dl-content--wide' : ''}`}>
             <Outlet />
           </div>
         </main>
@@ -71,11 +75,19 @@ export default function DocsLayout() {
           margin: 0 auto;
           padding: 48px 40px 120px;
         }
+        /* Permite que páginas interativas (TestnetKit etc.) escapem o max-width de prosa */
+        .dl-content.dl-content--wide {
+          max-width: none;
+          padding-left: 32px;
+          padding-right: 32px;
+        }
         @media (max-width: 900px) {
           .dl-content { padding: 32px 24px 80px; }
+          .dl-content.dl-content--wide { padding: 24px 16px 80px; }
         }
         @media (max-width: 640px) {
           .dl-content { padding: 24px 16px 60px; }
+          .dl-content.dl-content--wide { padding: 16px 12px 60px; }
         }
 
         /* ── Estilos globais de prosa para as páginas de docs ── */

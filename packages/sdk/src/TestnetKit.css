@@ -1,5 +1,5 @@
 .tk-container, .tk-container * { box-sizing: border-box; }
-.tk-container { width: 100%; max-width: 1200px; margin: 0 auto; padding: 0 24px 40px 24px; }
+.tk-container { width: 100%; margin: 0; padding: 0 0 40px 0; }
         .tk-header-area { margin-bottom: 32px; }
         .tk-subtitle-desc { font-size: 14px; color: var(--text-secondary); margin-top: 8px; line-height: 1.5; max-width: 800px; }
         
@@ -41,15 +41,15 @@
         .tk-input-row { display: flex; gap: 8px; }
         .tk-input-row input { flex: 1; min-width: 0; }
 
-        .tk-grid { display: grid; grid-template-columns: 1fr 340px; gap: 24px; width: 100%; min-width: 0; align-items: flex-start; }
+        .tk-grid { display: grid; grid-template-columns: 1fr 320px; gap: 20px; width: 100%; min-width: 0; align-items: flex-start; }
         @media (max-width: 900px) {
           .tk-grid { grid-template-columns: 1fr; }
         }
         
         .tk-grid-caatinga {
           display: grid;
-          grid-template-columns: 1fr 340px;
-          gap: 24px;
+          grid-template-columns: 1fr 320px;
+          gap: 20px;
           width: 100%;
           min-width: 0;
           align-items: flex-start;
@@ -121,8 +121,8 @@
           margin-top: 24px;
         }
         .tk-result-box h4 { margin-top: 0; margin-bottom: 16px; color: var(--text-primary); font-size: 14px; }
-        .tk-result-field { margin-bottom: 16px; }
-        .tk-result-field.row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        .tk-result-field { margin-bottom: 12px; }
+        .tk-result-field.row { display: flex; flex-direction: column; gap: 12px; }
         .tk-result-lbl { display: block; font-size: 11px; font-weight: 700; color: var(--text-tertiary); text-transform: uppercase; margin-bottom: 6px; }
         .tk-copyable-value {
           display: flex;
@@ -138,8 +138,8 @@
         
         .tk-btn-group { display: flex; gap: 6px; }
 
-        .tk-explorer-links-box { border-top: 1px solid var(--border-subtle); padding-top: 16px; margin-top: 16px; }
-        .tk-explorer-links { display: flex; gap: 16px; margin-top: 8px; }
+        .tk-explorer-links-box { border-top: 1px solid var(--border-subtle); padding-top: 12px; margin-top: 12px; }
+        .tk-explorer-links { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-top: 8px; }
         .tk-exp-link { display: inline-flex; align-items: center; gap: 4px; color: var(--accent); font-size: 12px; font-weight: 600; text-decoration: none; }
         .tk-exp-link:hover { text-decoration: underline; }
 
