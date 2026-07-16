@@ -1,6 +1,6 @@
 {
   "name": "@walletnow/sdk",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "description": "WalletNow SDK — The simplest way to put users inside Stellar",
   "keywords": [
     "stellar",
@@ -40,6 +40,7 @@
   "dependencies": {
     "@stellar/stellar-sdk": "^12.0.0",
     "@walletnow/contracts": "*",
+    "@walletnow/nft": "*",
     "@walletnow/onboarding": "*",
     "@walletnow/providers": "*"
   },

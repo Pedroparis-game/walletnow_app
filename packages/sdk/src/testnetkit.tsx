@@ -25,7 +25,10 @@ import {
   EyeOff,
   Terminal,
   FileJson,
-  Cpu
+  Cpu,
+  Image as ImageIcon,
+  Flame,
+  Send
 } from 'lucide-react';
 import {
   server,
@@ -64,7 +67,7 @@ function createLpAsset(assetA: Asset, assetB: Asset): LiquidityPoolAsset {
     : new LiquidityPoolAsset(assetB, assetA, 30);
 }
 
-type ActiveTab = 'dashboard' | 'faucet' | 'pools' | 'vault' | 'explorer' | 'health' | 'caatinga' | 'hub';
+type ActiveTab = 'dashboard' | 'faucet' | 'pools' | 'vault' | 'explorer' | 'health' | 'caatinga' | 'nfts' | 'hub';
 
 interface LogEntry {
   message: string;
@@ -154,6 +157,16 @@ export default function TestnetKit() {
     rpc: 'operational',
     confidentialVerifier: 'soon'
   });
+
+  // Estado do NFT Playground
+  const [nftInputs, setNftInputs] = useState({
+    code: 'TESTNFT',
+    supply: '10',
+    receiver: '',
+    imageType: 'bottts'
+  });
+  const [nftLoading, setNftLoading] = useState(false);
+  const [userNfts, setUserNfts] = useState<any[]>([]);
 
   // Estado do DeFi Vault (Real Yield)
   const [vaultData, setVaultData] = useState({
@@ -348,6 +361,100 @@ export default function TestnetKit() {
       addLog(`Failed to initialize environment: ${detail}`, 'error');
     } finally {
       setEnvLoading(false);
+    }
+  };
+
+  // NFT Minter
+  const handleMintNft = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const receiver = nftInputs.receiver || envResult?.publicKey;
+    if (!receiver) {
+      addLog('Error: Please initialize 1-Click Env or provide a receiver address.', 'error');
+      alert('Inicie o 1-Click Env para ter uma wallet de recebimento.');
+      return;
+    }
+    
+    setNftLoading(true);
+    addLog(`Preparing to mint ${nftInputs.supply} ${nftInputs.code} NFTs...`, 'info');
+
+    try {
+      const issuerPair = Keypair.random();
+      const nftAsset = new Asset(nftInputs.code, issuerPair.publicKey());
+      const receiverAccount = await server.loadAccount(receiver);
+
+      // 1. Sponsor cria o Issuer account
+      addLog('1/3 Funding new NFT Issuer account...', 'info');
+      const fundTx = new TransactionBuilder(receiverAccount, { fee: '100', networkPassphrase: NETWORKS.TESTNET })
+        .addOperation(Operation.createAccount({
+          destination: issuerPair.publicKey(),
+          startingBalance: '2' // minimo
+        }))
+        .setTimeout(30).build();
+      
+      if (envResult?.secretKey) {
+        fundTx.sign(Keypair.fromSecret(envResult.secretKey));
+      } else {
+        throw new Error('No secret key found for sponsor.');
+      }
+      await server.submitTransaction(fundTx);
+
+      // 2. Receiver cria a Trustline
+      addLog('2/3 Creating trustline on receiver account...', 'info');
+      const updatedReceiverAcc = await server.loadAccount(receiver);
+      const trustTx = new TransactionBuilder(updatedReceiverAcc, { fee: '100', networkPassphrase: NETWORKS.TESTNET })
+        .addOperation(Operation.changeTrust({ asset: nftAsset, limit: nftInputs.supply }))
+        .setTimeout(30).build();
+      
+      trustTx.sign(Keypair.fromSecret(envResult.secretKey));
+      await server.submitTransaction(trustTx);
+
+      // 3. Issuer anexa metadados, faz o payment e sela a conta (Burn)
+      addLog('3/3 Emitting tokens, attaching metadata, and sealing issuer...', 'info');
+      const issuerAccount = await server.loadAccount(issuerPair.publicKey());
+      
+      let imageUrl = '';
+      if (nftInputs.imageType === 'qrcode') {
+        imageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${issuerPair.publicKey()}`;
+      } else {
+        imageUrl = `https://api.dicebear.com/7.x/${nftInputs.imageType}/svg?seed=${issuerPair.publicKey()}`;
+      }
+
+      const txBuilder = new TransactionBuilder(issuerAccount, { fee: '100', networkPassphrase: NETWORKS.TESTNET })
+        .addOperation(Operation.manageData({
+          name: 'image',
+          value: imageUrl.slice(0, 64) // Stellar limit is 64 bytes
+        }))
+        .addOperation(Operation.payment({
+          destination: receiver,
+          asset: nftAsset,
+          amount: nftInputs.supply
+        }))
+        .addOperation(Operation.setOptions({
+          masterWeight: 0,
+          lowThreshold: 0,
+          medThreshold: 0,
+          highThreshold: 0
+        }));
+
+      const setupTx = txBuilder.setTimeout(30).build();
+      setupTx.sign(issuerPair);
+      await server.submitTransaction(setupTx);
+
+      addLog(`Successfully minted ${nftInputs.supply} NFTs!`, 'success');
+      
+      // Simular atualização de galeria local
+      setUserNfts(prev => [...prev, {
+        code: nftInputs.code,
+        issuer: issuerPair.publicKey(),
+        balance: nftInputs.supply,
+        imageUrl
+      }]);
+
+    } catch (err: any) {
+      console.error(err);
+      addLog(`NFT Minting failed: ${err.message}`, 'error');
+    } finally {
+      setNftLoading(false);
     }
   };
 
@@ -1092,7 +1199,23 @@ export default function TestnetKit() {
               </p>
             </div>
 
-            {/* Card 6: Caatinga */}
+            {/* Card 6: NFTs */}
+            <div 
+              className="tk-main-card clickable-card" 
+              onClick={() => setActiveTab('nfts')}
+              style={{ cursor: 'pointer', transition: 'transform 0.2s, border-color 0.2s', margin: 0 }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                <span className="tk-badge" style={{ background: 'rgba(236, 72, 153, 0.1)', color: '#ec4899', borderColor: 'transparent' }}>Digital Collectibles</span>
+                <ImageIcon size={20} color="#ec4899" />
+              </div>
+              <h3 style={{ margin: '0 0 8px 0', fontSize: '16px' }}>NFT Playground</h3>
+              <p className="tk-card-desc" style={{ fontSize: '12px', margin: 0, lineHeight: '1.5' }}>
+                Crie coleções NFT e SFT nativas na Stellar (Classic). Especifique a quantidade e gere imagens automaticamente.
+              </p>
+            </div>
+
+            {/* Card 7: Caatinga */}
             <div 
               className="tk-main-card clickable-card" 
               onClick={() => setActiveTab('caatinga')}
@@ -1272,6 +1395,18 @@ export default function TestnetKit() {
                           </div>
                         </div>
                         <button className="tk-sec-btn sm" onClick={() => setActiveTab('caatinga')} style={{ cursor: 'pointer' }}>Ver Integração</button>
+                      </div>
+
+                      {/* Passo 6: NFTs */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.01)', padding: '12px 16px', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
+                        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                          <span style={{ background: 'rgba(236, 72, 153, 0.1)', color: '#ec4899', borderRadius: '50%', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 'bold' }}>6</span>
+                          <div style={{ textAlign: 'left' }}>
+                            <strong style={{ fontSize: '13px', display: 'block' }}>Criar Coleções NFT (Digital Collectibles)</strong>
+                            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>Gere artes únicas na rede e minte um NFT usando as regras nativas de assets da Stellar.</span>
+                          </div>
+                        </div>
+                        <button className="tk-sec-btn sm" onClick={() => setActiveTab('nfts')} style={{ cursor: 'pointer', borderColor: '#ec4899', color: '#ec4899' }}>Criar NFT</button>
                       </div>
                     </div>
                   </div>
@@ -1954,6 +2089,108 @@ export default function TestnetKit() {
               <button className="tk-sec-btn" onClick={runHealthCheck}>
                 <RefreshCw size={12} /> Force Infrastructure Refresh
               </button>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 7: NFT PLAYGROUND */}
+        {activeTab === 'nfts' && (
+          <div className="tk-grid">
+            <div className="tk-main-card">
+              <div className="tk-card-header">
+                <div className="tk-badge" style={{ background: 'rgba(236, 72, 153, 0.1)', color: '#ec4899', borderColor: 'transparent' }}>Digital Collectibles</div>
+                <h3>Criador de Coleções / NFTs</h3>
+              </div>
+              <p className="tk-card-desc">
+                Crie ativos únicos ou sem-fungíveis (SFTs) na rede Stellar Testnet com emissão trancada e imagem gerada automaticamente atrelada aos metadados <code>manageData</code>.
+              </p>
+              
+              <form onSubmit={handleMintNft} style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '16px' }}>
+                <div className="tk-input-group">
+                  <label className="tk-input-label">Nome da Coleção / Token Code (Máx 12 chars)</label>
+                  <input
+                    type="text"
+                    className="tk-input-text"
+                    value={nftInputs.code}
+                    onChange={(e) => setNftInputs({ ...nftInputs, code: e.target.value.toUpperCase().slice(0, 12) })}
+                    placeholder="MYNFT"
+                    required
+                  />
+                </div>
+                
+                <div className="tk-input-group">
+                  <label className="tk-input-label">Quantidade Emitida (Supply) - Use 1 para item único</label>
+                  <input
+                    type="number"
+                    className="tk-input-text"
+                    value={nftInputs.supply}
+                    onChange={(e) => setNftInputs({ ...nftInputs, supply: e.target.value })}
+                    min="1"
+                    step="1"
+                    required
+                  />
+                </div>
+
+                <div className="tk-input-group">
+                  <label className="tk-input-label">Estilo de Imagem (Determinística)</label>
+                  <select 
+                    className="tk-input-text" 
+                    value={nftInputs.imageType} 
+                    onChange={(e) => setNftInputs({ ...nftInputs, imageType: e.target.value })}
+                    style={{ appearance: 'none', background: 'rgba(0,0,0,0.2)' }}
+                  >
+                    <option value="bottts">Robot Avatars (DiceBear)</option>
+                    <option value="identicon">Identicons (DiceBear)</option>
+                    <option value="shapes">Abstract Shapes (DiceBear)</option>
+                    <option value="qrcode">QR Code Colorido</option>
+                  </select>
+                </div>
+
+                <div className="tk-input-group">
+                  <label className="tk-input-label">Endereço de Recebimento (Receiver)</label>
+                  <input
+                    type="text"
+                    className="tk-input-text"
+                    value={nftInputs.receiver || (envResult ? envResult.publicKey : '')}
+                    onChange={(e) => setNftInputs({ ...nftInputs, receiver: e.target.value })}
+                    placeholder="G..."
+                  />
+                </div>
+
+                <button type="submit" className="tk-primary-btn" disabled={nftLoading}>
+                  {nftLoading ? <span className="tk-spinner" /> : <Flame size={16} />} 
+                  Emitir Coleção na Stellar
+                </button>
+              </form>
+            </div>
+
+            <div className="tk-main-card">
+              <div className="tk-card-header">
+                <h3>Minha Galeria</h3>
+              </div>
+              <p className="tk-card-desc">Ativos criados e vinculados à carteira atual desta sessão.</p>
+              
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '16px', marginTop: '16px' }}>
+                {userNfts.length === 0 ? (
+                  <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '32px', border: '1px dashed var(--border-subtle)', borderRadius: '12px', color: 'var(--text-tertiary)' }}>
+                    <ImageIcon size={32} style={{ opacity: 0.2, margin: '0 auto 8px' }} />
+                    <p style={{ fontSize: '13px' }}>Nenhum NFT Mintado na Sessão</p>
+                  </div>
+                ) : (
+                  userNfts.map((nft, idx) => (
+                    <div key={idx} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-subtle)', borderRadius: '12px', padding: '12px', textAlign: 'center' }}>
+                      <img src={nft.imageUrl} alt={nft.code} style={{ width: '100%', height: 'auto', borderRadius: '8px', marginBottom: '8px', background: 'rgba(0,0,0,0.5)' }} />
+                      <h4 style={{ margin: '0 0 4px', fontSize: '14px', color: 'var(--text-primary)' }}>{nft.code}</h4>
+                      <p style={{ margin: '0 0 8px', fontSize: '10px', color: 'var(--text-tertiary)' }}>
+                        Issuer: {nft.issuer.slice(0, 4)}...{nft.issuer.slice(-4)}
+                      </p>
+                      <div style={{ background: 'rgba(236, 72, 153, 0.1)', color: '#ec4899', padding: '4px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold' }}>
+                        Supply: {nft.balance}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
             </div>
           </div>
         )}

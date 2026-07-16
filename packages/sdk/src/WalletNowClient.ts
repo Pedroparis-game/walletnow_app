@@ -16,6 +16,8 @@ import { TransactionBuilder, Keypair, Horizon, Transaction, Networks } from '@st
 const sponsorKeypair = Keypair.random();
 let sponsorFunded = false;
 
+import { NftOrchestrator } from '@walletnow/nft';
+
 export interface WalletNowClientConfig {
   apiKey?: string;
   network?: 'mainnet' | 'testnet';
@@ -26,6 +28,7 @@ export class WalletNowClient {
   private constructor(
     private readonly os: WalletNowOS,
     public readonly onboarding: OnboardingOrchestrator,
+    public readonly nft: NftOrchestrator,
   ) {}
 
   /**
@@ -119,7 +122,13 @@ export class WalletNowClient {
     // 3. Instancia o Domínio Onboarding
     const onboarding = new OnboardingOrchestrator(onboardingCtx);
 
-    return new WalletNowClient(os, onboarding);
+    // 4. Instancia o Domínio NFT
+    const nft = new NftOrchestrator({
+      network,
+      gasStation: onboardingCtx.gasStation,
+    });
+
+    return new WalletNowClient(os, onboarding, nft);
   }
 
   /**
