@@ -55,3 +55,10 @@ verify_jwt = false
 # A função possui proteção tripla: Rate Limit (memória), Trava Dupla (audit table) e Horizon check.
 [functions.mainnet-funding]
 verify_jwt = false
+
+# keepalive: Health-check endpoint para anti-hibernação do projeto.
+# verify_jwt = false: Necessário para acesso externo sem autenticação
+# (GitHub Actions, UptimeRobot, BetterStack, etc.).
+# O endpoint não expõe dados sensíveis — apenas retorna status.
+[functions.keepalive]
+verify_jwt = false

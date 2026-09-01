@@ -1,0 +1,82 @@
+# ============================================================
+# GitHub Actions: Supabase Keepalive
+# ============================================================
+# Propósito: Pingar a Edge Function keepalive a cada 10 minutos
+#            para manter o projeto Supabase DEV sempre ativo.
+#
+# Esta é a camada EXTERNA de anti-hibernação, independente
+# do pg_cron interno.
+#
+# Custo estimado (GitHub Actions Free):
+#   ~4.320 execuções/mês × ~5s cada = ~360 min/mês
+#   Limite free = 2.000 min/mês → usa apenas ~18%
+#
+# Para parar temporariamente: desabilitar o workflow no painel
+# GitHub > Actions > supabase-keepalive > Disable workflow
+# ============================================================
+
+name: Supabase Keepalive
+
+on:
+  schedule:
+    # A cada 10 minutos (UTC)
+    # Nota: GitHub Actions não garante execução exata a cada 10 min
+    # em períodos de alta carga, mas é suficiente para anti-hibernação.
+    - cron: "*/10 * * * *"
+  
+  # Permite execução manual pelo painel GitHub Actions
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: "Motivo da execução manual"
+        required: false
+        default: "teste manual"
+
+jobs:
+  keepalive:
+    name: Ping Supabase DEV
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+
+    steps:
+      - name: Ping Edge Function keepalive
+        id: ping
+        run: |
+          echo "🔔 Iniciando keepalive ping — $(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+          
+          RESPONSE=$(curl \
+            --silent \
+            --show-error \
+            --max-time 30 \
+            --retry 3 \
+            --retry-delay 5 \
+            --write-out "\n%{http_code}" \
+            "${{ secrets.SUPABASE_KEEPALIVE_URL }}?source=github_actions")
+          
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | head -n -1)
+          
+          echo "📡 HTTP Status: $HTTP_CODE"
+          echo "📦 Response:"
+          echo "$BODY" | python3 -m json.tool 2>/dev/null || echo "$BODY"
+          
+          if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
+            echo "✅ Supabase está ATIVO — keepalive bem-sucedido"
+            echo "status=ok" >> $GITHUB_OUTPUT
+          else
+            echo "⚠️ Resposta inesperada: HTTP $HTTP_CODE"
+            echo "status=degraded" >> $GITHUB_OUTPUT
+            # Não falha o workflow para não gerar ruído de notificações
+            exit 0
+          fi
+      
+      - name: Summarize
+        if: always()
+        run: |
+          echo "## Keepalive Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Campo | Valor |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Timestamp | $(date -u '+%Y-%m-%dT%H:%M:%SZ') |" >> $GITHUB_STEP_SUMMARY
+          echo "| Status | ${{ steps.ping.outputs.status }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Projeto | WalletNow DEV |" >> $GITHUB_STEP_SUMMARY
