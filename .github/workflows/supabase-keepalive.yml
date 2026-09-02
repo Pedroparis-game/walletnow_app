@@ -12,7 +12,7 @@
 #   Limite free = 2.000 min/mês → usa apenas ~18%
 #
 # Para parar temporariamente: desabilitar o workflow no painel
-# GitHub > Actions > supabase-keepalive > Disable workflow
+# GitHub > Actions > Supabase Keepalive > Disable workflow
 # ============================================================
 
 name: Supabase Keepalive
@@ -41,9 +41,20 @@ jobs:
     steps:
       - name: Ping Edge Function keepalive
         id: ping
+        env:
+          KEEPALIVE_URL: ${{ secrets.SUPABASE_KEEPALIVE_URL }}
         run: |
           echo "🔔 Iniciando keepalive ping — $(date -u '+%Y-%m-%dT%H:%M:%SZ')"
           
+          if [ -z "$KEEPALIVE_URL" ]; then
+            echo "::error::Secret SUPABASE_KEEPALIVE_URL não está configurada nos Repository Secrets!"
+            echo "status=missing_secret" >> "$GITHUB_OUTPUT"
+            echo "http_code=N/A" >> "$GITHUB_OUTPUT"
+            echo "db_status=unknown" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+          
+          # Realiza o curl de forma resiliente com retries e timeout
           RESPONSE=$(curl \
             --silent \
             --show-error \
@@ -51,32 +62,59 @@ jobs:
             --retry 3 \
             --retry-delay 5 \
             --write-out "\n%{http_code}" \
-            "${{ secrets.SUPABASE_KEEPALIVE_URL }}?source=github_actions")
+            "${KEEPALIVE_URL}?source=github_actions" 2>&1) || CURL_EXIT=$?
+          
+          if [ -n "$CURL_EXIT" ] && [ "$CURL_EXIT" -ne 0 ]; then
+            echo "::error::Falha ao conectar na Edge Function (Curl Exit Code: $CURL_EXIT)"
+            echo "Erro: $RESPONSE"
+            echo "status=network_error" >> "$GITHUB_OUTPUT"
+            echo "http_code=ERR" >> "$GITHUB_OUTPUT"
+            echo "db_status=error" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           
           HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
           BODY=$(echo "$RESPONSE" | head -n -1)
           
           echo "📡 HTTP Status: $HTTP_CODE"
-          echo "📦 Response:"
+          echo "📦 Response Body:"
           echo "$BODY" | python3 -m json.tool 2>/dev/null || echo "$BODY"
+          
+          echo "http_code=$HTTP_CODE" >> "$GITHUB_OUTPUT"
           
           if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
             echo "✅ Supabase está ATIVO — keepalive bem-sucedido"
-            echo "status=ok" >> $GITHUB_OUTPUT
+            echo "status=ok" >> "$GITHUB_OUTPUT"
+            echo "db_status=ok" >> "$GITHUB_OUTPUT"
           else
             echo "⚠️ Resposta inesperada: HTTP $HTTP_CODE"
-            echo "status=degraded" >> $GITHUB_OUTPUT
-            # Não falha o workflow para não gerar ruído de notificações
+            echo "status=degraded" >> "$GITHUB_OUTPUT"
+            echo "db_status=degraded" >> "$GITHUB_OUTPUT"
             exit 0
           fi
       
       - name: Summarize
         if: always()
         run: |
-          echo "## Keepalive Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Campo | Valor |" >> $GITHUB_STEP_SUMMARY
-          echo "|-------|-------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Timestamp | $(date -u '+%Y-%m-%dT%H:%M:%SZ') |" >> $GITHUB_STEP_SUMMARY
-          echo "| Status | ${{ steps.ping.outputs.status }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Projeto | WalletNow DEV |" >> $GITHUB_STEP_SUMMARY
+          STATUS="${{ steps.ping.outputs.status }}"
+          HTTP_CODE="${{ steps.ping.outputs.http_code }}"
+          DB_STATUS="${{ steps.ping.outputs.db_status }}"
+          
+          case "$STATUS" in
+            "ok") ICON="✅ Ativo" ;;
+            "degraded") ICON="⚠️ Degradado (HTTP $HTTP_CODE)" ;;
+            "missing_secret") ICON="❌ Segredo Ausente" ;;
+            "network_error") ICON="❌ Erro de Rede" ;;
+            *) ICON="❓ Desconhecido ($STATUS)" ;;
+          esac
+
+          echo "## 🛡️ Supabase Keepalive Summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Campo | Valor |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|---|---|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| **Status** | $ICON |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| **HTTP Code** | \`$HTTP_CODE\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| **DB Health** | \`$DB_STATUS\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| **Projeto** | WalletNow DEV |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| **Timestamp (UTC)** | $(date -u '+%Y-%m-%d %H:%M:%S UTC') |" >> "$GITHUB_STEP_SUMMARY"
+
