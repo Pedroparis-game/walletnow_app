@@ -9,3 +9,7 @@ coverage/
 
 # Supabase CLI temp files (gerados localmente, não versionados)
 supabase/.temp/
+
+# Turbo cache
+.turbo/
+

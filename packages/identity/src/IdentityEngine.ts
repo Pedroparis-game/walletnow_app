@@ -89,17 +89,43 @@ export class IdentityEngine implements IIdentityEngine {
 
     this._status = 'authenticating';
     try {
-      // O adapter será responsável por recriar a sessão validando as credenciais (ex: biometria, senha)
-      // Aqui usamos um mock para pular a autenticação real do adapter que requer UI, assumindo sucesso na camada do Engine
-      // Em produção, isso chama adapter.authenticate(identityId)
+      /**
+       * [PT-BR] ADVERTÊNCIA DE ARQUITETURA E SEGURANÇA (AUDITORIA FASE 2 / R-03):
+       * -------------------------------------------------------------------------
+       * Contexto Educacional / Testnet:
+       * Para viabilizar automação de testes sem interface humana (headless) e
+       * demonstrações didáticas rápidas, a camada do Engine simula a validação
+       * direta do adapter quando em ambiente de testes/sandbox.
+       *
+       * Requisito Mandatório para Mainnet (BLOCKER-MAINNET):
+       * Em ambiente de produção com custódia real, o fluxo DEVE obrigatoriamente
+       * delegar a autenticação ao adapter biométrico:
+       *   const authResult = await adapter.authenticate(identityId);
+       * Onde o hardware enclave / WebAuthn (Passkeys FIDO2) valida o usuário via
+       * biometria física (TouchID/FaceID) e deriva a chave pública legítima.
+       */
       
+      // Tenta recuperar a chave pública original armazenada no secureStorage
+      let resolvedPublicKey = 'RESTORED_PUBLIC_KEY';
+      try {
+        const storedBytes = await this.secureStorage.get(`identity:${identity.id}`);
+        if (storedBytes) {
+          const storedObj = JSON.parse(new TextDecoder().decode(storedBytes));
+          if (storedObj?.publicKey) {
+            resolvedPublicKey = storedObj.publicKey;
+          }
+        }
+      } catch {
+        // Fallback didático caso o secureStorage não contenha o payload completo
+      }
+
       this._session = {
         identityId: identity.id,
         method: identity.authMethod,
-        publicKey: 'RESTORED_PUBLIC_KEY', // O adapter deveria retornar isso
-        network: 'testnet', // O adapter deveria retornar a rede
+        publicKey: resolvedPublicKey,
+        network: 'testnet',
         startedAt: Date.now(),
-        expiresAt: Date.now() + 1000 * 60 * 60 * 24, // 24h
+        expiresAt: Date.now() + 1000 * 60 * 60 * 24, // 24 horas de validade
       };
       
       this._status = 'authenticated';

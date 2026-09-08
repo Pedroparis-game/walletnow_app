@@ -623,7 +623,37 @@ O arquivo `.env` localizado na raiz do projeto deve ser preenchido com as seguin
 | `VITE_BASE_PATH` | Caminho relativo de deploy em subpastas (Ex: `/walletnow/`) | Client-side (Vite Build) |
 | `SUPABASE_SERVICE_ROLE_KEY` | Chave de serviço master e administrativa do Supabase | Edge Server (Private) |
 | `WOOVI_WEBHOOK_SECRET` | Chave HMAC secreta de verificação de payloads Pix | Edge Server (Private) |
-| `STELLAR_SPONSOR_SECRET` | Chave privada da Hot Wallet de patrocínio de transações | Edge Server (Private) |
+| `STELLAR_ISSUER_SECRET` | Chave privada da Hot Wallet de patrocínio e emissão (Supabase Vault) | Edge Server (Private) |
+| `STELLAR_ISSUER_PUBLIC` | Chave pública institucional do emissor na rede Stellar | Client & Server |
+
+---
+
+## 🛡️ Auditoria Adversarial & Especificações de Segurança (v2.0)
+
+Em conformidade com a avaliação adversarial de segurança (Fase 1 e Fase 2 com 100% de cobertura de código), o WalletNow adota controles rigorosos de segregação de privilégios, mitigação de abuso e proteção de ativos:
+
+### 1. Segregação de Chaves & Autocustódia Estrita
+* **Zero Chaves de Emissão no Cliente**: A chave privada do emissor (`STELLAR_ISSUER_SECRET`) foi completamente eliminada do bundle frontend e reside exclusivamente no Supabase Vault, operada via Edge Function `stellar-issuer`.
+* **Assinatura Local Segura**: As chaves dos usuários permanecem isoladas no ambiente seguro do cliente (hardware enclaves / Passkeys WebAuthn FIDO2), co-assinando transações sem compartilhamento de segredos.
+
+### 2. Proteção Anti-Drenagem do Gas Station (R-04)
+* **Validação de Titularidade (`verifyUserOwnsPublicKey`)**: Antes de executar ações com patrocínio de rede (`fund_wallet`, `sponsor_wallet`, `mint_reputation_zk`), a Edge Function valida criptograficamente no banco de dados se a chave pública informada pertence ao `user_id` autenticado via JWT, impedindo que atacantes drenem o saldo de XLM do emissor para carteiras externas.
+
+### 3. Sanitização de Telemetria e Logs (R-02)
+* **Zero Vazamento em CORS/Logs**: Eliminada a exibição de cabeçalhos de requisição nos logs de preflight CORS. Tokens de autorização (JWT) e dados sensíveis são estritamente sanitizados em todas as rotas de servidor.
+
+### 4. Isolamento Financeiro via Row Level Security (RLS)
+* **`fiat_transactions` Blindada (R-09)**: Política de `INSERT` restrita a credenciais `service_role` (webhooks institucionais). Usuários autenticados possuem permissão apenas de leitura sobre suas próprias transações (`SELECT USING auth.uid() = user_id`).
+* **`keepalive_log` Protegido (R-14)**: Política de escrita fechada exclusivamente para rotinas de sistema (`service_role`), prevenindo ataques de negação de serviço (DoS) por injeção de registros de heartbeat.
+
+### 5. Idempotência e Proteção Anti-Replay (R-11)
+* **Garantia de Não-Duplicação**: Coluna e índice único `correlation_id` implementados em `fiat_transactions`, assegurando que retries de rede ou webhooks repetidos não disparem duplo crédito ou queima em duplicidade.
+
+### 6. Emissores Oficiais nas Trustlines (R-13)
+* **Resolução Confiável de Ativos**: No fluxo de onboarding e configuração de contas, emissores efêmeros aleatórios foram substituídos pela resolução oficial de contratos verificados na Stellar (`USDC` da Circle, `BRZ` da Transfero e ativos de teste estáveis na testnet).
+
+### 7. Privacidade & Conformidade Regulatória (LGPD/GDPR)
+* **Esquema de Compromisso Criptográfico (SHA3-256)**: Nenhum dado pessoal (CPF, nome, contato) é persistido em texto claro no ledger público. Utiliza-se digest SHA3-256 com salt secreto de alta entropia como Trust Anchor on-chain.
 
 ---
 

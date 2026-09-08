@@ -153,9 +153,9 @@ export class OnboardingOrchestrator implements IOnboardingDomain {
         });
 
         for (const assetStr of trustlines) {
-          // Utilizando um emissor de teste padrão gerado on-the-fly para testes
-          const issuer = Keypair.random().publicKey();
-          txBuilder.addOperation(Operation.changeTrust({ asset: new Asset(assetStr, issuer) }));
+          // [PT-BR] Resolve o ativo com emissor estável/conhecido (R-13) em vez de chave aleatória descartável
+          const asset = this._resolveAsset(assetStr, network);
+          txBuilder.addOperation(Operation.changeTrust({ asset }));
         }
         
         txBuilder.setTimeout(0);
@@ -402,8 +402,8 @@ export class OnboardingOrchestrator implements IOnboardingDomain {
       });
 
       for (const assetStr of assets) {
-        const issuer = Keypair.random().publicKey();
-        txBuilder.addOperation(Operation.changeTrust({ asset: new Asset(assetStr, issuer) }));
+        const asset = this._resolveAsset(assetStr, network);
+        txBuilder.addOperation(Operation.changeTrust({ asset }));
       }
       
       txBuilder.setTimeout(0);
@@ -430,8 +430,8 @@ export class OnboardingOrchestrator implements IOnboardingDomain {
     });
 
     for (const assetStr of assets) {
-      const issuer = Keypair.random().publicKey();
-      txBuilder.addOperation(Operation.changeTrust({ asset: new Asset(assetStr, issuer) }));
+      const asset = this._resolveAsset(assetStr, network);
+      txBuilder.addOperation(Operation.changeTrust({ asset }));
     }
     
     txBuilder.setTimeout(0);
@@ -527,5 +527,40 @@ export class OnboardingOrchestrator implements IOnboardingDomain {
     // O marcador '__MANAGED__' é reconhecido pelo KeypairAuthAdapter
     // para gerar e cifrar o keypair automaticamente, sem exposição.
     return '__MANAGED__';
+  }
+
+  /**
+   * [PT-BR] Resolve a especificação do ativo e seu respectivo emissor (Issuer) na rede Stellar.
+   * Suporta:
+   * 1. 'CODE:ISSUER' (ex: 'USDC:GA5ZSE...') -> usa explicitamente o emissor fornecido.
+   * 2. 'CODE' (ex: 'USDC', 'BRZ', 'BRW', 'USDW') -> busca no mapa oficial de emissores conhecidos
+   *    de acordo com a rede ativa (testnet ou mainnet), eliminando emissores aleatórios descartáveis.
+   */
+  private _resolveAsset(assetStr: string, network: string): Asset {
+    if (assetStr.includes(':')) {
+      const parts = assetStr.split(':');
+      const code = parts[0] || 'USDC';
+      const issuer = parts[1] || 'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5';
+      return new Asset(code, issuer);
+    }
+
+    const TESTNET_FALLBACK = 'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5';
+    const TESTNET_ISSUERS: Record<string, string> = {
+      USDC: TESTNET_FALLBACK,
+      BRZ: TESTNET_FALLBACK,
+      BRW: TESTNET_FALLBACK,
+      USDW: TESTNET_FALLBACK,
+    };
+
+    const MAINNET_ISSUERS: Record<string, string> = {
+      USDC: 'GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN', // Circle Mainnet
+      BRZ: 'GDVKY2GU2DRXBEUF2WOSEM2BFKBLBHNBKNTXCDBC7525JOOE3SKGHGV',  // Transfero Mainnet
+    };
+
+    const issuer = network === 'mainnet'
+      ? (MAINNET_ISSUERS[assetStr] || TESTNET_ISSUERS[assetStr] || TESTNET_FALLBACK)
+      : (TESTNET_ISSUERS[assetStr] || TESTNET_FALLBACK);
+
+    return new Asset(assetStr, issuer);
   }
 }

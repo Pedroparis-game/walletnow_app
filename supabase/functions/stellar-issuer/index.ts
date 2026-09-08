@@ -548,19 +548,51 @@ async function logAuditEvent(
   }
 }
 
+// ─── Validação de Titularidade (R-04 / Anti-Abuso Gas Station) ─────────────────
+
+/**
+ * [PT-BR] Valida se a chave pública informada pertence ao usuário autenticado.
+ * Consulta tanto a tabela moderna `wallet_accounts` quanto o perfil legado `profiles`.
+ * Impede que um usuário autenticado solicite fundings ou patrocínios para contas de terceiros.
+ */
+async function verifyUserOwnsPublicKey(
+  supabaseAdmin: any,
+  userId: string,
+  publicKey: string
+): Promise<boolean> {
+  try {
+    // 1. Consulta em wallet_accounts (Multi-Account Architecture)
+    const { data: account, error: accErr } = await supabaseAdmin
+      .from('wallet_accounts')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('stellar_public_key', publicKey)
+      .maybeSingle();
+
+    if (account && !accErr) return true;
+
+    // 2. Consulta em profiles (compatibilidade com contas legadas de perfil)
+    const { data: profile, error: profErr } = await supabaseAdmin
+      .from('profiles')
+      .select('id')
+      .eq('id', userId)
+      .eq('stellar_address', publicKey)
+      .maybeSingle();
+
+    if (profile && !profErr) return true;
+
+    return false;
+  } catch (err) {
+    console.error('[stellar-issuer] Erro ao validar titularidade da chave pública:', (err as Error).message);
+    return false;
+  }
+}
+
 // ─── Handler Principal ────────────────────────────────────────────────────────
 
 serve(async (req: Request) => {
   const requestOrigin = req.headers.get('origin');
   const env = Deno.env.get('APP_ENV') ?? 'dev';
-
-  console.log('--- DEBUG CORS PREFLIGHT ---');
-  console.log(`[Time]: ${new Date().toISOString()}`);
-  console.log(`[Method]: ${req.method}`);
-  console.log(`[Origin]: ${requestOrigin}`);
-  console.log(`[APP_ENV]: ${env}`);
-  console.log(`[Headers]: ${JSON.stringify(Object.fromEntries(req.headers.entries()))}`);
-  console.log('----------------------------');
 
   const corsHeaders = getCorsHeaders(requestOrigin);
 
@@ -670,7 +702,23 @@ serve(async (req: Request) => {
       auth: { persistSession: false },
     });
 
-    // ── 6. Despacho da Action ─────────────────────────────────────────────────
+    // ── 6. Validação de Titularidade (R-04: Anti-Drenagem de Recursos Patrocinados) ─
+    // Garante que o usuário autenticado só pode executar operações sobre suas próprias contas
+    const actionsRequiringOwnership: IssuerAction[] = ['fund_wallet', 'sponsor_wallet', 'mint_reputation_zk'];
+    if (actionsRequiringOwnership.includes(body.action) && 'publicKey' in body) {
+      const targetKey = (body as any).publicKey;
+      const isOwner = await verifyUserOwnsPublicKey(supabaseAdmin, userId, targetKey);
+      if (!isOwner) {
+        console.warn(`[stellar-issuer] ⚠️ Acesso negado: chave ${targetKey?.slice(0, 8)}... não pertence ao usuário ${userId}`);
+        return errorResponse(
+          'Operação não autorizada para a chave informada. A chave pública deve pertencer à sua conta autenticada.',
+          'FORBIDDEN_KEY_OWNERSHIP',
+          403
+        );
+      }
+    }
+
+    // ── 7. Despacho da Action ─────────────────────────────────────────────────
     console.log(`[stellar-issuer] action=${body.action} userId=${userId.slice(0, 8)}... network=${network}`);
 
     let txHash: string;

@@ -20,18 +20,23 @@ import { KycValidatorService, type KycValidationResult } from './kycValidatorSer
 const server = StellarNetwork.createServer();
 
 /**
- * Serviço de KYC ZK-STARK (Trust Layer)
+ * [PT-BR] Serviço de Identidade e Trust Layer (KYC Cryptographic Commitment)
  * 
- * Este serviço é invocado quando o usuário pede para virar "Conta Validada".
- * Ele analisa uma imagem (CNH/RG), criptografa o CPF sem revelar os números na rede (ZK-STARK)
- * e injeta a Prova de Conhecimento na Blockchain!
+ * Este serviço gerencia a validação de identidade e reputação on-chain do usuário.
+ * 
+ * Nota de Engenharia Criptográfica:
+ * Para preservar a privacidade do usuário (LGPD/GDPR), nenhum dado sensível (CPF, nome,
+ * telefone) é registrado em texto claro no ledger público. Em vez disso, o sistema utiliza
+ * um esquema de compromisso criptográfico (Cryptographic Commitment Scheme) baseado em
+ * SHA3-256 com salt secreto de alta entropia. O hash resultante funciona como uma âncora
+ * de integridade (Trust Anchor / Fingerprint) que pode ser verificada sem expor a PII.
  */
 export const IdentityService = {
 
     /**
-     * 1. Hashing do CPF e Dados Completos em SHA3-256 (Pós-Quântico)
-     * O "Super-Hash" encadeia todos os dados do usuário, gerando uma única assinatura
-     * inquebrável por computação quântica graças à tecnologia "Sponge" do SHA-3.
+     * [PT-BR] 1. Geração de Fingerprint Criptográfico de Identidade via SHA3-256 (Keccak Sponge)
+     * Encadeia os dados cadastrais sanitizados com salt secreto para gerar um digest
+     * irreversível de 256 bits, garantindo unicidade e resistência pós-quântica.
      */
     generateZKHash(
         name: string,
@@ -42,16 +47,14 @@ export const IdentityService = {
         address: string,
         secretSalt: string
     ): string {
-        const cleanCpf = cpf.replace(/\D/g, ''); // Tira formatação
+        const cleanCpf = cpf.replace(/\D/g, ''); // Remove formatação
         const cleanPhone = whatsapp.replace(/\D/g, '');
 
-        // Super-Hash Payload: Normaliza as strings para evitar falsos-negativos de CAPS LOCK
+        // Normalização de dados para evitar inconsistências de formatação/espaçamento
         const payload = `${name.toLowerCase().trim()}:${cleanCpf}:${cleanPhone}:${email.toLowerCase().trim()}:${birthDate.trim()}:${address.toLowerCase().trim()}:${secretSalt}`;
 
         const zkHash = sha3_256(payload);
-        // Sanitizado para Produção: Não exibe o ZK Hash no F12
-
-        return zkHash; // 32 bytes de pura segurança matemática
+        return zkHash; // 32 bytes de integridade matemática sem vazamento de dados pessoais
     },
 
     /**

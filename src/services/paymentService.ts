@@ -5,18 +5,19 @@ import { AppConfig } from '../config/environment';
 import { IssuerService } from '../utils/issuerService';
 
 /**
- * TODO [SECURITY-CRITICAL — BLOCKER MAINNET]:
- * A ISSUER_SECRET (VITE_STELLAR_ISSUER_SECRET) está exposta no bundle do browser.
- * QUALQUER PESSOA com DevTools pode lê-la e mintar BRW / drenar a treasury.
+ * [PT-BR] ARQUITETURA DE SEGURANÇA E CUSTÓDIA FINANCEIRA (AUDITORIA FASE 2 / REMEDIADO):
+ * -----------------------------------------------------------------------------------
+ * O segredo institucional do emissor (STELLAR_ISSUER_SECRET) reside exclusivamente
+ * no ambiente protegido do Supabase Vault e é operado pela Edge Function `stellar-issuer`.
+ * O frontend web NUNCA possui nem recebe a chave secreta do emissor.
  *
- * PLANO DE MITIGAÇíO (obrigatório antes do go-live mainnet):
- * 1. Criar Supabase Edge Function: `stellar-issuer` (mint, burn, sponsor)
- * 2. O frontend nunca mais recebe ou usa a ISSUER_SECRET
- * 3. Edge Function valida JWT do usuário + rate limit antes de assinar
- * 4. VITE_STELLAR_ISSUER_SECRET deve ser REMOVIDA do .env e do bundle
- *
- * STATUS ATUAL: Mantida apenas para preservar funcionamento do testnet.
- * NíO FAZER DEPLOY EM MAINNET SEM RESOLVER ESTE BLOCKER.
+ * Princípio de Autocustódia:
+ * 1. O usuário assina localmente as operações que envolvem sua própria carteira
+ *    (ex: abertura de trustline via CAP-33 ou envio de fundos para queima/burn).
+ * 2. A transação com assinatura parcial do usuário é despachada via `IssuerService.invoke()`
+ *    para a Edge Function `stellar-issuer`.
+ * 3. A Edge Function valida a autenticação JWT, confirma a titularidade da conta, co-assina
+ *    com o patrocinador institucional e submete a transação com segurança à rede Stellar.
  */
 
 /**
