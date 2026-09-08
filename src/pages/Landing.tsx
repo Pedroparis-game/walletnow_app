@@ -109,7 +109,7 @@ function LandingNavbar() {
         <span style={{ fontWeight: 800, fontSize: 15, letterSpacing: '-0.02em', color: 'var(--text-primary)' }}>
           WalletNow
         </span>
-        <span style={{
+        <span className="nav-sdk-badge" style={{
           fontSize: 9, fontWeight: 700, padding: '2px 7px', borderRadius: 999,
           background: 'rgba(0,168,107,0.12)', color: 'var(--color-wn-green)',
           border: '1px solid rgba(0,168,107,0.25)', letterSpacing: '0.06em',
@@ -160,6 +160,7 @@ function LandingNavbar() {
             <button
               key={l}
               id={`lang-${l}`}
+              className="nav-lang-btn"
               onClick={() => setLang(l)}
               title={l === 'en' ? 'English' : l === 'pt' ? 'Português' : 'Español'}
               style={{
@@ -288,10 +289,51 @@ function LandingInner() {
           border-color: ${isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.2)'} !important;
         }
 
+        @keyframes mobileCtaPulse {
+          0%, 100% {
+            box-shadow: 0 0 14px rgba(0, 255, 153, 0.6), 0 2px 8px rgba(0, 0, 0, 0.3);
+            transform: scale(1);
+          }
+          50% {
+            box-shadow: 0 0 24px rgba(0, 255, 153, 0.95), 0 0 35px rgba(0, 255, 153, 0.45);
+            transform: scale(1.04);
+          }
+        }
+
         .nav-links-desktop { display: flex; }
         @media (max-width: 768px) {
           .nav-links-desktop { display: none !important; }
-          .nav-launch-app { display: none !important; }
+          .nav-sdk-badge { display: none !important; }
+          #landing-navbar {
+            padding: 0 10px !important;
+            width: calc(100% - 16px) !important;
+            top: 10px !important;
+            gap: 6px !important;
+          }
+          .nav-lang-btn {
+            padding: 3px 6px !important;
+            font-size: 10px !important;
+          }
+          .nav-launch-app {
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            padding: 7px 15px !important;
+            font-size: 12.5px !important;
+            font-weight: 800 !important;
+            letter-spacing: -0.01em !important;
+            background: linear-gradient(135deg, #00FF99 0%, #00C46A 100%) !important;
+            color: #050505 !important;
+            border: 1px solid rgba(255, 255, 255, 0.4) !important;
+            box-shadow: 0 0 16px rgba(0, 255, 153, 0.65), 0 2px 10px rgba(0, 0, 0, 0.3) !important;
+            animation: mobileCtaPulse 2.4s infinite ease-in-out !important;
+          }
+        }
+        @media (max-width: 380px) {
+          .nav-launch-app {
+            padding: 6px 10px !important;
+            font-size: 11.5px !important;
+          }
         }
       `}</style>
 
