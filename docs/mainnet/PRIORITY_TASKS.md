@@ -1,111 +1,89 @@
-# WalletNow — Priority Tasks (Roadmap Técnico)
+# WalletNow — Priority Tasks & Planejamento de Sprints
 
-**Versão:** 1.0 | **Data:** 2026-05-27 | **Branch:** mainnet-ready-infra
+**Versão:** 2.0 | **Data:** 2026-09-10 | **Foco Primário:** 🚀 **Stellar Testnet & Hackathon PULSO**  
+**Diretriz Arquitetural:** Zero regressão e estabilidade total no ambiente de testes/sandbox.  
 
----
-
-## Sprint Mainnet-1 (Semanas 1-2) — CRÍTICO
-
-Objetivo: Eliminar os 2 blockers de segurança máxima.
-
-### TASK-001 — Implementar Edge Function `stellar-issuer` ⚠️ BLOCKER
-**Esforço:** 3-5 dias | **Responsável:** Eng. Backend  
-**Descrição:** Mover toda assinatura com ISSUER_SECRET para servidor  
-**Arquivos a criar/modificar:**
-- `supabase/functions/stellar-issuer/index.ts` (implementar stub)
-- `src/services/walletFactory.ts` (remover ISSUER_SECRET, chamar Edge Function)
-- `src/services/paymentService.ts` (idem)
-- `src/services/identityService.ts` (idem)
-- Remover `VITE_STELLAR_ISSUER_SECRET` de todos os `.env`
-
-### TASK-002 — Implementar Edge Function `kyc-validator` ⚠️ BLOCKER
-**Esforço:** 2-3 dias | **Responsável:** Eng. Backend  
-**Descrição:** Mover chamadas Gemini para servidor  
-**Arquivos a criar/modificar:**
-- `supabase/functions/kyc-validator/index.ts` (novo)
-- `src/services/identityService.ts` (remover ai client, chamar Edge Function)
-- Remover `VITE_GEMINI_API_KEY` de todos os `.env`
+> [!IMPORTANT]
+> **Diretriz de Execução (Foco Testnet):**  
+> O produto opera atualmente com **foco total no ecossistema Testnet** (Stellar Horizon Testnet, Friendbot, Sandboxes Woovi e Etherfuse). Todas as tarefas planejadas devem garantir a preservação estrita das funcionalidades que já estão ativas e funcionando, sem introduzir bloqueios prematuros de produção que afetem a experiência de demonstração (DX) e avaliação do Hackathon.
 
 ---
 
-## Sprint Mainnet-2 (Semanas 3-4) — ALTO
+## 📊 Status Consolidado das Sprints
 
-Objetivo: Segurança da wallet e observabilidade.
-
-### TASK-003 — Implementar Seed Phrase BIP39
-**Esforço:** 3-4 dias  
-**Descrição:** Gerar e exibir 12 palavras de recuperação via SLIP-0010  
-**Nota:** Requisito de produto já prometido ao usuário
-
-### TASK-004 — Aumentar PBKDF2 para 600k Iterações
-**Esforço:** 1 dia  
-**Descrição:** Migração silenciosa ao próximo unlock da carteira
-
-### TASK-005 — Configurar Sentry
-**Esforço:** 1 dia  
-**Descrição:** Error tracking frontend + Edge Functions
-
-### TASK-006 — Rate Limiting no Etherfuse Proxy
-**Esforço:** 1 dia  
-**Descrição:** Máx 10 req/min por user_id via JWT validation
-
-### TASK-007 — Idempotency Keys em fiat_transactions
-**Esforço:** 2 dias  
-**Descrição:** Substituir lock em memória por lock persistente no banco
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│ SPRINT 1 (Segurança Crítica & Remediações): 100% CONCLUÍDA ✅          │
+│ SPRINT ATUAL (Testnet Excellence & Estabilidade): 100% OPERACIONAL 🟢   │
+│ SPRINTS FUTURAS (Endurecimento & Transição Mainnet): DESACOPLADAS ⏳   │
+└────────────────────────────────────────────────────────────────────────┘
+```
 
 ---
 
-## Sprint Mainnet-3 (Semanas 5-6) — MÉDIO
+## ✅ Sprint 1: Remediações de Segurança Fundacional (CONCLUÍDA)
 
-Objetivo: Homolog em mainnet + compliance.
+Objetivo: Eliminar blockers de segurança em banco e chaves institucionais sem impactar a operação do frontend.
 
-### TASK-008 — Configurar Ambiente Homolog Mainnet
-**Esforço:** 1 dia  
-**Descrição:** Supabase + Vercel staging com STELLAR_NETWORK=mainnet
-
-### TASK-009 — Testes End-to-End em Mainnet
-**Esforço:** 3-5 dias  
-**Descrição:** Executar todos os testes do MAINNET_MIGRATION_PLAN.md
-
-### TASK-010 — CI/CD Pipeline
-**Esforço:** 2 dias  
-**Descrição:** GitHub Actions para lint, test, build validation
-
-### TASK-011 — Documentação Legal (Estrutura)
-**Esforço:** 3 dias (com suporte jurídico)  
-**Descrição:** ToS, Privacy Policy, Risk Disclosure, KYC Disclosure
-
-### TASK-012 — Headers de Segurança HTTP no Vercel
-**Esforço:** 0.5 dia  
-**Descrição:** X-Frame-Options, CSP, HSTS via vercel.json
+| ID | Tarefa | Status | Remediação Aplicada | Impacto no Produto Atual |
+| :--- | :--- | :---: | :--- | :--- |
+| **TASK-001** | Segregação de Chave Institucional (`STELLAR_ISSUER_SECRET`) | ✅ **CONCLUÍDO** | Removida do bundle frontend; isolada no Supabase Vault e operada via Edge Function `stellar-issuer`. | **Zero impacto**: Suporta co-assinatura cliente/servidor transparente. |
+| **TASK-002** | Segregação da Gemini API Key (`VITE_GEMINI_API_KEY`) | ✅ **CONCLUÍDO** | Removida do cliente; migrada para a Edge Function `kyc-validator`. | **Zero impacto**: Fluxo de KYC via IA continua idêntico na UI. |
+| **TASK-003** | RLS em `fiat_transactions` (RISCO-FT2) | ✅ **CONCLUÍDO** | Migração `000010_fix_fiat_rls_insert.sql` (inserção restrita a `service_role`). | **Zero impacto**: Webhooks e Edge Functions autorizados; leituras próprias mantidas. |
+| **TASK-004** | Idempotência e Anti-Replay em Transações | ✅ **CONCLUÍDO** | Migração `000011_add_correlation_id.sql` com índice único parcial no PostgreSQL. | **Zero impacto**: Retries automáticos não geram duplicações. |
+| **TASK-005** | RLS em `keepalive_log` (MED-05) | ✅ **CONCLUÍDO** | Migração `000012_fix_keepalive_insert_policy.sql` (escrita restrita a `service_role`). | **Zero impacto**: Heartbeat anti-hibernação opera normalmente. |
+| **TASK-006** | Anti-Drenagem do Gas Station (R-04) | ✅ **CONCLUÍDO** | Função `verifyUserOwnsPublicKey()` na Edge Function `stellar-issuer`. | **Zero impacto**: Usuário autenticado subsidia suas próprias carteiras normalmente. |
 
 ---
 
-## Backlog (Pós-lançamento) — BAIXO
+## 🟢 Sprint Atual: Testnet Excellence & Developer Experience (ATIVA)
 
-| Task | Descrição | Esforço |
-|------|-----------|---------|
-| TASK-013 | WebAuthn/Passkeys real (substituir simulação) | 5-8 dias |
-| TASK-014 | Recuperação social de seed phrase | 5-8 dias |
-| TASK-015 | Argon2id em vez de PBKDF2 | 2 dias |
-| TASK-016 | Dashboard de fees coletadas | 2 dias |
-| TASK-017 | Multisig para treasury | 5-8 dias |
-| TASK-018 | Integração Fireblocks para custody | 10+ dias |
-| TASK-019 | Fee estimation dinâmica via Horizon | 1 dia |
-| TASK-020 | Retry com exponential backoff nas APIs | 1 dia |
+Objetivo: Maximizar a estabilidade, performance e usabilidade na **Stellar Testnet**, assegurando que os recursos de QA e testes locais permaneçam ágeis e sem atrito.
 
----
+### Diretrizes Ativas (Manter Funcionando):
+1. **Preservação do Friendbot**: Funding automático com 1 clique para novas contas na Testnet (`StellarNetwork.getFriendbotUrl()`).
+2. **Preservação do Modo Demonstração (`?demo=true`)**: O parâmetro de query string permanece ativo para permitir testes com o Painel de QA, inspeção de latência simulada e validação de mock payments.
+3. **Preservação de Sandboxes de Pagamento**:
+   - Woovi Sandbox (Pix Dinâmico com simulação de webhook).
+   - Etherfuse Sandbox (`api.sand.etherfuse.com` para on/off-ramp de RWA `TESOURO`).
+4. **Desempenho no Browser**:
+   - Manutenção de PBKDF2 em 100k iterações para garantir login rápido e responsivo durante as sessões de demonstração e testes contínuos.
 
-## Estimativa Total para Go-Live
-
-| Fase | Esforço | Prazo |
-|------|---------|-------|
-| Sprint Mainnet-1 (Blockers) | 5-8 dias | Semanas 1-2 |
-| Sprint Mainnet-2 (Segurança) | 8-10 dias | Semanas 3-4 |
-| Sprint Mainnet-3 (Homolog) | 10-12 dias | Semanas 5-6 |
-| Beta Fechado (50 usuários) | 7 dias | Semana 7 |
-| **Go-Live Mainnet** | — | **Semana 8** |
+### Tarefas da Sprint Testnet:
+- `[x]` Testes automatizados passando 100% (57/57 testes no Vitest cobrindo fluxos de onboarding, pagamentos, criptografia e SEP-10/SEP-24).
+- `[x]` Painel de AI Agents e MCP tools para Stellar Horizon e contratos Soroban.
+- `[x]` Documentação técnica atualizada (`README.md`, `SECURITY.md`, `docs/mainnet/SECURITY_RISKS.md`).
+- `[ ]` Refinamento contínuo dos logs de diagnóstico no Testnet Playground.
+- `[ ]` Monitoramento do workflow de keepalive do Supabase para prevenção de hibernação.
 
 ---
 
-*Atualizar este documento após cada task concluída.*
+## ⏳ Sprints Futuras: Transição e Endurecimento para Mainnet (DESACOPLADAS)
+
+> [!NOTE]
+> Estas tarefas pertencem à fase futura de preparação para Mainnet. Elas **NÃO** são requisitos para a fase atual e **NÃO** devem ser aplicadas de forma a restringir ou quebrar o fluxo da Testnet.
+
+### Sprint Mainnet-A (Polimento de Criptografia & Cliente) — Futuro
+- **TASK-M01 — Migração Silenciosa de PBKDF2 para 600k**:
+  - *Condição:* Aplicar apenas quando houver migração de cofre em release candidata de produção.
+- **TASK-M02 — Restrição Condicional de Demo Mode**:
+  - *Condição:* Desativar `?demo=true` apenas quando `VITE_STELLAR_NETWORK === 'mainnet' && import.meta.env.PROD`.
+  - *Garantia:* Em ambiente `testnet`, o modo demo continuará 100% funcional.
+- **TASK-M03 — Mnemônico BIP39 Completo**:
+  - Implementação de exportação/importação de 12 palavras para autocustódia avançada.
+
+### Sprint Mainnet-B (Infraestrutura de Escala & Compliance) — Futuro
+- **TASK-M04 — Criptografia de CPF em Repouso**:
+  - Aplicação de `pgcrypto` na tabela `profiles` do Supabase.
+- **TASK-M05 — Rate Limiting Volumétrico de Borda**:
+  - Rate limiting por IP/token no Supabase API Gateway.
+- **TASK-M06 — Política de Retenção de Documentos KYC**:
+  - Expurgar documentos rejeitados após 7 dias e imagens aprovadas após 90 dias.
+
+---
+
+## 🎯 Critérios de Sucesso da Estratégia Atual
+
+1. **Zero Impacto**: Nenhuma alteração pode quebrar fluxos já estabelecidos na Testnet.
+2. **Alta DX**: Avaliadores, desenvolvedores e usuários de teste conseguem navegar, provisionar carteiras e testar transações sem barreiras.
+3. **Segurança do Backend Garantida**: O backend já está blindado (Supabase Vault e RLS ativas), permitindo que a Testnet opere com segurança máxima sem comprometer recursos institucionais.

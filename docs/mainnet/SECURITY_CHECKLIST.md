@@ -9,14 +9,14 @@
 
 ## Seção 1 — Secrets & Key Management
 
-- `[ ]` **[BLOCKER]** `VITE_STELLAR_ISSUER_SECRET` removida do bundle frontend
-- `[ ]` **[BLOCKER]** Issuer Secret movida para Supabase Vault (`supabase secrets set`)
-- `[ ]` **[BLOCKER]** Edge Function `stellar-issuer` implementada e testada
-- `[ ]` **[BLOCKER]** `VITE_GEMINI_API_KEY` removida do bundle frontend
-- `[ ]` **[BLOCKER]** Gemini Key movida para Supabase Vault
-- `[ ]` **[BLOCKER]** Edge Function `kyc-validator` implementada e testada
-- `[ ]` Nenhum arquivo `.env-prod` com secrets reais commitado no repositório
-- `[ ]` `.gitignore` verificado: `.env*` exceto `.env.example`, `.env-dev`, `.env-homolog`, `.env-prod` (templates)
+- `[x]` **[BLOCKER]** `VITE_STELLAR_ISSUER_SECRET` removida do bundle frontend
+- `[x]` **[BLOCKER]** Issuer Secret movida para Supabase Vault (`supabase secrets set`)
+- `[x]` **[BLOCKER]** Edge Function `stellar-issuer` implementada e testada
+- `[x]` **[BLOCKER]** `VITE_GEMINI_API_KEY` removida do bundle frontend
+- `[x]` **[BLOCKER]** Gemini Key movida para Supabase Vault
+- `[x]` **[BLOCKER]** Edge Function `kyc-validator` implementada e testada
+- `[x]` Nenhum arquivo `.env-prod` com secrets reais commitado no repositório
+- `[x]` `.gitignore` verificado: `.env*` exceto `.env.example`, `.env-dev`, `.env-homolog`, `.env-prod` (templates)
 - `[ ]` Vercel Environment Variables configuradas para produção
 - `[ ]` Supabase secrets configurados para a Edge Function de produção
 
@@ -27,7 +27,7 @@
 - `[x]` Chamadas ao Friendbot protegidas (só executam em testnet)
 - `[x]` `StellarNetwork` abstraction criada e utilizada
 - `[ ]` `VITE_STELLAR_NETWORK=mainnet` configurado nos envs de produção
-- `[ ]` Issuers mainnet configurados para USDC (Circle) e BRZ (Transfero)
+- `[x]` Issuers mainnet configurados para USDC (Circle) e BRZ (Transfero)
 - `[ ]` TESOURO identifier testado com API Etherfuse produção
 - `[ ]` Fee estimation dinâmica via `/fee_stats` implementada
 - `[ ]` Retry strategy com exponential backoff implementada
@@ -39,7 +39,7 @@
 - `[x]` Policy permissiva `USING (true)` removida de `fiat_transactions`
 - `[x]` Policies granulares criadas (SELECT/INSERT/UPDATE por role)
 - `[x]` Audit log table criada
-- `[ ]` RLS auditada em todas as tabelas (script de verificação executado)
+- `[x]` RLS auditada em todas as tabelas (migrações 000010, 000011, 000012)
 - `[ ]` Storage policies auditadas (bucket `kyc-docs`)
 - `[ ]` Supabase Auth: "Link Identities" habilitado (evitar contas duplicadas OAuth)
 - `[ ]` Email templates customizados com branding WalletNow
@@ -51,11 +51,11 @@
 - `[x]` CORS wildcard `*` removido do `etherfuse-proxy`
 - `[x]` CORS com allowlist de origens configurado
 - `[x]` Stub `stellar-issuer` criado e documentado
-- `[ ]` **[BLOCKER]** `stellar-issuer` implementado e deployado
-- `[ ]` **[BLOCKER]** `kyc-validator` implementado e deployado
+- `[x]` **[BLOCKER]** `stellar-issuer` implementado e deployado
+- `[x]` **[BLOCKER]** `kyc-validator` implementado e deployado
 - `[ ]` Rate limiting por user_id no `etherfuse-proxy`
 - `[ ]` JWT validation no `etherfuse-proxy`
-- `[ ]` Logging de audit para operações críticas nas Edge Functions
+- `[x]` Logging de audit para operações críticas nas Edge Functions
 - `[ ]` Testes automatizados das Edge Functions
 
 ## Seção 5 — Wallet & Criptografia

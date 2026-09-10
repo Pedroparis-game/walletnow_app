@@ -25,3 +25,10 @@ Por favor, envie um e-mail para `security@walletnow.app` (fictício para o templ
 5. **Idempotência e Anti-Replay**: Operações financeiras usam travas de concorrência e índices únicos baseados em `correlation_id` para evitar duplo gasto e transações duplicadas.
 6. **Privacidade e Conformidade Regulatória (LGPD/GDPR)**: Nenhum dado pessoal identificável (PII) é registrado em texto claro na blockchain. Utiliza-se esquema de compromisso criptográfico (Cryptographic Commitment via SHA3-256) como Trust Anchor on-chain.
 7. **Sanitização de Telemetria e Logs**: Cabeçalhos sensíveis (JWT, API keys, credenciais) e dados privados são completamente excluídos dos logs de servidor e preflights CORS.
+
+---
+
+## 📄 Registro Completo de Riscos e Auditoria
+Para consultar o relatório detalhado de remediações da Fase 2, os riscos residuais catalogados (CVSS) e a matriz de conformidade regulatória (LGPD / BACEN), consulte o documento oficial:
+👉 **[docs/mainnet/SECURITY_RISKS.md](docs/mainnet/SECURITY_RISKS.md)** (Versão 2.0).
+
