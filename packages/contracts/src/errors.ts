@@ -1,8 +1,26 @@
 /**
- * @walletnow/contracts — Canonical Errors
+ * @packageDocumentation
+ * @module @walletnow/contracts
  *
- * Hierarquia de erros do WalletNow OS.
- * Todos os packages devem usar e estender esta hierarquia.
+ * Canonical Error Hierarchy — WalletNow OS
+ *
+ * Princípio Arquitetural:
+ * Padronização estrita de falhas em todos os módulos e pacotes do monorepo.
+ * Cada subsistema herda da classe abstrata canônica `WalletNowError`, garantindo
+ * tipagem discriminada (`code`), domínio de origem (`domain`) e metadados contextuais
+ * seguros sem vazamento de informações sensíveis (PII ou chaves privadas).
+ *
+ * Domínios Suportados:
+ * - Base: `WalletNowError`, `NotImplementedError`
+ * - Identidade & Autenticação: `IdentityError` (Passkeys, WebAuthn, Vault)
+ * - Carteira & Chaves: `WalletError` (Keypairs, Ativação de Contas, Assinatura)
+ * - Persistência: `StorageError` (Leitura, Escrita, Decriptação de Sessão)
+ * - Criptografia: `CryptoError` (AES-GCM, PBKDF2, Derivação Ed25519)
+ * - Provedores & Liquidez: `ProviderError` (Cotações, Slippage, Liquidez)
+ * - Rede & Horizon: `NetworkError` (RPC Soroban, Horizon, Rate Limits)
+ * - Onboarding & Gasless: `OnboardingError` (Patrocínio, Trustlines, Sessão)
+ *
+ * @updated Setembro de 2026
  */
 
 // ─── Base Error ───────────────────────────────────────────────────────────────
