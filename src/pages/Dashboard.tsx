@@ -1,3 +1,20 @@
+/**
+ * @packageDocumentation
+ * @module Pages/Dashboard
+ *
+ * Dashboard Principal — The Money Layer (WalletNow OS)
+ *
+ * Responsabilidade:
+ * Centralizar a experiência operacional do usuário:
+ * - Exibição de saldos consolidados on-chain (XLM, USDC, BRZ, BRW e cotas de rendimento).
+ * - Histórico em tempo real de transações na Stellar Network e eventos de gateway bancário.
+ * - Integração de Ativos do Mundo Real (RWA via Etherfuse BRT).
+ * - Modais para Depósito PIX, Envio P2P e Saque com conciliação automática.
+ *
+ * @updated Setembro de 2026
+ * @version 0.4.5-candidate
+ */
+
 import { ArrowDownLeft, ArrowUpRight, History, Settings as SettingsIcon, ShieldCheck, Award, Loader2, Globe, Lock } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';

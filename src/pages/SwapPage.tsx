@@ -1,8 +1,18 @@
 /**
- * SwapPage — Página de Swap via ISwapCapability.
+ * @packageDocumentation
+ * @module Pages/SwapPage
  *
- * Renderiza os protocolos de swap disponíveis (descobertos via manifesto).
- * INVARIANTE: Nunca importa SoroswapPlugin diretamente.
+ * SwapPage — Interface Descentralizada de Troca de Ativos via ISwapCapability
+ *
+ * Responsabilidade:
+ * Renderizar o painel de conversão de ativos da Stellar Network consumindo
+ * o agregador de liquidez Soroswap via Clean Capability Inversion:
+ * - INVARIANTE: O componente nunca acopla diretamente ao SoroswapPlugin; a descoberta é via manifesto.
+ * - Proteção de Slippage e taxas embutidas no roteamento.
+ * - Patrocínio automático de gas para as transações de swap.
+ *
+ * @updated Setembro de 2026
+ * @version 0.4.5-candidate
  */
 
 import React, { useState, useEffect } from 'react';
