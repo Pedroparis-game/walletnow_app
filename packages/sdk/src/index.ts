@@ -1,18 +1,20 @@
 /**
- * @walletnow/sdk — Public API Barrel (v4.1)
+ * @packageDocumentation
+ * @module @walletnow/sdk
  *
- * Interface pública do WalletNow SDK.
+ * WalletNow SDK — Unified Facade for Stellar Web3 Abstraction
  *
- * Princípio: O builder nunca deve ver Engines, Registries, Storage ou Crypto.
- * Este barrel expõe APENAS domínios orientados a negócio.
+ * Propósito na Arquitetura (Facade Pattern):
+ * Encapsular a complexidade dos 13 pacotes internos do monorepo, entregando
+ * uma API limpa, amigável e fortemente tipada para builders e integradores de dApps.
  *
- * Domínios disponíveis:
- *   - wn.onboarding  → Caso de uso nº 1: criar usuários na Stellar
+ * Recursos Disponibilizados:
+ * - Onboarding com Abstração Total (`wn.onboarding`): Criação biométrica via Passkeys e patrocínio de contas/trustlines.
+ * - Integração Segura com Stellar Network: Redes Testnet e Mainnet configuráveis com failover.
+ * - Tratamento Canônico de Erros: Erros tipados e discriminados (`WalletNowError`, `OnboardingError`, `NetworkError`).
  *
- * Uso:
- *   import { WalletNow } from '@walletnow/sdk';
- *   const wn = await WalletNow.init({ apiKey: '...' });
- *   const user = await wn.onboarding.createUser({ externalId: 'alice@...' });
+ * @updated Setembro de 2026
+ * @version 0.4.5-candidate
  */
 
 // ─── Entrypoint Principal (Facade) ─────────────────────────────────────────────
