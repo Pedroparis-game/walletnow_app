@@ -1,12 +1,19 @@
 /**
- * @walletnow/core — Public API Barrel
+ * @packageDocumentation
+ * @module @walletnow/core
  *
- * Este é o único ponto de importação pública do pacote.
- * Nada em src/internal/ deve ser importado por consumidores externos.
+ * WalletNow Core Kernel — Motor Agnóstico de Blockchain
  *
- * ADR-000: INVARIANT-001 — Zero dependências de runtime.
- * ADR-000: INVARIANT-008 — API pública segue SemVer estrito.
+ * Princípios de Engenharia (ADR-000):
+ * - INVARIANT-001: Zero dependências de bibliotecas de blockchain de terceiros em runtime.
+ * - INVARIANT-002: State Machine estrita para ciclo de vida (`BOOTING`, `READY`, `ERROR`, `DESTROYED`).
+ * - INVARIANT-008: API pública estável com suporte a SemVer.
  *
+ * Responsabilidade:
+ * Gerenciar o barramento de eventos central, o registro de plugins e capabilities,
+ * e o armazenamento desacoplado de contexto de execução.
+ *
+ * @updated Setembro de 2026
  * @example
  * import { WalletNow } from '@walletnow/core';
  * import type { WalletNowConfig, WalletAccount } from '@walletnow/core';
