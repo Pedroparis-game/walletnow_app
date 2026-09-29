@@ -1,3 +1,17 @@
+/**
+ * @packageDocumentation
+ * @module Main
+ *
+ * WalletNow Client Entry Point — React 19 Bootstrap
+ *
+ * Responsabilidade:
+ * Ponto de entrada primário do bundle SPA: inicializa telemetria de ambiente,
+ * valida conectividade da rede Stellar configurada e monta a árvore raiz do React no DOM.
+ *
+ * @updated Setembro de 2026
+ * @version 0.4.5-candidate
+ */
+
 import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
 import App from './App.tsx';

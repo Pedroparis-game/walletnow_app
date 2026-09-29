@@ -1,6 +1,17 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
+ * @packageDocumentation
+ * @module App
+ *
+ * WalletNow Web Application — Root Application Orchestrator
+ *
+ * Responsabilidade:
+ * Configurar a árvore global de contextos (Auth, Wallet, Network, IntegrationEngine),
+ * o roteador SPA (`react-router-dom`), os limites de erro defensivos (`AppErrorBoundary`)
+ * e as rotas protegidas para autocustódia biométrica.
+ *
+ * @updated Setembro de 2026
+ * @version 0.4.5-candidate
+ * @license Apache-2.0
  */
 
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
