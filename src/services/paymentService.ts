@@ -1,3 +1,19 @@
+/**
+ * @packageDocumentation
+ * @module Services/PaymentService
+ *
+ * PaymentService — Motor de Orquestração Financeira Fiat-to-Crypto
+ *
+ * Responsabilidade Arquitetural (SRP):
+ * Integrar o gateway de pagamentos Pix (Woovi) à rede Stellar:
+ * - Emissão (Mint) de tokens estáveis na confirmação de recebimento Pix.
+ * - Resgate e Queima (Burn) de tokens estáveis com liquidação fiduciária Pix Out.
+ * - Patrocínio atômico de taxas (Gasless) via CAP-33.
+ *
+ * @updated Setembro de 2026
+ * @version 0.4.5-candidate
+ */
+
 import { Keypair, Memo, Operation, TransactionBuilder, Asset, Horizon } from "@stellar/stellar-sdk";
 import { WooviService } from "./wooviService";
 import { StellarNetwork } from '../config/stellarNetwork';

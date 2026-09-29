@@ -25,17 +25,24 @@ import { generateMnemonic, deriveKeypairFromMnemonic, verifyMnemonicMatchesWalle
  */
 
 /**
- * WalletFactory
- * 
- * [PT-BR] Fábrica de carteiras Stellar focada em Abstração de Custódia (UX-Zero).
- * Gerencia criação, Ativação patrocinada (Sponsor/CAP-33) e Setup de Trustlines.
- * Assinatura Bio-criptográfica (Passkeys): Atualmente, a Chave Secreta é isolada no banco local (simulando enclave do dispositivo).
- * Em produção, será resguardada e assinada por biometria criptográfica usando WebCrypto API garantindo total Soberania ao usuário real.
- * 
- * [EN-US] Stellar wallet factory focused on Custodial Abstraction (UX-Zero).
- * Manages creation, sponsored activation (Sponsor/CAP-33), and Trustline setup.
- * Bio-cryptographic Signature (Passkeys): Currently, the Secret Key is isolated locally (simulating a device enclave).
- * In production, it will be safeguarded and signed by cryptography biometrics using WebCrypto API ensuring total Sovereignty for the real user.
+ * @packageDocumentation
+ * @module Services/WalletFactory
+ *
+ * WalletFactory — Fábrica de Contas, Trustlines e Autocustódia Stellar
+ *
+ * Responsabilidade Arquitetural (SRP):
+ * Centralizar o ciclo de provisionamento de contas Stellar:
+ * - Geração de pares de chaves Ed25519 e mnemônicos BIP-39.
+ * - Isolamento seguro no cofre do cliente (`DeviceVault` / `MnemonicVault`).
+ * - Ativação de contas e patrocínio atômico de Trustlines via Hot Wallet (CAP-33).
+ * - Integração transparente de emissores oficiais (`IssuerService`).
+ *
+ * Princípios de Segurança:
+ * - A chave privada do usuário permanece 100% no cliente (`DeviceVault`).
+ * - Apenas a chave pública `G...` é registrada na tabela de usuários do Supabase.
+ *
+ * @updated Setembro de 2026
+ * @version 0.4.5-candidate
  */
 
 const STORAGE_KEY_PREFIX = '@walletnow:secret:';
