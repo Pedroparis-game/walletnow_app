@@ -1,18 +1,20 @@
 /**
- * @walletnow/testing — FakeIdentityEngine
+ * @packageDocumentation
+ * @module @walletnow/testing
  *
- * Implementação Fake completa de IIdentityEngine para testes.
+ * FakeIdentityEngine — Dublê de Testes de Primeira Classe para Identidade
  *
- * Simula o comportamento de um Identity Engine real sem
- * qualquer dependência de WebAuthn, biometria ou crypto.
+ * Propósito na Arquitetura (Test Double / In-Memory Mock):
+ * Permitir que testes unitários e de integração de ponta a ponta simulem o comportamento
+ * do motor de identidade do WalletNow OS com fidelidade de 100%, sem exigir dispositivos
+ * físicos de biometria (WebAuthn / Passkeys), chaves reais ou conexão de rede.
  *
- * @example — Em um teste:
- * import { FakeIdentityEngine } from '@walletnow/testing';
+ * Benefícios para DX (Developer Experience):
+ * - Execução determinística e instantânea de testes no Vitest / CI.
+ * - Testabilidade de cenários de sucesso, erro, bloqueio de cofre e expiração de sessão.
  *
- * const identity = new FakeIdentityEngine();
- * const result = await identity.create({ method: 'keypair', secretOrMnemonic: 'S...' });
- * expect(result.publicKey).toBe('GTEST...');
- * expect(identity.status).toBe('authenticated');
+ * @updated Setembro de 2026
+ * @implements {IIdentityEngine}
  */
 
 import type {
