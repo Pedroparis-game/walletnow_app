@@ -1,46 +1,99 @@
-# INSTAWARDS SOW ATUALIZADO PROJETO WALLETNOW
+# INSTAWARDS SOW — WALLETNOW (FOLLOW-ON GRANT)
 
 **[en]**
 ## 1. Project & Team Information
-**Project Name:** WalletNow — Your Web3 self-custody fiat ramp abstraction.
-**Team:** NSD Team (Solo Developer).
-**Primary Contacts:**
-- Douglas Alexandre (Decision Maker / Developer) [nsd.douglas@gmail.com].
+**Project Name:** WalletNow Protocol & SDK — The Financial Operating System for Stellar.  
+**Team:** NSD Team (Solo Developer / Architect).  
+**Primary Contacts:**  
+- Douglas Alexandre (Founder / Core Developer) [nsd.douglas@gmail.com].  
 
-**Ambassador Chapter:** Rio de Janeiro.
-**Submission Date:** 11/03/2026.
+**Ambassador Chapter:** Rio de Janeiro.  
+**Application Type:** Follow-On InstaAward (Expansion, Developer Tooling & SDK Stabilization).  
+**Submission Date:** 29/09/2026.  
+**Live Production URL:** [https://nsdbr.com/walletnow/](https://nsdbr.com/walletnow/)  
+**Interactive Developer Portal:** [https://nsdbr.com/walletnow/docs](https://nsdbr.com/walletnow/docs)  
+**Public Repository:** [https://github.com/nsdBRoficial/walletnow_app](https://github.com/nsdBRoficial/walletnow_app)  
 
+---
 
-## 2. Overview & Intent
-**Purpose:** To validate the WalletNow MVP as a seamless fiat-to-crypto gateway, ensuring absolute Full Abstraction of Blockchain complexities and instant settlement via Stellar BRZ.
-**Intent:** Delivery of a functional prototype featuring GasLess processing (via Sponsored Reserves), ZK-Stark Trust Layer identification, and real-time PIX deposits automated in BRZ within 30 days.
+## 2. Executive Summary & Context of the Follow-On Request
 
+In our initial InstaAward grant, WalletNow successfully delivered and validated its core MVP: zero-gas biometric onboarding via Passkeys (WebAuthn), sponsored Stellar reserve management, and instant Pix fiat-to-stablecoin settlement.
 
-## 3. Problem Statement & Objective
-**Problem:** Regular users entering Web3 face extremely steep learning curves involving seed phrases, gas fees, and complex bridging processes.
-**Objective:** In 30 days, the MVP will demonstrate a "Web2 App Experience" where users log in via Passkeys, generate a dynamic PIX QR code, and instantly receive BRZ assets settled directly in their decentralized self-custody wallets without paying a single XLM in fees.
+Following the success of that first phase, we have significantly expanded the protocol's architecture into a **full-fledged Financial Operating System (WalletNow OS)** and an open developer ecosystem for Stellar builders. 
 
+This **Follow-On InstaAward** request focuses exclusively on the major milestones that have been engineered and are now ready, which were **not** part of the original MVP grant:
+1. **Interactive Developer Portal & Documentation Engine** (`/docs`): Full multilingual (EN/PT) interactive documentation with live sandbox components, architecture blueprints, and AI agent integration guides.
+2. **Decoupled Modular SDK (`@walletnow/sdk`)**: A monorepo architecture featuring 13 independent packages (`@walletnow/core`, `@walletnow/crypto`, `@walletnow/contracts`, `@walletnow/identity`, `@walletnow/onboarding`, `@walletnow/providers`, `@walletnow/nft`, `@walletnow/storage`, etc.), eliminating circular dependencies and isolating the core blockchain logic.
+3. **TestnetKit (Live Sandbox Infrastructure)**: A developer playground featuring one-click ephemeral wallet creation, an automated testnet faucet, constant-product AMM liquidity pools ($X \times Y = K$), real-time latency diagnostics, and live SEP-01, SEP-10, and SEP-24 test anchor integration.
+4. **Adversarial Security Audit v2.0 & Hardening**: Complete security refactoring, zero-regression test harness (Vitest + strict TypeScript), SHA3-256 cryptographic commitments for user privacy (LGPD/GDPR), and Supabase enterprise RLS policies.
 
-## 4. Scope of Work (30-Day Deliverables)
-- **WalletNow Mobile/PWA MVP:** Interface entirely free of crypto jargon, onboarding with Firebase Auth + WebAuthn (Passkeys), and support for Sponsored Reserves (GasLess).
-- **Transfero BRZ & Stellar SDK Integration:** "Just-in-Time" fiat settlement utilizing the Transfero BaaSiC API and automated mint transfers of BRZ on the Stellar Testnet.
-- **PQC Trust Registry:** Implementation of user identity and KYC registration natively encrypted inside the platform, utilizing Gemini Multimodal AI and SHA-3 256 Hash constraints for anti-fraud validation.
+---
 
+## 3. Comparative Matrix: Initial Grant vs. Follow-On Material
+
+| Feature / Dimension | Initial InstaAward (Delivered) | Follow-On Scope (New Material Ready) |
+|---|---|---|
+| **Scope Type** | Consumer MVP Application | Modular Open-Source Protocol & Developer SDK |
+| **Architecture** | Single-app monolithic scaffolding | 13-Package Monorepo with strict clean architecture |
+| **Documentation** | Basic README and deployment notes | Interactive Developer Portal (`/docs`), i18n, runnable examples |
+| **Testing Sandbox** | Manual testnet operations | **TestnetKit**: Automated 1-Click Faucet, AMM DEX & Latency Suite |
+| **Stellar SEPs** | Basic asset trustlines | Invisible client abstraction for **SEP-01**, **SEP-10**, and **SEP-24** |
+| **DeFi & RWA** | Static asset display | Soroswap AMM integration, Defindex Yield Vaults, and Etherfuse RWA |
+| **Security Status** | Initial prototype | Remediated through Adversarial Security Audit v2.0 |
+| **AI Integration** | None | Native Workspace Skills (`.agents/skills/walletnow`) and Agent prompt kit |
+
+---
+
+## 4. Scope of Work & Deliverables for Follow-On
+
+The requested Follow-On support will fund the stabilization, documentation completion, and official public package distribution:
+
+1. **Deliverable 1 — SDK Stabilization & Multi-Target NPM Distribution**:
+   - Finalize build pipelines (`tsup`, ESM/CJS dual export, strict `.d.ts` type declarations) for `@walletnow/sdk` and its sub-packages.
+   - Comprehensive test suite expansion (>80% unit test coverage across `@walletnow/core`, `@walletnow/crypto`, and `@walletnow/identity`).
+2. **Deliverable 2 — TestnetKit Developer Tooling Expansion**:
+   - Public release and enhancement of the interactive sandbox at `/docs/testnet-kit`.
+   - Native simulation tools for Stellar builders to test SEP-24 interactive deposits and anchor transactions in a zero-risk sandbox.
+3. **Deliverable 3 — Developer Portal & OSS Integration Guides**:
+   - Interactive SDK Playground with code snippets for React, Next.js, and Node.js.
+   - In-depth documentation of Soroban smart contract bindings and Soroswap liquidity aggregation.
+4. **Deliverable 4 — Production Hardening & Security Audit Documentation**:
+   - Maintenance of zero-regression CI/CD workflows.
+   - Public documentation of security controls, cryptographic key derivation, and rate-limiting safeguards.
+
+---
 
 ## 5. Execution Plan & Timeline (30 Days)
-- **Week 1:** Technical infrastructure setup (React/Vite, Supabase databases, Stellar Wallet Factory module).
-- **Week 2:** Development of the authentication flow, Passkey enrollment, and biometric Identity abstraction (Magic Setup) along with Gemini AI KYC checks.
-- **Week 3:** Integration of the On-Ramp and Off-Ramp API services (Transfero), Frontend Polling for PIX deposits, and GasLess token minting (Stellar SDK).
-- **Week 4:** Final deployment to static web-hosting (Hostinger), edge cases testing (Rate Limits, UI loading loops), and UI polishing.
 
+- **Week 1 (SDK Finalization & Packaging)**:
+  - Harmonize TSDoc across all 13 packages.
+  - Finalize `@walletnow/sdk` exports and automated type checking.
+  - Package integrity validation via automated CI test workflows.
+- **Week 2 (TestnetKit Sandbox & SEP Tooling)**:
+  - Polish the interactive TestnetKit UI (`src/pages/docs/pages/TestnetKit.tsx`).
+  - Implement expanded SEP-24 interactive anchor mock flows and transaction latency telemetries.
+- **Week 3 (Developer Documentation & Guides)**:
+  - Expand the interactive documentation at `/docs` with step-by-step guides for Passkeys, Gasless sponsorship, and AMM swaps.
+  - Complete the Portuguese and English localization tables (`src/i18n/docsTranslations.ts`).
+- **Week 4 (Public Community Release & Verification)**:
+  - Deploy the updated portal and TestnetKit to production.
+  - Publish public npm package candidates and verify real-world dApp onboarding in example projects (`examples/basic/`).
+  - Submit the final verification report to the Stellar Community Fund / InstaAward committee.
 
-## 6. Evidence of Completion
-- **Deliverable 1:** Public/Private GitHub repository access + Live URL deployed on Hostinger demonstrating the Full Abstraction user journey.
-- **Deliverable 2:** Demonstrative transaction hash (Tx hash) of the BRZ settlement recorded directly on Stellar Expert.
-- **Deliverable 3:** Documentation of the PQC Identity mechanisms and the GasLess fee abstraction capabilities built on top of the Stellar Network.
+---
 
+## 6. Verifiable Evidence of Completion
+
+- **Evidence 1 (Repository & Code Quality)**: Clean monorepo build passing `tsc --noEmit` and Vitest test suites with extensive TSDoc annotations.
+- **Evidence 2 (Live Sandbox Demo)**: Functional TestnetKit accessible at [https://nsdbr.com/walletnow/docs/testnet-kit](https://nsdbr.com/walletnow/docs/testnet-kit) with working Stellar Testnet transactions, AMM swaps, and real-time explorer links.
+- **Evidence 3 (Developer Portal)**: Fully operational documentation system covering SDK installation, quickstarts, and architectural principles.
+- **Evidence 4 (On-Chain Proof)**: Verified testnet transaction hashes showing automated account creation, sponsored trustlines, and SEP-24 deposit simulations on [Stellar.expert](https://stellar.expert).
+
+---
 
 ## 7. Budget & Rationale
-**Requested Amount:** $5,000 USD.
-**Rationale:** Dedicated hours for advanced blockchain engineering, integration of Web3 payment gateways (Transfero BaaSiC), architectural decoupling, and post-quantum identity mechanisms abstraction (GasLess reserves management).
-**Commitment:** Completion of the remaining scope and stabilization of the product within 30 days with focused and verifiable execution.
+
+**Requested Amount:** $5,000 USD (Follow-On Grant).  
+**Rationale:** Dedicated engineering hours for open-source developer tooling, maintenance of the TestnetKit sandbox, stabilization of the 13 monorepo packages for npm release, and technical documentation creation for the global Stellar developer community.  
+**Commitment:** 100% focused delivery within 30 days, backed by a proven track record of execution from our initial grant.
