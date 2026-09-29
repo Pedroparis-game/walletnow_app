@@ -1,15 +1,20 @@
 /**
- * @walletnow/storage — LocalStorageAdapter
+ * @packageDocumentation
+ * @module @walletnow/storage
  *
- * Implementação de IStorage usando window.localStorage.
- * Apenas para ambientes browser — não persiste dados sensíveis.
+ * LocalStorageAdapter — Adaptador de Persistência Local Namespaceada
  *
- * Para dados sensíveis (chaves privadas), use ISecureStorage.
+ * Responsabilidade Única (SRP):
+ * Prover armazenamento chave-valor serializado para dados não-sensíveis no ambiente browser
+ * (ex: preferências de UI, temas, histórico efêmero e metadados de identidade sem credenciais).
  *
- * Usos:
- * - Preferências do usuário (tema, rede preferida)
- * - Metadados de identities (label, createdAt — sem chaves)
- * - Cache de estado de UI
+ * Princípios de Segurança e Isolamento:
+ * - Namespace estrito: Todas as chaves são isoladas sob o prefixo `walletnow:{namespace}:`.
+ * - Zero Secrets em texto claro: Chaves privadas, sementes e senhas NUNCA devem transitar por este adaptador.
+ *   Para dados sensíveis, utilize exclusivamente implementações de `ISecureStorage` (com cifragem AES-GCM).
+ *
+ * @updated Setembro de 2026
+ * @implements {IStorage}
  */
 
 import type { IStorage } from '@walletnow/contracts';
