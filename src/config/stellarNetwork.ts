@@ -1,24 +1,21 @@
 /**
- * stellarNetwork.ts
+ * @packageDocumentation
+ * @module Config/StellarNetwork
  *
- * Abstração completa da rede Stellar para a WalletNow.
+ * stellarNetwork.ts — Abstração e Governança de Rede Stellar (Testnet & Mainnet)
  *
- * PROBLEMA RESOLVIDO:
- * Antes deste arquivo, existiam 8+ hardcodes de 'horizon-testnet.stellar.org' e
- * 'Networks.TESTNET' espalhados pelos serviços. Qualquer mudança para mainnet
- * exigiria editar múltiplos arquivos com risco de regressão.
+ * Responsabilidade Arquitetural (SRP):
+ * Centralizar toda a topologia de conexão à Stellar Network, abstraindo passphrases,
+ * endpoints Horizon, Soroban RPC e emissores oficiais de ativos verificados
+ * (USDC da Circle, BRZ da Transfero e títulos tokenizados Etherfuse).
  *
- * SOLUÇíO:
- * Toda a configuração de rede Stellar vem deste único módulo.
- * Para migrar de testnet para mainnet, basta alterar VITE_STELLAR_NETWORK=mainnet.
+ * Princípios de Resiliência:
+ * - Eliminação total de hardcodes espalhados pelo código.
+ * - Suporte a fallback de Horizon para alta disponibilidade.
+ * - Sincronização dinâmica com o estado do `NetworkContext`.
  *
- * ASSETS SUPORTADOS (Fase 1 — Mainnet):
- * - XLM (nativo)
- * - USDC (Circle — issuer mainnet)
- * - BRZ (Transfero — issuer mainnet)
- * - TESOURO (Etherfuse — issuer dinâmico via /ramp/assets)
- *
- * @module stellarNetwork
+ * @updated Setembro de 2026
+ * @version 0.4.5-candidate
  */
 
 import { Networks, Asset, Horizon } from '@stellar/stellar-sdk';
