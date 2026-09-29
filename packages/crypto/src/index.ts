@@ -1,5 +1,16 @@
 /**
- * @walletnow/crypto — Public API Barrel
+ * @packageDocumentation
+ * @module @walletnow/crypto
+ *
+ * WalletNow Crypto Engine — Criptografia, Chaves e Assinatura Client-Side
+ *
+ * Responsabilidade:
+ * Centralizar todas as rotinas criptográficas canônicas do WalletNow OS:
+ * - Derivação de pares de chaves Stellar Ed25519 (`StellarKeypairDeriver`).
+ * - Assinador em memória para transações autenticadas (`InMemoryStellarSigner`).
+ * - Cifragem simétrica com padrão militar AES-GCM-256 e PBKDF2 (`WebCryptoEncryptor`).
+ *
+ * @updated Setembro de 2026
  */
 
 // ─── Stubs (prontos para Fase 2) ─────────────────────────────────────────────

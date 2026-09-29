@@ -1,3 +1,23 @@
+/**
+ * @packageDocumentation
+ * @module @walletnow/crypto
+ *
+ * WebCryptoEncryptor — Criptografia Autenticada com Padrão Militar (AES-GCM-256)
+ *
+ * Responsabilidade Única (SRP):
+ * Prover encriptação e decriptação simétrica de alta segurança para o cofre
+ * DeviceVault local utilizando a Web Crypto API nativa (disponível em browsers modernos e Node.js).
+ *
+ * Especificação Técnica:
+ * - Algoritmo: AES-GCM (Galois/Counter Mode) com chave de 256 bits.
+ * - Derivação de Chave (KDF): PBKDF2 com 100.000 iterações e HMAC-SHA-256.
+ * - Vetor de Inicialização (IV): 12 bytes gerados criptograficamente via CSPRNG por operação.
+ * - Salt: 16 bytes pseudoaleatórios únicos por encriptação.
+ *
+ * @updated Setembro de 2026
+ * @implements {IEncryptor}
+ */
+
 import type { IEncryptor, EncryptedData } from '@walletnow/contracts';
 
 export class WebCryptoEncryptor implements IEncryptor {

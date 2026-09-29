@@ -1,3 +1,23 @@
+/**
+ * @packageDocumentation
+ * @module @walletnow/crypto
+ *
+ * StellarKeypairDeriver — Motor Canônico de Derivação de Chaves Stellar
+ *
+ * Responsabilidade Única (SRP):
+ * Converter entradas criptográficas de diferentes formatos (mnemônico BIP-39,
+ * chave secreta canônica Stellar S... ou buffer de semente Ed25519) em pares de chaves
+ * válidos da rede Stellar (Keypair).
+ *
+ * Garantias de Segurança:
+ * - Operação estritamente client-side / in-memory.
+ * - Nenhuma chave secreta gerada por este deriver é persistida ou enviada via rede.
+ * - Validação estrita de dicionário de mnemônicos BIP-39 em inglês.
+ *
+ * @updated Setembro de 2026
+ * @implements {IKeypairDeriver}
+ */
+
 import type { IKeypairDeriver, DeriveInput, DerivedKeypair } from '@walletnow/contracts';
 import { Keypair } from '@stellar/stellar-sdk';
 import * as bip39 from '@scure/bip39';
