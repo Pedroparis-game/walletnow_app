@@ -1,13 +1,22 @@
 /**
- * WalletNow OS — Exemplo Básico de Integração
+ * @packageDocumentation
+ * @module Examples/Basic
  *
- * Demonstra como um builder usa o @walletnow/sdk
- * para criar uma identity, conectar uma wallet Stellar,
- * registrar providers e escutar eventos.
+ * WalletNow OS — Exemplo Canônico de Integração para Builders
  *
- * Para rodar:
- *   npm install @walletnow/sdk
- *   npx tsx examples/basic/index.ts
+ * Propósito:
+ * Script executável de referência demonstrando como consumir o `@walletnow/sdk`
+ * para inicializar o `WalletNowOS`, ouvir o barramento de eventos assíncrono,
+ * registrar provedores de rede Stellar e consultar capabilities disponíveis (Swap, Yield, Ramp).
+ *
+ * Instruções de Execução:
+ * ```bash
+ * npm install @walletnow/sdk
+ * npx tsx examples/basic/index.ts
+ * ```
+ *
+ * @updated Setembro de 2026
+ * @version 0.4.5-candidate
  */
 
 // Importação única — todo o WalletNow OS em um pacote
