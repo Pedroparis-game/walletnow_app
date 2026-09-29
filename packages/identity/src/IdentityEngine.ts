@@ -1,5 +1,21 @@
 /**
- * @walletnow/identity — IdentityEngine (Phase 2 Implemented)
+ * @packageDocumentation
+ * @module @walletnow/identity
+ *
+ * IdentityEngine — Motor Central de Gestão de Identidade e Sessões Web3
+ *
+ * Responsabilidade Arquitetural (SRP):
+ * Gerenciar o ciclo de vida de autenticação, sessões ativas e adapters de autenticação
+ * (WebAuthn/Passkeys, chaves importadas ou credenciais seguras), mantendo o isolamento
+ * entre a identidade lógica do usuário e a camada de persistência criptográfica (`ISecureStorage`).
+ *
+ * Padrões de Projeto:
+ * - Adapter Pattern: Suporte desacoplado a múltiplos métodos via `IAuthAdapter`.
+ * - State Pattern: Transição explícita de status (`unauthenticated`, `authenticating`, `authenticated`, `locked`).
+ * - Inversion of Control: Injeção de dependências de armazenamento seguro e gerador de assinantes.
+ *
+ * @updated Setembro de 2026
+ * @implements {IIdentityEngine}
  */
 
 import type {
