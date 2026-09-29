@@ -1,8 +1,15 @@
 /**
- * YieldPage — Página de Yield & DeFi via IYieldCapability.
+ * @packageDocumentation
+ * @module Pages/YieldPage
  *
- * Renderiza vaults e protocolos de yield descobertos via manifesto.
- * INVARIANTE: Nunca importa DefindexPlugin diretamente.
+ * YieldPage — Portal de Vaults de Rentabilidade DeFi via IYieldCapability
+ *
+ * Responsabilidade:
+ * Renderizar cofres inteligentes de rendimento on-chain (ex: Defindex Vaults na Stellar)
+ * com cálculo automatizado de cotas (*DeFi Shares*), APY em tempo real e proteção de riscos.
+ *
+ * @updated Setembro de 2026
+ * @version 0.4.5-candidate
  */
 
 import React, { useState, useEffect } from 'react';

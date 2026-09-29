@@ -1,8 +1,15 @@
 /**
- * RWAPage — Página de Real World Assets via IRWACapability.
+ * @packageDocumentation
+ * @module Pages/RWAPage
  *
- * Renderiza ativos tokenizados descobertos via manifesto.
- * INVARIANTE: Nunca importa EtherfusePlugin diretamente.
+ * RWAPage — Portal de Ativos do Mundo Real (Real World Assets) via IRWACapability
+ *
+ * Responsabilidade:
+ * Expor ativos tradicionais tokenizados na rede Stellar (ex: Títulos do Tesouro Direto
+ * via infraestrutura Etherfuse V2) de forma desacoplada via Clean Capabilities.
+ *
+ * @updated Setembro de 2026
+ * @version 0.4.5-candidate
  */
 
 import React, { useState, useEffect } from 'react';
