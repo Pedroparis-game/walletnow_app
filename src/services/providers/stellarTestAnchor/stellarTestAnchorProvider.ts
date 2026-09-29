@@ -1,13 +1,21 @@
 /**
- * Stellar Native XLM Deposit Provider
+ * @packageDocumentation
+ * @module Services/Providers/StellarTestAnchor
  *
- * [PT-BR] Provider de depósito via PIX com settlement final em XLM (Stellar Native).
- * Reutiliza 100% do fluxo Woovi existente. Substitui apenas o settlement final:
- * em vez de mintar BRW (token mock interno), envia XLM real da Stellar Testnet
- * a partir da treasury wallet (hot wallet operacional separada do issuer BRW).
+ * StellarNativeXlmProvider — Provedor de On/Off Ramp XLM Nativo na Stellar
  *
- * Posicionamento no selector de providers: abaixo do Stripe (após os providers fiat).
- * Etherfuse mantida como 'coming_soon' (congelada como experimental/enterprise).
+ * Responsabilidade Única (SRP):
+ * Gerenciar a interface e o ciclo de depósito com liquidação final em XLM nativo na rede Stellar Testnet.
+ * Conecta o trilho de pagamentos instantâneos (PIX via Woovi) com a infraestrutura on-chain
+ * da Stellar, viabilizando liquidação automática sem exigir que o usuário compre ativos em exchanges.
+ *
+ * Especificação e Conformidade:
+ * - Tipo de Provedor: Fiat On-Ramp com settlement nativo.
+ * - Segurança: Roteamento auditado de fundos a partir da carteira de tesouraria (Treasury Hot Wallet).
+ * - Integração: Utilizado no seletor de depósitos do dApp e nos fluxos de testes de âncoras.
+ *
+ * @updated Setembro de 2026
+ * @extends {BaseDepositProvider}
  */
 
 import { BaseDepositProvider, ProviderStatus } from '../depositProvider';

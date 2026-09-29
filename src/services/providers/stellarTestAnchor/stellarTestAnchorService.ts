@@ -1,14 +1,19 @@
 /**
- * Stellar TestAnchor Settlement Service (XLM Nativo)
+ * @packageDocumentation
+ * @module Services/Providers/StellarTestAnchor
  *
- * [PT-BR] Serviço de settlement real para o provider "Stellar TestAnchor".
- * Responsabilidade única: executar o pagamento on-chain do float da treasury
- * wallet → carteira do usuário utilizando XLM (ativo nativo da rede).
- * 
- * Nesta versão simplificada:
- * - Não usamos SRT
- * - Não há verificação ou criação de Trustline (XLM é nativo)
- * - Treasury Wallet já configurada
+ * StellarTestAnchorService — Serviço de Liquidação On-Chain de XLM Nativo
+ *
+ * Responsabilidade Arquitetural (SRP):
+ * Orquestrar e assinar a transação de pagamento on-chain da conta de tesouraria
+ * (Treasury Hot Wallet) para a carteira de autocustódia do usuário na rede Stellar Testnet.
+ *
+ * Mecanismos de Robustez:
+ * - Trava de concorrência em memória (`settlementLock`) para mitigar ataques de double-spending ou retries concorrentes.
+ * - Suporte a Memo Text para rastreabilidade de correlação com o gateway bancário (Woovi).
+ * - Decodificação e tratamento granular de erros XDR de resposta do Horizon (`decodeHorizonResultXdr`).
+ *
+ * @updated Setembro de 2026
  */
 
 import {
